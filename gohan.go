@@ -22,6 +22,11 @@ type Env struct {
 	DBFile     string
 }
 
+type DB struct {
+	*sql.DB
+	Driver string
+}
+
 func InitEnv() error {
 	if _, err := os.Stat(".env"); err == nil {
 		return nil
@@ -68,7 +73,7 @@ func GetEnv() *Env {
 	}
 }
 
-func GetConn(e *Env) (*sql.DB, error) {
+func GetConn(e *Env) (*DB, error) {
 	var dsn string
 	driver := e.DBDriver
 
@@ -99,8 +104,35 @@ func GetConn(e *Env) (*sql.DB, error) {
 		return nil, fmt.Errorf("[error] Failed to connect to the %s database: %w", driver, err)
 	}
 
-	log.Printf("[info] Berhasil terhubung ke database (%s)\n", driver)
-	return db, nil
+	log.Printf("[info] Successfully connected to the database (%s)\n", driver)
+
+	return &DB{
+		DB:     db,
+		Driver: driver,
+	}, nil
+}
+
+func (db *DB) SetTable(tableName string, schema string) error {
+	var query string
+
+	switch db.Driver {
+	case "mysql":
+		query = fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s` (%s);", tableName, schema)
+	case "postgres":
+		query = fmt.Sprintf("CREATE TABLE IF NOT EXISTS \"%s\" (%s);", tableName, schema)
+	case "sqlite3":
+		query = fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (%s);", tableName, schema)
+	default:
+		query = fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (%s);", tableName, schema)
+	}
+
+	_, err := db.Exec(query)
+	if err != nil {
+		return fmt.Errorf("[error] Failed to create the '%s' table: %w", tableName, err)
+	}
+
+	log.Printf("[info] The '%s' table is ready to use (created/verified).\n", tableName)
+	return nil
 }
 
 func getEnvVal(key, fallback string) string {
