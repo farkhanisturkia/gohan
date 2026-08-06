@@ -97,5 +97,15 @@ func matchPath(pattern, path string) bool {
 }
 
 func Param(r *http.Request, key string) string {
-	return r.URL.Query().Get(key)
+	val := r.URL.Query().Get(key)
+	if val != "" {
+		return val
+	}
+
+	parts := strings.Split(r.URL.Path, "/")
+	if len(parts) > 0 {
+		return parts[len(parts)-1]
+	}
+
+	return ""
 }
