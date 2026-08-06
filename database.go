@@ -264,36 +264,45 @@ func (db *DB) FindByID(dest interface{}, id interface{}) error {
 
 func (db *DB) Create(model interface{}) error {
 	val := reflect.ValueOf(model)
-	if val.Kind() == reflect.Ptr {
-		val = val.Elem()
-	}
 
-	if val.Kind() != reflect.Struct {
+	if val.Kind() != reflect.Ptr || val.Elem().Kind() != reflect.Struct {
 		return fmt.Errorf("[error] `Create` requires a struct or a pointer to a struct")
 	}
 
-	typ := val.Type()
-	tableName := strings.ToLower(typ.Name()) + "s"
+	structVal := val.Elem()
+	structType := structVal.Type()
+	tableName := strings.ToLower(structType.Name()) + "s"
 
 	var columns []string
 	var placeholders []string
 	var values []interface{}
 
-	for i := 0; i < typ.NumField(); i++ {
-		field := typ.Field(i)
-		fieldValue := val.Field(i)
+	var pkField reflect.Value
+	var pkColName string
+	var hasPK bool
+
+	for i := 0; i < structType.NumField(); i++ {
+		field := structType.Field(i)
+		fieldValue := structVal.Field(i)
 		gohanTag := field.Tag.Get("gohan")
 
 		if gohanTag == "-" {
 			continue
 		}
 
-		if strings.Contains(gohanTag, "primary_key") && (fieldValue.Kind() == reflect.Int || fieldValue.Kind() == reflect.Int64) && fieldValue.Int() == 0 {
-			continue
+		colName := strings.ToLower(field.Name)
+
+		if strings.Contains(gohanTag, "primary_key") {
+			hasPK = true
+			pkColName = colName
+			pkField = fieldValue
+
+			if (fieldValue.Kind() == reflect.Int || fieldValue.Kind() == reflect.Int64) && fieldValue.Int() == 0 {
+				continue
+			}
 		}
 
-		colName := strings.ToLower(field.Name)
-		columns = append(columns, colName)
+		columns = append(columns, db.quoteIdentifier(colName))
 
 		if db.Driver == "postgres" {
 			placeholders = append(placeholders, fmt.Sprintf("$%d", len(values)+1))
@@ -304,32 +313,57 @@ func (db *DB) Create(model interface{}) error {
 		values = append(values, fieldValue.Interface())
 	}
 
-	var query string
-	switch db.Driver {
-	case "mysql":
-		query = fmt.Sprintf("INSERT INTO `%s` (%s) VALUES (%s)", db.quoteIdentifier(tableName), strings.Join(columns, ", "), strings.Join(placeholders, ", "))
-	case "postgres":
-		query = fmt.Sprintf("INSERT INTO \"%s\" (%s) VALUES (%s)", db.quoteIdentifier(tableName), strings.Join(columns, ", "), strings.Join(placeholders, ", "))
-	default:
-		query = fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", db.quoteIdentifier(tableName), strings.Join(columns, ", "), strings.Join(placeholders, ", "))
+	quotedTable := db.quoteIdentifier(tableName)
+
+	if db.Driver == "postgres" && hasPK {
+		query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s) RETURNING %s",
+			quotedTable,
+			strings.Join(columns, ", "),
+			strings.Join(placeholders, ", "),
+			db.quoteIdentifier(pkColName),
+		)
+
+		var lastInsertID int64
+		err := db.QueryRow(query, values...).Scan(&lastInsertID)
+		if err != nil {
+			return fmt.Errorf("[error] Failed to insert data into '%s': %w", tableName, err)
+		}
+
+		if pkField.IsValid() && pkField.CanSet() {
+			pkField.SetInt(lastInsertID)
+		}
+	} else {
+		query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)",
+			quotedTable,
+			strings.Join(columns, ", "),
+			strings.Join(placeholders, ", "),
+		)
+
+		res, err := db.Exec(query, values...)
+		if err != nil {
+			return fmt.Errorf("[error] Failed to insert data into '%s': %w", tableName, err)
+		}
+
+		if hasPK && pkField.IsValid() && pkField.CanSet() {
+			if lastID, err := res.LastInsertId(); err == nil && lastID > 0 {
+				pkField.SetInt(lastID)
+			}
+		}
 	}
 
-	_, err := db.Exec(query, values...)
-	if err != nil {
-		return fmt.Errorf("[error] Failed to insert data into '%s': %w", tableName, err)
-	}
-
-	log.Printf("[info] The data was successfully saved to the '%s' table\n", tableName)
+	log.Printf("[info] The data was successfully saved to the '%s'\n", tableName)
 	return nil
 }
 
 func (db *DB) Update(model interface{}, id interface{}) error {
 	val := reflect.ValueOf(model)
-	if val.Kind() == reflect.Ptr {
-		val = val.Elem()
+
+	if val.Kind() != reflect.Ptr || val.Elem().Kind() != reflect.Struct {
+		return fmt.Errorf("[error] `Update` requires a pointer to a struct")
 	}
 
-	structType := val.Type()
+	structVal := val.Elem()
+	structType := structVal.Type()
 	tableName := strings.ToLower(structType.Name()) + "s"
 
 	var setClauses []string
@@ -339,7 +373,7 @@ func (db *DB) Update(model interface{}, id interface{}) error {
 	pkCol := "id"
 	for i := 0; i < structType.NumField(); i++ {
 		field := structType.Field(i)
-		fieldVal := val.Field(i)
+		fieldVal := structVal.Field(i)
 		gohanTag := field.Tag.Get("gohan")
 
 		if gohanTag == "-" {
@@ -347,6 +381,7 @@ func (db *DB) Update(model interface{}, id interface{}) error {
 		}
 
 		colName := strings.ToLower(field.Name)
+
 		if strings.Contains(gohanTag, "primary_key") {
 			pkCol = colName
 			continue
