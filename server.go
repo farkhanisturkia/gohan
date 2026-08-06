@@ -29,9 +29,9 @@ func Serve(port interface{}) error {
 
 	if len(defaultRouter.routes) == 0 {
 		SetRoute("GET", "/", func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"message": "Welcome to Gohan Framework!"}`))
+			JSON(w, http.StatusOK, map[string]string{
+				"message": "Welcome to Gohan Framework!",
+			})
 		})
 	}
 

@@ -60,19 +60,16 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	for _, rt := range r.routes {
 		if matchPath(rt.path, reqPath) {
 			if rt.method != reqMethod {
-				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusMethodNotAllowed)
-				fmt.Fprintf(w, `{"error": "Method %s not allowed for %s"}`, reqMethod, reqPath)
+				Error(w, http.StatusMethodNotAllowed, fmt.Sprintf("Method %s not allowed for %s", reqMethod, reqPath))
 				return
 			}
+
 			rt.handler(w, req)
 			return
 		}
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusNotFound)
-	fmt.Fprintf(w, `{"error": "Route %s %s not found"}`, reqMethod, reqPath)
+	Error(w, http.StatusNotFound, fmt.Sprintf("Route %s %s not found", reqMethod, reqPath))
 }
 
 func matchPath(pattern, path string) bool {
