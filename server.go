@@ -27,14 +27,15 @@ func Serve(port interface{}) error {
 		portStr = ":" + portStr
 	}
 
+	if len(defaultRouter.routes) == 0 {
+		SetRoute("GET", "/", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"message": "Welcome to Gohan Framework!"}`))
+		})
+	}
+
 	log.Printf("[info] Server running in http://localhost%s\n", portStr)
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"message": "Welcome to Gohan Framework!"}`))
-	})
-
-	return http.ListenAndServe(portStr, mux)
+	return http.ListenAndServe(portStr, defaultRouter)
 }
