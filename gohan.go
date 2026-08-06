@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"reflect"
 	"strings"
@@ -15,6 +16,7 @@ import (
 )
 
 type Env struct {
+	AppPort    string
 	DBDriver   string
 	DBHost     string
 	DBPort     string
@@ -34,7 +36,10 @@ func InitEnv() error {
 		return nil
 	}
 
-	defaultContent := `# Choose DB_DRIVER: mysql | postgres | sqlite
+	defaultContent := `# App configuration
+APP_PORT=8080
+	
+# Choose DB_DRIVER: mysql | postgres | sqlite
 DB_DRIVER=sqlite
 
 # MySQL / Postgres Configuration
@@ -65,6 +70,7 @@ func GetEnv() *Env {
 	}
 
 	return &Env{
+		AppPort:    getEnvVal("APP_PORT", "8080"),
 		DBDriver:   getEnvVal("DB_DRIVER", "sqlite"),
 		DBHost:     getEnvVal("DB_HOST", "127.0.0.1"),
 		DBPort:     getEnvVal("DB_PORT", "3306"),
@@ -73,6 +79,38 @@ func GetEnv() *Env {
 		DBName:     getEnvVal("DB_NAME", "gohan_db"),
 		DBFile:     getEnvVal("DB_FILE", "gohan.db"),
 	}
+}
+
+func Serve(port interface{}) error {
+	var portStr string
+
+	switch v := port.(type) {
+	case string:
+		portStr = v
+	case *string:
+		if v != nil {
+			portStr = *v
+		} else {
+			portStr = "8080"
+		}
+	default:
+		portStr = fmt.Sprintf("%v", port)
+	}
+
+	if !strings.HasPrefix(portStr, ":") {
+		portStr = ":" + portStr
+	}
+
+	log.Printf("[info] Server running in http://localhost%s\n", portStr)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"message": "Welcome to Gohan Framework!"}`))
+	})
+
+	return http.ListenAndServe(portStr, mux)
 }
 
 func GetConn(e *Env) (*DB, error) {
