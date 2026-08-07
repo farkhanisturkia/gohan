@@ -66,32 +66,24 @@ func (db *DB) FindAll(dest interface{}) error {
 	return nil
 }
 
-func (db *DB) FindByID(dest interface{}, id interface{}) error {
+func (db *DB) FindOne(dest interface{}, condition string, args ...interface{}) error {
 	val := reflect.ValueOf(dest)
 	if val.Kind() != reflect.Ptr || val.Elem().Kind() != reflect.Struct {
-		return fmt.Errorf("[error] FindByID requires a pointer to a struct")
+		return fmt.Errorf("[error] FindOne requires a pointer to a struct")
 	}
 
 	structVal := val.Elem()
 	structType := structVal.Type()
 	tableName := strings.ToLower(structType.Name()) + "s"
 
-	pkCol := "id"
-	for i := 0; i < structType.NumField(); i++ {
-		tag := structType.Field(i).Tag.Get("gohan")
-		if strings.Contains(tag, "primary_key") {
-			pkCol = strings.ToLower(structType.Field(i).Name)
-			break
+	if db.Driver == "postgres" {
+		for i := 1; strings.Contains(condition, "?"); i++ {
+			condition = strings.Replace(condition, "?", fmt.Sprintf("$%d", i), 1)
 		}
 	}
 
-	placeholder := "?"
-	if db.Driver == "postgres" {
-		placeholder = "$1"
-	}
-
-	query := fmt.Sprintf("SELECT * FROM %s WHERE %s = %s LIMIT 1", db.quoteIdentifier(tableName), db.quoteIdentifier(pkCol), placeholder)
-	row := db.QueryRow(query, id)
+	query := fmt.Sprintf("SELECT * FROM %s WHERE %s LIMIT 1", db.quoteIdentifier(tableName), condition)
+	row := db.QueryRow(query, args...)
 
 	cols, err := db.getColumns(tableName)
 	if err != nil {
@@ -124,6 +116,27 @@ func (db *DB) FindByID(dest interface{}, id interface{}) error {
 	}
 
 	return nil
+}
+
+func (db *DB) FindByID(dest interface{}, id interface{}) error {
+	val := reflect.ValueOf(dest)
+	if val.Kind() != reflect.Ptr || val.Elem().Kind() != reflect.Struct {
+		return fmt.Errorf("[error] FindByID requires a pointer to a struct")
+	}
+
+	structType := val.Elem().Type()
+	pkCol := "id"
+
+	for i := 0; i < structType.NumField(); i++ {
+		tag := structType.Field(i).Tag.Get("gohan")
+		if strings.Contains(tag, "primary_key") {
+			pkCol = strings.ToLower(structType.Field(i).Name)
+			break
+		}
+	}
+
+	condition := fmt.Sprintf("%s = ?", db.quoteIdentifier(pkCol))
+	return db.FindOne(dest, condition, id)
 }
 
 func (db *DB) Create(model interface{}) error {
@@ -293,38 +306,45 @@ func (db *DB) Update(model interface{}, id interface{}) error {
 }
 
 func (db *DB) Delete(model interface{}, id interface{}) error {
-	val := reflect.ValueOf(model)
-	if val.Kind() == reflect.Ptr {
-		val = val.Elem()
-	}
+    t := reflect.TypeOf(model)
+    if t == nil {
+        return fmt.Errorf("[error] Delete requires a valid struct or struct pointer")
+    }
 
-	structType := val.Type()
-	tableName := strings.ToLower(structType.Name()) + "s"
+    if t.Kind() == reflect.Ptr {
+        t = t.Elem()
+    }
 
-	pkCol := "id"
-	for i := 0; i < structType.NumField(); i++ {
-		if strings.Contains(structType.Field(i).Tag.Get("gohan"), "primary_key") {
-			pkCol = strings.ToLower(structType.Field(i).Name)
-			break
-		}
-	}
+    if t.Kind() != reflect.Struct {
+        return fmt.Errorf("[error] Delete requires a struct or a pointer to a struct")
+    }
 
-	placeholder := "?"
-	if db.Driver == "postgres" {
-		placeholder = "$1"
-	}
+    tableName := strings.ToLower(t.Name()) + "s"
 
-	query := fmt.Sprintf("DELETE FROM %s WHERE %s = %s", db.quoteIdentifier(tableName), db.quoteIdentifier(pkCol), placeholder)
-	res, err := db.Exec(query, id)
-	if err != nil {
-		return fmt.Errorf("[error] Failed to delete data: %w", err)
-	}
+    pkCol := "id"
+    for i := 0; i < t.NumField(); i++ {
+        if strings.Contains(t.Field(i).Tag.Get("gohan"), "primary_key") {
+            pkCol = strings.ToLower(t.Field(i).Name)
+            break
+        }
+    }
 
-	rowsAffected, _ := res.RowsAffected()
-	if rowsAffected == 0 {
-		return fmt.Errorf("[warning] Data not found")
-	}
+    placeholder := "?"
+    if db.Driver == "postgres" {
+        placeholder = "$1"
+    }
 
-	log.Printf("[info] The data in the '%s' table with ID %v was successfully deleted\n", tableName, id)
-	return nil
+    query := fmt.Sprintf("DELETE FROM %s WHERE %s = %s", db.quoteIdentifier(tableName), db.quoteIdentifier(pkCol), placeholder)
+    res, err := db.Exec(query, id)
+    if err != nil {
+        return fmt.Errorf("[error] Failed to delete data: %w", err)
+    }
+
+    rowsAffected, _ := res.RowsAffected()
+    if rowsAffected == 0 {
+        return fmt.Errorf("[warning] Data not found")
+    }
+
+    log.Printf("[info] The data in the '%s' table with ID %v was successfully deleted\n", tableName, id)
+    return nil
 }
