@@ -1,0 +1,20 @@
+package migrations
+
+import (
+	"log"
+
+	"github.com/farkhanisturkia/gohan"
+)
+
+type User struct {
+	ID       int    `gohan:"primary_key" json:"id"`
+	Name     string `gohan:"type:VARCHAR(100);not_null" json:"name"`
+	Email    string `gohan:"type:VARCHAR(150);unique;not_null" json:"email"`
+	Password string `gohan:"type:VARCHAR(150);not_null" json:"-"`
+}
+
+func UserMigration(db *gohan.DB) {
+	if err := db.SetTable(&User{}); err != nil {
+		log.Printf("[error] Failed to migrate the User table: %v\n", err)
+	}
+}

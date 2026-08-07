@@ -1,0 +1,28 @@
+package main
+
+import (
+    "log"
+
+    "github.com/farkhanisturkia/gohan"
+    "{{ .ModuleName }}/database/migrations"
+    "{{ .ModuleName }}/database/seeders"
+)
+
+func main() {
+    env := gohan.GetEnv()
+
+    db, err := gohan.GetConn(env)
+    if err != nil {
+        log.Fatalf("[error] Failed to open database connection: %v", err)
+    }
+    defer db.Close()
+
+    migrations.SetMigrations(db)
+    seeders.SetSeeders(db)
+
+    SetupRoutes(db)
+
+    if err := gohan.Serve(&env.AppPort); err != nil {
+        log.Fatalf("[error] Server error: %v", err)
+    }
+}

@@ -1,0 +1,39 @@
+package seeders
+
+import (
+	"log"
+
+	"github.com/farkhanisturkia/gohan"
+	"golang.org/x/crypto/bcrypt"
+	"{{ .ModuleName }}/database/migrations"
+)
+
+func UserSeeder(db *gohan.DB) {
+	var existingUsers []migrations.User
+	if err := db.FindAll(&existingUsers); err == nil && len(existingUsers) > 0 {
+		log.Println("[info] User seeder skipped: Data already exists")
+		return
+	}
+
+	plainPassword := "password"
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(plainPassword), bcrypt.DefaultCost)
+	if err != nil {
+		log.Fatalf("[error] Failed to hash password: %v\n", err)
+	}
+
+	users := []migrations.User{
+		{
+			Name:     "Admin",
+			Email:    "admin@example.com",
+			Password: string(hashedPassword),
+		},
+	}
+
+	for _, user := range users {
+		if err := db.Create(&user); err != nil {
+			log.Printf("[error] Failed to seed user (%s): %v\n", user.Email, err)
+		}
+	}
+
+	log.Println("[info] User seeder successfully executed")
+}

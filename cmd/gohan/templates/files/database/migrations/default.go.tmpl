@@ -1,0 +1,9 @@
+package migrations
+
+import "github.com/farkhanisturkia/gohan"
+
+func SetMigrations(db *gohan.DB) {
+	UserMigration(db)
+	PersonalAccessTokenMigration(db)
+	PasswordResetMigration(db)
+}

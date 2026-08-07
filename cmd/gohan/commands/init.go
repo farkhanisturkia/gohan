@@ -11,7 +11,11 @@ import (
 
 func InitBoilerplate() {
 	moduleName := utils.GetModuleName()
-	templateMap := templates.GetBoilerplateTemplates(moduleName)
+	templateMap, err := templates.GetBoilerplateTemplates(moduleName)
+	if err != nil {
+		fmt.Printf("[error] Failed to load boilerplate templates: %v\n", err)
+		return
+	}
 
 	for path, content := range templateMap {
 		dir := filepath.Dir(path)

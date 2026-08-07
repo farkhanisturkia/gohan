@@ -1,0 +1,31 @@
+package main
+
+import (
+	"net/http"
+
+	"github.com/farkhanisturkia/gohan"
+	"{{ .ModuleName }}/middleware"
+)
+
+func SetupRoutes(db *gohan.DB) {
+	gohan.Get("/ping", func(w http.ResponseWriter, r *http.Request) {
+		gohan.JSON(w, http.StatusOK, map[string]string{
+			"message": "pong",
+		})
+	})
+
+	gohan.Get("/api/me", middleware.Authenticate(db, func(w http.ResponseWriter, r *http.Request) {
+		user, ok := middleware.GetAuthUser(r)
+		if !ok {
+			gohan.JSON(w, http.StatusInternalServerError, map[string]string{
+				"message": "Failed to get user context",
+			})
+			return
+		}
+
+		gohan.JSON(w, http.StatusOK, map[string]interface{}{
+			"message": "User profile retrieved successfully",
+			"data":    user,
+		})
+	}))
+}
