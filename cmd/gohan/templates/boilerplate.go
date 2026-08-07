@@ -87,7 +87,7 @@ func UserMigration(db *gohan.DB) {
 import "github.com/farkhanisturkia/gohan"
 
 func SetSeeders(db *gohan.DB) {
-	UserSeeder(db)
+	// UserSeeder(db)
 }
 `,
 
@@ -131,5 +131,22 @@ func UserSeeder(db *gohan.DB) {
 	log.Println("[info] User seeder successfully executed")
 }
 `, moduleName),
+
+		".env": `# App configuration
+APP_PORT=8080
+    
+# Choose DB_DRIVER: mysql | postgres | sqlite
+DB_DRIVER=sqlite
+
+# MySQL / Postgres Configuration
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=
+DB_NAME=gohan_db
+
+# SQLite Configuration
+DB_FILE=gohan.db
+`,
 	}
 }
