@@ -20,7 +20,12 @@ func GetBoilerplateTemplates(moduleName string) (map[string]string, error) {
 	result := make(map[string]string)
 	data := TemplateData{ModuleName: moduleName}
 
-	err := fs.WalkDir(templateFS, "files", func(path string, d fs.DirEntry, err error) error {
+	filesFS, err := fs.Sub(templateFS, "files")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create sub filesystem: %w", err)
+	}
+
+	err = fs.WalkDir(filesFS, ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -29,7 +34,7 @@ func GetBoilerplateTemplates(moduleName string) (map[string]string, error) {
 			return nil
 		}
 
-		content, err := templateFS.ReadFile(path)
+		content, err := fs.ReadFile(filesFS, path)
 		if err != nil {
 			return fmt.Errorf("failed to read embedded file %s: %w", path, err)
 		}
@@ -44,12 +49,8 @@ func GetBoilerplateTemplates(moduleName string) (map[string]string, error) {
 			return fmt.Errorf("failed to execute template %s: %w", path, err)
 		}
 
-		relPath, err := filepath.Rel("files", path)
-		if err != nil {
-			return err
-		}
-
-		targetPath := strings.TrimSuffix(relPath, ".tmpl")
+		slashPath := filepath.ToSlash(path)
+		targetPath := strings.TrimSuffix(slashPath, ".tmpl")
 
 		if targetPath == "env" {
 			targetPath = ".env"
