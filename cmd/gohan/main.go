@@ -1,11 +1,79 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 )
 
-const routesTemplate = `package main
+func getModuleName() string {
+	file, err := os.Open("go.mod")
+	if err != nil {
+		return "myproject"
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if strings.HasPrefix(line, "module ") {
+			return strings.TrimPrefix(line, "module ")
+		}
+	}
+	return "myproject"
+}
+
+func main() {
+	if len(os.Args) < 2 {
+		printHelp()
+		return
+	}
+
+	command := os.Args[1]
+	switch command {
+	case "init":
+		initBoilerplate()
+	default:
+		fmt.Printf("The command '%s' is not recognized.\n", command)
+		printHelp()
+	}
+}
+
+func initBoilerplate() {
+	moduleName := getModuleName()
+
+	templates := map[string]string{
+		"main.go": fmt.Sprintf(`package main
+
+import (
+	"log"
+
+	"github.com/farkhanisturkia/gohan"
+	"%s/database/migrations"
+)
+
+func main() {
+	env := gohan.GetEnv()
+
+	db, err := gohan.GetConn(env)
+	if err != nil {
+		log.Fatalf("[error] Failed to open database connection: %%v", err)
+	}
+	defer db.Close()
+
+	migrations.SetMigrations(db)
+
+	SetupRoutes()
+
+	if err := gohan.Serve(&env.AppPort); err != nil {
+		log.Fatalf("[error] Server error: %%v", err)
+	}
+}
+`, moduleName),
+
+		"routes.go": `package main
 
 import (
 	"net/http"
@@ -20,9 +88,18 @@ func SetupRoutes() {
 		})
 	})
 }
-`
+`,
 
-const mainTemplate = `package main
+		"database/migrations/default.go": `package migrations
+
+import "github.com/farkhanisturkia/gohan"
+
+func SetMigrations(db *gohan.DB) {
+	UserMigration(db)
+}
+`,
+
+		"database/migrations/user.go": `package migrations
 
 import (
 	"log"
@@ -30,67 +107,37 @@ import (
 	"github.com/farkhanisturkia/gohan"
 )
 
-func main() {
-	env := gohan.GetEnv()
-
-	SetupRoutes()
-
-	if err := gohan.Serve(&env.AppPort); err != nil {
-		log.Fatalf("Server error: %v", err)
-	}
-}
-`
-
-func main() {
-	if len(os.Args) < 2 {
-		printHelp()
-		return
-	}
-
-	command := os.Args[1]
-
-	switch command {
-	case "init":
-		createMainFile()
-		createRoutesFile()
-	default:
-		fmt.Printf("The command '%s' is not recognized.\n", command)
-		printHelp()
-	}
+type User struct {
+	ID       int    ` + "`" + `gohan:"primary_key" json:"id"` + "`" + `
+	Name     string ` + "`" + `gohan:"type:VARCHAR(100);not_null" json:"name"` + "`" + `
+	Email    string ` + "`" + `gohan:"type:VARCHAR(150);unique;not_null" json:"email"` + "`" + `
+	Password string ` + "`" + `gohan:"type:VARCHAR(150);not_null" json:"-"` + "`" + `
 }
 
-func createMainFile() {
-	filePath := "main.go"
-
-	if _, err := os.Stat(filePath); err == nil {
-		fmt.Println("[info] The 'main.go' file already exists in this directory.")
-		return
+func UserMigration(db *gohan.DB) {
+	if err := db.SetTable(&User{}); err != nil {
+		log.Printf("[error] Failed to migrate the User table: %v\n", err)
 	}
-
-	err := os.WriteFile(filePath, []byte(mainTemplate), 0644)
-	if err != nil {
-		fmt.Printf("[error] Failed to create the 'main.go' file: %v\n", err)
-		return
-	}
-
-	fmt.Println("[info] The 'main.go' file was successfully created!")
 }
-
-func createRoutesFile() {
-	filePath := "routes.go"
-
-	if _, err := os.Stat(filePath); err == nil {
-		fmt.Println("[info] The 'routes.go' file already exists in this directory.")
-		return
+`,
 	}
 
-	err := os.WriteFile(filePath, []byte(routesTemplate), 0644)
-	if err != nil {
-		fmt.Printf("[error] Failed to create the 'routes.go' file: %v\n", err)
-		return
-	}
+	for path, content := range templates {
+		dir := filepath.Dir(path)
+		if dir != "." {
+			_ = os.MkdirAll(dir, 0755)
+		}
 
-	fmt.Println("[info] The 'routes.go' file was successfully created!")
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+				fmt.Printf("[error] Failed to create the %s file: %v\n", path, err)
+			} else {
+				fmt.Printf("[info] %s file created\n", path)
+			}
+		} else {
+			fmt.Printf("[error] The %s file already exists\n", path)
+		}
+	}
 }
 
 func printHelp() {
