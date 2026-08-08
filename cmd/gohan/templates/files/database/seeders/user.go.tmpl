@@ -4,7 +4,6 @@ import (
 	"log"
 
 	"github.com/farkhanisturkia/gohan"
-	"golang.org/x/crypto/bcrypt"
 	"{{ .ModuleName }}/database/migrations"
 )
 
@@ -15,19 +14,18 @@ func UserSeeder(db *gohan.DB) {
 		return
 	}
 
-	plainPassword := "password"
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(plainPassword), bcrypt.DefaultCost)
-	if err != nil {
-		log.Fatalf("[error] Failed to hash password: %v\n", err)
-	}
+	hashedPassword, err := gohan.HashPassword("password")
+    if err != nil {
+        log.Fatalf("[error] Failed to hash password: %v\n", err)
+    }
 
-	users := []migrations.User{
-		{
-			Name:     "Admin",
-			Email:    "admin@example.com",
-			Password: string(hashedPassword),
-		},
-	}
+    users := []migrations.User{
+        {
+            Name:     "Admin",
+            Email:    "admin@example.com",
+            Password: hashedPassword,
+        },
+    }
 
 	for _, user := range users {
 		if err := db.Create(&user); err != nil {
