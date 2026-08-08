@@ -24,13 +24,20 @@ func LoginAuth(db *gohan.DB) http.HandlerFunc {
 		}
 
 		var users []migrations.User
-		if err := db.Where(&users, "email = ?", req.Email); err != nil || len(users) == 0 {
-			gohan.JSON(w, http.StatusUnauthorized, map[string]string{"message": "Invalid email or password"})
+		if err := db.FindAll(&users); err != nil {
+			gohan.JSON(w, http.StatusInternalServerError, map[string]string{"message": "Database query error"})
 			return
 		}
-		user := users[0]
 
-		if !gohan.CheckPasswordHash(req.Password, user.Password) {
+		var targetUser *migrations.User
+		for _, u := range users {
+			if u.Email == req.Email {
+				targetUser = &u
+				break
+			}
+		}
+
+		if targetUser == nil || !gohan.CheckPasswordHash(req.Password, targetUser.Password) {
 			gohan.JSON(w, http.StatusUnauthorized, map[string]string{"message": "Invalid email or password"})
 			return
 		}
@@ -41,11 +48,17 @@ func LoginAuth(db *gohan.DB) http.HandlerFunc {
 			return
 		}
 
-		expiresAt := time.Now().Add(7 * 24 * time.Hour)
+		ipAddress := gohan.GetClientIP(r)
+		userAgent := r.UserAgent()
+		tokenName := gohan.ParseTokenName(userAgent)
+
 		pat := migrations.PersonalAccessToken{
-			UserID:    user.ID,
+			UserID:    targetUser.ID,
+			Name:      tokenName,
 			Token:     tokenStr,
-			ExpiresAt: &expiresAt,
+			IPAddress: ipAddress,
+			UserAgent: userAgent,
+			ExpiresAt: time.Now().Add(7 * 24 * time.Hour),
 			CreatedAt: time.Now(),
 		}
 
@@ -58,9 +71,9 @@ func LoginAuth(db *gohan.DB) http.HandlerFunc {
 			"message": "Login successful",
 			"token":   tokenStr,
 			"user": map[string]interface{}{
-				"id":    user.ID,
-				"name":  user.Name,
-				"email": user.Email,
+				"id":    targetUser.ID,
+				"name":  targetUser.Name,
+				"email": targetUser.Email,
 			},
 		})
 	}
@@ -76,7 +89,26 @@ func LogoutAuth(db *gohan.DB) http.HandlerFunc {
 
 		tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
 
-		if err := db.Delete(&migrations.PersonalAccessToken{}, "token = ?", tokenStr); err != nil {
+		var tokens []migrations.PersonalAccessToken
+		if err := db.FindAll(&tokens); err != nil {
+			gohan.JSON(w, http.StatusInternalServerError, map[string]string{"message": "Failed to query session"})
+			return
+		}
+
+		var targetToken *migrations.PersonalAccessToken
+		for _, t := range tokens {
+			if t.Token == tokenStr {
+				targetToken = &t
+				break
+			}
+		}
+
+		if targetToken == nil {
+			gohan.JSON(w, http.StatusNotFound, map[string]string{"message": "Session not found"})
+			return
+		}
+
+		if err := db.Delete(&migrations.PersonalAccessToken{}, targetToken.ID); err != nil {
 			gohan.JSON(w, http.StatusInternalServerError, map[string]string{"message": "Failed to revoke token"})
 			return
 		}
