@@ -7,6 +7,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/lib/pq v1.12.3
 	github.com/mattn/go-sqlite3 v1.14.49
+	golang.org/x/crypto v0.54.0
 )
 
 require filippo.io/edwards25519 v1.2.0 // indirect
