@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/farkhanisturkia/gohan"
+	"{{ .ModuleName }}/controllers"
 	"{{ .ModuleName }}/middleware"
 )
 
@@ -13,6 +14,10 @@ func SetupRoutes(db *gohan.DB) {
 			"message": "pong",
 		})
 	})
+
+	gohan.Post("/api/login", controllers.LoginAuth(db))
+
+	gohan.Post("/api/logout", middleware.Authenticate(db, controllers.LogoutAuth(db)))
 
 	gohan.Get("/api/me", middleware.Authenticate(db, func(w http.ResponseWriter, r *http.Request) {
 		user, ok := middleware.GetAuthUser(r)
