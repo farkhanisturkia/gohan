@@ -14,22 +14,15 @@ func {{.Prefix}}Seeder(db *gohan.DB) {
 		return
 	}
 
-	hashedPassword, err := gohan.HashPassword("password")
-    if err != nil {
-        log.Fatalf("[error] Failed to hash password: %v\n", err)
-    }
-
     {{.Prefix}}s := []migrations.{{.Prefix}}{
         {
-            Name:     "Admin",
-            Email:    "admin@example.com",
-            Password: hashedPassword,
+            ID: 1,
         },
     }
 
 	for _, {{.Prefix}} := range {{.Prefix}}s {
 		if err := db.Create(&{{.Prefix}}); err != nil {
-			log.Printf("[error] Failed to seed {{.Prefix}} (%s): %v\n", {{.Prefix}}.Email, err)
+			log.Printf("[error] Failed to seed {{.Prefix}} (%s): %v\n", {{.Prefix}}.ID, err)
 		}
 	}
 

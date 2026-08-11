@@ -113,7 +113,7 @@ func MakeMigration(name string) {
 func MakeSeeder(name string) {
 	cleanName := strings.TrimSuffix(name, ".go")
 	prefix := toPascalCase(cleanName)
-	targetPath := filepath.Join("database", "seeders", cleanName+".go")
+	targetPath := filepath.Join("database", "seeders", strings.ToLower(prefix)+".go")
 	moduleName := utils.GetModuleName()
 
 	data := TemplateData{
