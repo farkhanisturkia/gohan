@@ -67,3 +67,14 @@ func GetBoilerplateTemplates(moduleName string) (map[string]string, error) {
 
 	return result, nil
 }
+
+//go:embed makes/*.tmpl
+var MakeFS embed.FS
+
+func GetMakeTemplate(filename string) (string, error) {
+	content, err := MakeFS.ReadFile("makes/" + filename)
+	if err != nil {
+		return "", fmt.Errorf("failed to read make template %s: %w", filename, err)
+	}
+	return string(content), nil
+}
