@@ -10,16 +10,22 @@ import (
 	"time"
 
 	"github.com/farkhanisturkia/gohan/cmd/gohan/templates"
+	"github.com/farkhanisturkia/gohan/cmd/gohan/utils"
 )
 
 type TemplateData struct {
+	ModuleName string
 	Prefix string
 	Name   string
 }
 
 func toPascalCase(s string) string {
-	s = strings.TrimSuffix(s, "_controller")
 	s = strings.TrimSuffix(s, ".go")
+	s = strings.TrimPrefix(s, "create_")
+	s = strings.TrimSuffix(s, "_controller")
+	s = strings.TrimSuffix(s, "_seeder")
+	s = strings.TrimSuffix(s, "_migration")
+	s = strings.TrimSuffix(s, "_table")
 
 	words := strings.FieldsFunc(s, func(r rune) bool {
 		return r == '_' || r == '-' || r == ' '
@@ -77,10 +83,12 @@ func MakeController(name string) {
 	cleanName := strings.TrimSuffix(name, ".go")
 	prefix := toPascalCase(cleanName)
 	targetPath := filepath.Join("controllers", cleanName+".go")
+	moduleName := utils.GetModuleName()
 
 	data := TemplateData{
-		Prefix: prefix,
-		Name:   cleanName,
+		ModuleName: moduleName,
+		Prefix:     prefix,
+		Name:       cleanName,
 	}
 
 	generateFromTemplate("controller.go.tmpl", targetPath, data)
@@ -91,10 +99,12 @@ func MakeMigration(name string) {
 	prefix := toPascalCase(cleanName)
 	timestamp := time.Now().Format("20060102150405")
 	targetPath := filepath.Join("database", "migrations", fmt.Sprintf("%s_%s.go", timestamp, cleanName))
+	moduleName := utils.GetModuleName()
 
 	data := TemplateData{
-		Prefix: prefix,
-		Name:   cleanName,
+		ModuleName: moduleName,
+		Prefix:     prefix,
+		Name:       cleanName,
 	}
 
 	generateFromTemplate("migration.go.tmpl", targetPath, data)
@@ -104,10 +114,12 @@ func MakeSeeder(name string) {
 	cleanName := strings.TrimSuffix(name, ".go")
 	prefix := toPascalCase(cleanName)
 	targetPath := filepath.Join("database", "seeders", cleanName+".go")
+	moduleName := utils.GetModuleName()
 
 	data := TemplateData{
-		Prefix: prefix,
-		Name:   cleanName,
+		ModuleName: moduleName,
+		Prefix:     prefix,
+		Name:       cleanName,
 	}
 
 	generateFromTemplate("seeder.go.tmpl", targetPath, data)
