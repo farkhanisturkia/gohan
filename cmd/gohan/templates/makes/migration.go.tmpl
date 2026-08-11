@@ -1,0 +1,17 @@
+package migrations
+
+import (
+	"log"
+
+	"github.com/farkhanisturkia/gohan"
+)
+
+type {{.Prefix}} struct {
+	ID       int    `gohan:"primary_key" json:"id"`
+}
+
+func {{.Prefix}}Migration(db *gohan.DB) {
+	if err := db.SetTable(&{{.Prefix}}{}); err != nil {
+		log.Printf("[error] Failed to migrate the {{.Prefix}} table: %v\n", err)
+	}
+}
