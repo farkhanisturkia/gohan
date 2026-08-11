@@ -7,7 +7,7 @@ import (
 	"github.com/farkhanisturkia/gohan/cmd/gohan/commands"
 )
 
-const AppVersion = "v1.2.6"
+const AppVersion = "v1.2.7"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -20,6 +20,27 @@ func main() {
 	switch arg {
 	case "init":
 		commands.InitBoilerplate()
+
+	case "make:controller":
+		if len(os.Args) < 3 {
+			fmt.Println("[error] Controller name is required. Example: gohan make:controller user_controller")
+			os.Exit(1)
+		}
+		commands.MakeController(os.Args[2])
+
+	case "make:migration":
+		if len(os.Args) < 3 {
+			fmt.Println("[error] Migration name is required. Example: gohan make:migration create_users_table")
+			os.Exit(1)
+		}
+		commands.MakeMigration(os.Args[2])
+
+	case "make:seeder":
+		if len(os.Args) < 3 {
+			fmt.Println("[error] Seeder name is required. Example: gohan make:seeder user_seeder")
+			os.Exit(1)
+		}
+		commands.MakeSeeder(os.Args[2])
 
 	case "-v", "--version":
 		printVersion()
@@ -43,8 +64,11 @@ func printHelp() {
 	fmt.Println("\nUsage:")
 	fmt.Println("  gohan <command>/<flags>")
 	fmt.Println("\nAvailable Commands:")
-	fmt.Println("  init          Generate standard Gohan Framework")
+	fmt.Println("  init          	Generate standard Gohan Framework")
+	fmt.Println("  make:controller  Generate a new controller file")
+	fmt.Println("  make:migration   Generate a new migration file")
+	fmt.Println("  make:seeder      Generate a new seeder file")
 	fmt.Println("\nFlags:")
-	fmt.Println("  -v, --version Show the CLI version")
-	fmt.Println("  -h, --help    Display the CLI usage instructions")
+	fmt.Println("  -v, --version 	Show the CLI version")
+	fmt.Println("  -h, --help    	Display the CLI usage instructions")
 }
