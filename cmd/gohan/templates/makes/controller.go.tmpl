@@ -1,0 +1,63 @@
+package controllers
+
+import (
+	"net/http"
+
+	"github.com/farkhanisturkia/gohan"
+)
+
+func {{.Prefix}}Index() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		gohan.JSON(w, http.StatusOK, map[string]interface{}{
+			"message": "Index function",
+		})
+	}
+}
+
+func {{.Prefix}}Create() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		gohan.JSON(w, http.StatusOK, map[string]interface{}{
+			"message": "Create function",
+		})
+	}
+}
+
+func {{.Prefix}}Store() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		gohan.JSON(w, http.StatusOK, map[string]interface{}{
+			"message": "Store function",
+		})
+	}
+}
+
+func {{.Prefix}}Show() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		gohan.JSON(w, http.StatusOK, map[string]interface{}{
+			"message": "Show function",
+		})
+	}
+}
+
+func {{.Prefix}}Edit() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		gohan.JSON(w, http.StatusOK, map[string]interface{}{
+			"message": "Edit function",
+		})
+	}
+}
+
+func {{.Prefix}}Update() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		gohan.JSON(w, http.StatusOK, map[string]interface{}{
+			"message": "Update function",
+		})
+	}
+}
+
+func {{.Prefix}}Destroy() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		gohan.JSON(w, http.StatusOK, map[string]interface{}{
+			"message": "Destroy function",
+		})
+	}
+}
