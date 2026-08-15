@@ -7,7 +7,7 @@ import (
 	"github.com/farkhanisturkia/gohan/cmd/gohan/commands"
 )
 
-const AppVersion = "v1.2.9"
+const AppVersion = "v1.3.0"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -20,6 +20,9 @@ func main() {
 	switch arg {
 	case "init":
 		commands.InitBoilerplate()
+
+	case "key:generate":
+        commands.GenerateAppKey()
 
 	case "make:controller":
 		if len(os.Args) < 3 {
@@ -65,6 +68,7 @@ func printHelp() {
 	fmt.Println("  gohan <command>/<flags>")
 	fmt.Println("\nAvailable Commands:")
 	fmt.Println("  init			Generate standard Gohan Framework")
+	fmt.Println("  key:generate	Generate a new application encryption key")
 	fmt.Println("  make:controller	Generate a new controller file")
 	fmt.Println("  make:migration	Generate a new migration file")
 	fmt.Println("  make:seeder		Generate a new seeder file")
