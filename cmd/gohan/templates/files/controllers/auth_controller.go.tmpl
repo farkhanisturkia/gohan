@@ -48,6 +48,8 @@ func LoginAuth(db *gohan.DB) http.HandlerFunc {
 			return
 		}
 
+		hashedToken := gohan.HashToken(tokenStr)
+
 		ipAddress := gohan.GetClientIP(r)
 		userAgent := r.UserAgent()
 		tokenName := gohan.ParseTokenName(userAgent)
@@ -55,7 +57,7 @@ func LoginAuth(db *gohan.DB) http.HandlerFunc {
 		pat := migrations.PersonalAccessToken{
 			UserID:    targetUser.ID,
 			Name:      tokenName,
-			Token:     tokenStr,
+			Token:     hashedToken,
 			IPAddress: ipAddress,
 			UserAgent: userAgent,
 			ExpiresAt: time.Now().Add(7 * 24 * time.Hour),
@@ -89,6 +91,8 @@ func LogoutAuth(db *gohan.DB) http.HandlerFunc {
 
 		tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
 
+		hashedToken := gohan.HashToken(tokenStr)
+
 		var tokens []migrations.PersonalAccessToken
 		if err := db.FindAll(&tokens); err != nil {
 			gohan.JSON(w, http.StatusInternalServerError, map[string]string{"message": "Failed to query session"})
@@ -97,7 +101,7 @@ func LogoutAuth(db *gohan.DB) http.HandlerFunc {
 
 		var targetToken *migrations.PersonalAccessToken
 		for _, t := range tokens {
-			if t.Token == tokenStr {
+			if t.Token == hashedToken {
 				targetToken = &t
 				break
 			}
