@@ -19,6 +19,10 @@ func SetupRoutes(db *gohan.DB) {
 
 	gohan.Post("/api/logout", middleware.Authenticate(db, controllers.LogoutAuth(db)))
 
+	gohan.Post("/api/forgot-password", controllers.ForgotPassword(db))
+
+	gohan.Post("/api/reset-password", controllers.ResetPassword(db))
+
 	gohan.Get("/api/me", middleware.Authenticate(db, func(w http.ResponseWriter, r *http.Request) {
 		user, ok := middleware.GetAuthUser(r)
 		if !ok {
