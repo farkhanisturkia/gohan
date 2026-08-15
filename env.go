@@ -9,6 +9,9 @@ import (
 )
 
 type Env struct {
+	AppName    string
+	AppEnv     string
+	AppKey     string
 	AppPort    string
 	DBDriver   string
 	DBHost     string
@@ -25,6 +28,9 @@ func InitEnv() error {
 	}
 
 	defaultContent := `# App configuration
+APP_NAME=GohanApp
+APP_ENV=local
+APP_KEY=
 APP_PORT=8080
     
 # Choose DB_DRIVER: mysql | postgres | sqlite
@@ -59,6 +65,9 @@ func GetEnv() *Env {
 
 	return &Env{
 		AppPort:    getEnvVal("APP_PORT", "8080"),
+		AppName:	getEnvVal("APP_NAME", "GohanApp"),
+		AppEnv:		getEnvVal("APP_ENV", "local"),
+		AppKey:		getEnvVal("APP_KEY", ""),
 		DBDriver:   getEnvVal("DB_DRIVER", "sqlite"),
 		DBHost:     getEnvVal("DB_HOST", "127.0.0.1"),
 		DBPort:     getEnvVal("DB_PORT", "3306"),
