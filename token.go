@@ -1,7 +1,9 @@
 package gohan
 
 import (
+	"crypto/hmac"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 )
 
@@ -11,4 +13,17 @@ func GenerateRandomToken() (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(bytes), nil
+}
+
+func HashToken(rawToken string) string {
+	env := GetEnv()
+	secret := env.AppKey
+
+	if secret == "" {
+		secret = "gohan-fallback-secret-key"
+	}
+
+	h := hmac.New(sha256.New, []byte(secret))
+	h.Write([]byte(rawToken))
+	return hex.EncodeToString(h.Sum(nil))
 }
