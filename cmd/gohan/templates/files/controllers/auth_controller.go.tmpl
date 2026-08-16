@@ -47,7 +47,13 @@ func LoginAuth(db *gohan.DB) http.HandlerFunc {
 			return
 		}
 
-		hashedToken := gohan.HashToken(tokenStr)
+		hashedToken, err := gohan.HashToken(rawToken)
+		if err != nil {
+			gohan.JSON(w, http.StatusInternalServerError, map[string]string{
+				"message": err.Error(),
+			})
+			return
+		}
 
 		ipAddress := gohan.GetClientIP(r)
 		userAgent := r.UserAgent()
@@ -90,7 +96,13 @@ func LogoutAuth(db *gohan.DB) http.HandlerFunc {
 
 		tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
 
-		hashedToken := gohan.HashToken(tokenStr)
+		hashedToken, err := gohan.HashToken(rawToken)
+		if err != nil {
+			gohan.JSON(w, http.StatusInternalServerError, map[string]string{
+				"message": err.Error(),
+			})
+			return
+		}
 
 		var tokens []migrations.PersonalAccessToken
 		if err := db.FindAll(&tokens); err != nil {

@@ -34,7 +34,13 @@ func Authenticate(db *gohan.DB, next http.HandlerFunc) http.HandlerFunc {
 
 		tokenString := parts[1]
 
-		hashedToken := gohan.HashToken(tokenString)
+		hashedToken, err := gohan.HashToken(rawToken)
+		if err != nil {
+			gohan.JSON(w, http.StatusInternalServerError, map[string]string{
+				"message": err.Error(),
+			})
+			return
+		}
 
 		var tokenData migrations.PersonalAccessToken
 		err := db.FindOne(&tokenData, "token = ?", hashedToken)
