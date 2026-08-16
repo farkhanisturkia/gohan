@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"encoding/json"
 	"net/http"
 	"strings"
 	"time"
@@ -42,7 +41,7 @@ func LoginAuth(db *gohan.DB) http.HandlerFunc {
 			return
 		}
 
-		tokenStr, err := gohan.GenerateRandomToken()
+		tokenStr, err := gohan.GenerateRandomToken(32)
 		if err != nil {
 			gohan.JSON(w, http.StatusInternalServerError, map[string]string{"message": "Failed to generate token"})
 			return
