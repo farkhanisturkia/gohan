@@ -1,6 +1,7 @@
 package security
 
 import (
+	"fmt"
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
@@ -17,15 +18,15 @@ func GenerateRandomToken(length int) (string, error) {
 	return hex.EncodeToString(bytes), nil
 }
 
-func HashToken(rawToken string) string {
-	env := config.GetEnv()
-	secret := env.AppKey
+func HashToken(rawToken string) (string, error) {
+    env := config.GetEnv()
+    secret := env.AppKey
 
-	if secret == "" {
-		secret = "gohan-fallback-secret-key"
-	}
+    if secret == "" {
+        return "", fmt.Errorf("APP_KEY is required for token hashing")
+    }
 
-	h := hmac.New(sha256.New, []byte(secret))
-	h.Write([]byte(rawToken))
-	return hex.EncodeToString(h.Sum(nil))
+    h := hmac.New(sha256.New, []byte(secret))
+    h.Write([]byte(rawToken))
+    return hex.EncodeToString(h.Sum(nil)), nil
 }
