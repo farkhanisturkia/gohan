@@ -47,7 +47,7 @@ func LoginAuth(db *gohan.DB) http.HandlerFunc {
 			return
 		}
 
-		hashedToken, err := gohan.HashToken(rawToken)
+		hashedToken, err := gohan.HashToken(tokenStr)
 		if err != nil {
 			gohan.JSON(w, http.StatusInternalServerError, map[string]string{
 				"message": err.Error(),
@@ -96,7 +96,7 @@ func LogoutAuth(db *gohan.DB) http.HandlerFunc {
 
 		tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
 
-		hashedToken, err := gohan.HashToken(rawToken)
+		hashedToken, err := gohan.HashToken(tokenStr)
 		if err != nil {
 			gohan.JSON(w, http.StatusInternalServerError, map[string]string{
 				"message": err.Error(),

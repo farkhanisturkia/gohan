@@ -34,7 +34,7 @@ func Authenticate(db *gohan.DB, next http.HandlerFunc) http.HandlerFunc {
 
 		tokenString := parts[1]
 
-		hashedToken, err := gohan.HashToken(rawToken)
+		hashedToken, err := gohan.HashToken(tokenString)
 		if err != nil {
 			gohan.JSON(w, http.StatusInternalServerError, map[string]string{
 				"message": err.Error(),
@@ -43,7 +43,7 @@ func Authenticate(db *gohan.DB, next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		var tokenData migrations.PersonalAccessToken
-		err := db.FindOne(&tokenData, "token = ?", hashedToken)
+		err = db.FindOne(&tokenData, "token = ?", hashedToken)
 		if err != nil {
 			gohan.JSON(w, http.StatusUnauthorized, map[string]string{
 				"message": "Invalid or expired token",
