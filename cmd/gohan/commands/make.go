@@ -3,6 +3,7 @@ package commands
 import (
 	"bytes"
 	"fmt"
+	"go/format"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,8 +16,8 @@ import (
 
 type TemplateData struct {
 	ModuleName string
-	Prefix string
-	Name   string
+	Prefix     string
+	Name       string
 }
 
 func toPascalCase(s string) string {
@@ -71,7 +72,16 @@ func generateFromTemplate(tmplFileName, targetPath string, data TemplateData) {
 		return
 	}
 
-	if err := os.WriteFile(targetPath, buf.Bytes(), 0644); err != nil {
+	fileBytes := buf.Bytes()
+
+	if strings.HasSuffix(targetPath, ".go") {
+		formatted, err := format.Source(fileBytes)
+		if err == nil {
+			fileBytes = formatted
+		}
+	}
+
+	if err := os.WriteFile(targetPath, fileBytes, 0644); err != nil {
 		fmt.Printf("[error] Failed to create file %s: %v\n", targetPath, err)
 		return
 	}

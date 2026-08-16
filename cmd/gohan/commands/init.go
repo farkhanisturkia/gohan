@@ -3,6 +3,7 @@ package commands
 import (
 	"bufio"
 	"fmt"
+	"go/format"
 	"os"
 	"path/filepath"
 	"strings"
@@ -100,8 +101,17 @@ func InitBoilerplate() {
 			_ = os.MkdirAll(dir, 0755)
 		}
 
+		fileBytes := []byte(content)
+
+		if strings.HasSuffix(path, ".go") {
+			formatted, err := format.Source(fileBytes)
+			if err == nil {
+				fileBytes = formatted
+			}
+		}
+
 		if _, err := os.Stat(path); os.IsNotExist(err) {
-			if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+			if err := os.WriteFile(path, fileBytes, 0644); err != nil {
 				fmt.Printf("[error] Failed to create the %s file: %v\n", path, err)
 			} else {
 				fmt.Printf("[info] %s file created\n", path)
