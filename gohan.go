@@ -6,6 +6,7 @@ import (
 	gohanHttp "github.com/farkhanisturkia/gohan/internal/http"
 	"github.com/farkhanisturkia/gohan/internal/security"
 	"github.com/farkhanisturkia/gohan/utils"
+	"github.com/farkhanisturkia/gohan/internal/mail"
 )
 
 // Config
@@ -45,3 +46,6 @@ var HashToken = security.HashToken
 // Utils
 var GetClientIP = utils.GetClientIP
 var ParseTokenName = utils.ParseTokenName
+
+// Mail Export
+var SendEmail = mail.SendEmail
