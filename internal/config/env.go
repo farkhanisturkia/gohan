@@ -9,17 +9,25 @@ import (
 )
 
 type Env struct {
-	AppName    string
-	AppEnv     string
-	AppKey     string
-	AppPort    string
-	DBDriver   string
-	DBHost     string
-	DBPort     string
-	DBUser     string
-	DBPassword string
-	DBName     string
-	DBFile     string
+	AppName    		string
+	AppEnv     		string
+	AppKey     		string
+	AppPort    		string
+	DBDriver   		string
+	DBHost     		string
+	DBPort     		string
+	DBUser     		string
+	DBPassword 		string
+	DBName     		string
+	DBFile     		string
+	MailDriver      string
+	MailHost        string
+	MailPort        string
+	MailUsername    string
+	MailPassword    string
+	MailEncryption  string
+	MailFromAddress string
+	MailFromName    string
 }
 
 func InitEnv() error {
@@ -45,6 +53,18 @@ DB_NAME=gohan_db
 
 # SQLite Configuration
 DB_FILE=gohan.db
+
+# Mailer Configuration (Default: log / SMTP / Mailjet / Mailtrap / SendGrid)
+MAIL_DRIVER=log
+
+# SMTP / Mailjet / Mailtrap /SendGrid Configuration
+MAIL_HOST=in-v3.mailjet.com
+MAIL_PORT=587
+MAIL_USERNAME=your_mailjet_api_key
+MAIL_PASSWORD=your_mailjet_secret_key
+MAIL_ENCRYPTION=tls
+MAIL_FROM_ADDRESS=noreply.gohan@msroot.my.id
+MAIL_FROM_NAME="${APP_NAME}"
 `
 	err := os.WriteFile(".env", []byte(defaultContent), 0644)
 	if err != nil {
@@ -64,17 +84,25 @@ func GetEnv() *Env {
 	}
 
 	return &Env{
-		AppPort:    getEnvVal("APP_PORT", "8080"),
-		AppName:	getEnvVal("APP_NAME", "GohanApp"),
-		AppEnv:		getEnvVal("APP_ENV", "local"),
-		AppKey:		getEnvVal("APP_KEY", ""),
-		DBDriver:   getEnvVal("DB_DRIVER", "sqlite"),
-		DBHost:     getEnvVal("DB_HOST", "127.0.0.1"),
-		DBPort:     getEnvVal("DB_PORT", "3306"),
-		DBUser:     getEnvVal("DB_USER", "root"),
-		DBPassword: getEnvVal("DB_PASSWORD", ""),
-		DBName:     getEnvVal("DB_NAME", "gohan_db"),
-		DBFile:     getEnvVal("DB_FILE", "gohan.db"),
+		AppPort:    	 getEnvVal("APP_PORT", "8080"),
+		AppName:		 getEnvVal("APP_NAME", "GohanApp"),
+		AppEnv:			 getEnvVal("APP_ENV", "local"),
+		AppKey:			 getEnvVal("APP_KEY", ""),
+		DBDriver:   	 getEnvVal("DB_DRIVER", "sqlite"),
+		DBHost:     	 getEnvVal("DB_HOST", "127.0.0.1"),
+		DBPort:     	 getEnvVal("DB_PORT", "3306"),
+		DBUser:     	 getEnvVal("DB_USER", "root"),
+		DBPassword: 	 getEnvVal("DB_PASSWORD", ""),
+		DBName:     	 getEnvVal("DB_NAME", "gohan_db"),
+		DBFile:     	 getEnvVal("DB_FILE", "gohan.db"),
+		MailDriver:      getEnvVal("MAIL_DRIVER", "smtp"),
+		MailHost:        getEnvVal("MAIL_HOST", "smtp.mailjet.com"),
+		MailPort:        getEnvVal("MAIL_PORT", "587"),
+		MailUsername:    getEnvVal("MAIL_USERNAME", ""),
+		MailPassword:    getEnvVal("MAIL_PASSWORD", ""),
+		MailEncryption:  getEnvVal("MAIL_ENCRYPTION", "tls"),
+		MailFromAddress: getEnvVal("MAIL_FROM_ADDRESS", "noreply@example.com"),
+		MailFromName:    getEnvVal("MAIL_FROM_NAME", "GohanApp"),
 	}
 }
 
