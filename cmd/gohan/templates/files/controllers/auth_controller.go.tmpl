@@ -17,7 +17,7 @@ type LoginRequest struct {
 func LoginAuth(db *gohan.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req LoginRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		if err := gohan.BindJSON(r, &req); err != nil {
 			gohan.JSON(w, http.StatusBadRequest, map[string]string{"message": "Invalid request body"})
 			return
 		}
