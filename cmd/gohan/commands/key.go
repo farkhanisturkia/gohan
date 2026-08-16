@@ -22,7 +22,7 @@ func GenerateAppKey() {
 		return
 	}
 
-	randomToken, err := gohan.GenerateRandomToken()
+	randomToken, err := gohan.GenerateRandomToken(32)
 	if err != nil {
 		fmt.Printf("[error] Failed to generate random key: %v\n", err)
 		return
