@@ -14,12 +14,18 @@ import (
 var templateFS embed.FS
 
 type TemplateData struct {
-	ModuleName string
+	ModuleName        string
+	UseAuth           bool
+	UseForgotPassword bool
 }
 
-func GetBoilerplateTemplates(moduleName string) (map[string]string, error) {
+func GetBoilerplateTemplates(moduleName string, useAuth bool, useForgotPassword bool) (map[string]string, error) {
 	result := make(map[string]string)
-	data := TemplateData{ModuleName: moduleName}
+	data := TemplateData{
+		ModuleName:        moduleName,
+		UseAuth:           useAuth,
+		UseForgotPassword: useForgotPassword,
+	}
 
 	err := fs.WalkDir(templateFS, "files", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
