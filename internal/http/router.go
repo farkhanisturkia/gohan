@@ -1,4 +1,4 @@
-package gohan
+package http
 
 import (
 	"fmt"

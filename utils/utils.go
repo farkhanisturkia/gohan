@@ -1,4 +1,4 @@
-package gohan
+package utils
 
 import (
 	"net/http"

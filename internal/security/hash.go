@@ -1,4 +1,4 @@
-package gohan
+package security
 
 import "golang.org/x/crypto/bcrypt"
 

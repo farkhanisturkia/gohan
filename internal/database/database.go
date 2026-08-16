@@ -1,4 +1,4 @@
-package gohan
+package database
 
 import (
 	"database/sql"
@@ -6,6 +6,8 @@ import (
 	"log"
 	"reflect"
 	"strings"
+
+	"github.com/farkhanisturkia/gohan/internal/config"
 
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
@@ -17,7 +19,7 @@ type DB struct {
 	Driver string
 }
 
-func GetConn(e *Env) (*DB, error) {
+func GetConn(e *config.Env) (*DB, error) {
 	var dsn string
 	driver := e.DBDriver
 

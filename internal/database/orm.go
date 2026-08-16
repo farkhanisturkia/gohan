@@ -1,4 +1,4 @@
-package gohan
+package database
 
 import (
 	"database/sql"

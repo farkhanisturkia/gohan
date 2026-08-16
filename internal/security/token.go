@@ -1,10 +1,12 @@
-package gohan
+package security
 
 import (
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+
+	"github.com/farkhanisturkia/gohan/internal/config"
 )
 
 func GenerateRandomToken() (string, error) {
@@ -16,7 +18,7 @@ func GenerateRandomToken() (string, error) {
 }
 
 func HashToken(rawToken string) string {
-	env := GetEnv()
+	env := config.GetEnv()
 	secret := env.AppKey
 
 	if secret == "" {
