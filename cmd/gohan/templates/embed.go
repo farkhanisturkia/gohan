@@ -16,14 +16,16 @@ var templateFS embed.FS
 type TemplateData struct {
 	ModuleName        string
 	UseAuth           bool
+	AuthType          string
 	UseForgotPassword bool
 }
 
-func GetBoilerplateTemplates(moduleName string, useAuth bool, useForgotPassword bool) (map[string]string, error) {
+func GetBoilerplateTemplates(moduleName string, useAuth bool, authType string, useForgotPassword bool) (map[string]string, error) {
 	result := make(map[string]string)
 	data := TemplateData{
 		ModuleName:        moduleName,
 		UseAuth:           useAuth,
+		AuthType:          authType,
 		UseForgotPassword: useForgotPassword,
 	}
 
