@@ -1,135 +1,156 @@
 package controllers
 
 import (
-	"net/http"
-	"strings"
-	"time"
+    "net/http"
+    "strings"
+    "time"
 
-	"github.com/farkhanisturkia/gohan"
-	"{{ .ModuleName }}/database/migrations"
+    "github.com/farkhanisturkia/gohan"
+    "{{ .ModuleName }}/database/migrations"
 )
 
 type LoginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+    Email    string `json:"email"`
+    Password string `json:"password"`
 }
 
 func LoginAuth(db *gohan.DB) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var req LoginRequest
-		if err := gohan.BindJSON(r, &req); err != nil {
-			gohan.JSON(w, http.StatusBadRequest, map[string]string{"message": "Invalid request body"})
-			return
-		}
+    return func(w http.ResponseWriter, r *http.Request) {
+        var req LoginRequest
+        if err := gohan.BindJSON(r, &req); err != nil {
+            gohan.JSON(w, http.StatusBadRequest, map[string]string{"message": "Invalid request body"})
+            return
+        }
 
-		var users []migrations.User
-		if err := db.FindAll(&users); err != nil {
-			gohan.JSON(w, http.StatusInternalServerError, map[string]string{"message": "Database query error"})
-			return
-		}
+        var users []migrations.User
+        if err := db.FindAll(&users); err != nil {
+            gohan.JSON(w, http.StatusInternalServerError, map[string]string{"message": "Database query error"})
+            return
+        }
 
-		var targetUser *migrations.User
-		for _, u := range users {
-			if u.Email == req.Email {
-				targetUser = &u
-				break
-			}
-		}
+        var targetUser *migrations.User
+        for _, u := range users {
+            if u.Email == req.Email {
+                targetUser = &u
+                break
+            }
+        }
 
-		if targetUser == nil || !gohan.CheckPasswordHash(req.Password, targetUser.Password) {
-			gohan.JSON(w, http.StatusUnauthorized, map[string]string{"message": "Invalid email or password"})
-			return
-		}
+        if targetUser == nil || !gohan.CheckPasswordHash(req.Password, targetUser.Password) {
+            gohan.JSON(w, http.StatusUnauthorized, map[string]string{"message": "Invalid email or password"})
+            return
+        }
 
-		tokenStr, err := gohan.GenerateRandomToken(32)
-		if err != nil {
-			gohan.JSON(w, http.StatusInternalServerError, map[string]string{"message": "Failed to generate token"})
-			return
-		}
+{{ if eq .AuthType "jwt" }}
+        env := gohan.GetEnv()
 
-		hashedToken, err := gohan.HashToken(tokenStr)
-		if err != nil {
-			gohan.JSON(w, http.StatusInternalServerError, map[string]string{
-				"message": err.Error(),
-			})
-			return
-		}
+        duration, err := time.ParseDuration(env.JWTExpiration)
+        if err != nil {
+            duration = 24 * time.Hour
+        }
 
-		ipAddress := gohan.GetClientIP(r)
-		userAgent := r.UserAgent()
-		tokenName := gohan.ParseTokenName(userAgent)
+        tokenStr, err := gohan.GenerateJWT(targetUser.ID, targetUser.Email, env.JWTSecret, duration)
+        if err != nil {
+            gohan.JSON(w, http.StatusInternalServerError, map[string]string{"message": "Failed to generate JWT token"})
+            return
+        }
+{{ else }}
+        tokenStr, err := gohan.GenerateRandomToken(32)
+        if err != nil {
+            gohan.JSON(w, http.StatusInternalServerError, map[string]string{"message": "Failed to generate token"})
+            return
+        }
 
-		pat := migrations.PersonalAccessToken{
-			UserID:    targetUser.ID,
-			Name:      tokenName,
-			Token:     hashedToken,
-			IPAddress: ipAddress,
-			UserAgent: userAgent,
-			ExpiresAt: time.Now().Add(7 * 24 * time.Hour),
-			CreatedAt: time.Now(),
-		}
+        hashedToken, err := gohan.HashToken(tokenStr)
+        if err != nil {
+            gohan.JSON(w, http.StatusInternalServerError, map[string]string{
+                "message": err.Error(),
+            })
+            return
+        }
 
-		if err := db.Create(&pat); err != nil {
-			gohan.JSON(w, http.StatusInternalServerError, map[string]string{"message": "Failed to save session"})
-			return
-		}
+        ipAddress := gohan.GetClientIP(r)
+        userAgent := r.UserAgent()
+        tokenName := gohan.ParseTokenName(userAgent)
 
-		gohan.JSON(w, http.StatusOK, map[string]interface{}{
-			"message": "Login successful",
-			"token":   tokenStr,
-			"user": map[string]interface{}{
-				"id":    targetUser.ID,
-				"name":  targetUser.Name,
-				"email": targetUser.Email,
-			},
-		})
-	}
+        pat := migrations.PersonalAccessToken{
+            UserID:    targetUser.ID,
+            Name:      tokenName,
+            Token:     hashedToken,
+            IPAddress: ipAddress,
+            UserAgent: userAgent,
+            ExpiresAt: time.Now().Add(7 * 24 * time.Hour),
+            CreatedAt: time.Now(),
+        }
+
+        if err := db.Create(&pat); err != nil {
+            gohan.JSON(w, http.StatusInternalServerError, map[string]string{"message": "Failed to save session"})
+            return
+        }
+{{ end }}
+
+        gohan.JSON(w, http.StatusOK, map[string]interface{}{
+            "message": "Login successful",
+            "token":   tokenStr,
+            "user": map[string]interface{}{
+                "id":    targetUser.ID,
+                "name":  targetUser.Name,
+                "email": targetUser.Email,
+            },
+        })
+    }
 }
 
 func LogoutAuth(db *gohan.DB) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		authHeader := r.Header.Get("Authorization")
-		if authHeader == "" {
-			gohan.JSON(w, http.StatusBadRequest, map[string]string{"message": "Authorization header missing"})
-			return
-		}
+    return func(w http.ResponseWriter, r *http.Request) {
+{{ if eq .AuthType "jwt" }}
+        gohan.JSON(w, http.StatusOK, map[string]string{
+            "message": "Logout successful",
+        })
+{{ else }}
+        authHeader := r.Header.Get("Authorization")
+        if authHeader == "" {
+            gohan.JSON(w, http.StatusBadRequest, map[string]string{"message": "Authorization header missing"})
+            return
+        }
 
-		tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
+        tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
 
-		hashedToken, err := gohan.HashToken(tokenStr)
-		if err != nil {
-			gohan.JSON(w, http.StatusInternalServerError, map[string]string{
-				"message": err.Error(),
-			})
-			return
-		}
+        hashedToken, err := gohan.HashToken(tokenStr)
+        if err != nil {
+            gohan.JSON(w, http.StatusInternalServerError, map[string]string{
+                "message": err.Error(),
+            })
+            return
+        }
 
-		var tokens []migrations.PersonalAccessToken
-		if err := db.FindAll(&tokens); err != nil {
-			gohan.JSON(w, http.StatusInternalServerError, map[string]string{"message": "Failed to query session"})
-			return
-		}
+        var tokens []migrations.PersonalAccessToken
+        if err := db.FindAll(&tokens); err != nil {
+            gohan.JSON(w, http.StatusInternalServerError, map[string]string{"message": "Failed to query session"})
+            return
+        }
 
-		var targetToken *migrations.PersonalAccessToken
-		for _, t := range tokens {
-			if t.Token == hashedToken {
-				targetToken = &t
-				break
-			}
-		}
+        var targetToken *migrations.PersonalAccessToken
+        for _, t := range tokens {
+            if t.Token == hashedToken {
+                targetToken = &t
+                break
+            }
+        }
 
-		if targetToken == nil {
-			gohan.JSON(w, http.StatusNotFound, map[string]string{"message": "Session not found"})
-			return
-		}
+        if targetToken == nil {
+            gohan.JSON(w, http.StatusNotFound, map[string]string{"message": "Session not found"})
+            return
+        }
 
-		if err := db.Delete(&migrations.PersonalAccessToken{}, targetToken.ID); err != nil {
-			gohan.JSON(w, http.StatusInternalServerError, map[string]string{"message": "Failed to revoke token"})
-			return
-		}
+        if err := db.Delete(&migrations.PersonalAccessToken{}, targetToken.ID); err != nil {
+            gohan.JSON(w, http.StatusInternalServerError, map[string]string{"message": "Failed to revoke token"})
+            return
+        }
 
-		gohan.JSON(w, http.StatusOK, map[string]string{
-			"message": "Logout successful",
-		})
-	}
+        gohan.JSON(w, http.StatusOK, map[string]string{
+            "message": "Logout successful",
+        })
+{{ end }}
+    }
 }
