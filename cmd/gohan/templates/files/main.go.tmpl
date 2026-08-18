@@ -2,6 +2,7 @@ package main
 
 import (
     "log"
+    "time"
 
     "github.com/farkhanisturkia/gohan"
     "{{ .ModuleName }}/database/migrations"
@@ -19,6 +20,10 @@ func main() {
 
     migrations.SetMigrations(db)
     seeders.SetSeeders(db)
+
+    gohan.Use(gohan.TimeoutMiddleware(10 * time.Second))
+
+    gohan.InitMailWorker(5)
 
     SetupRoutes(db)
 
