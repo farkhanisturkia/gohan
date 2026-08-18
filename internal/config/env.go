@@ -13,6 +13,8 @@ type Env struct {
 	AppEnv     		string
 	AppKey     		string
 	AppPort    		string
+	JWTSecret       string
+    JWTExpiration   string
 	DBDriver   		string
 	DBHost     		string
 	DBPort     		string
@@ -54,6 +56,10 @@ DB_NAME=gohan_db
 # SQLite Configuration
 DB_FILE=gohan.db
 
+# JWT Configuration
+JWT_SECRET=
+JWT_EXPIRATION=24h
+
 # Mailer Configuration (Default: log / SMTP / Mailjet / Mailtrap / SendGrid)
 MAIL_DRIVER=log
 
@@ -88,6 +94,8 @@ func GetEnv() *Env {
 		AppName:		 getEnvVal("APP_NAME", "GohanApp"),
 		AppEnv:			 getEnvVal("APP_ENV", "local"),
 		AppKey:			 getEnvVal("APP_KEY", ""),
+		JWTSecret:       getEnvVal("JWT_SECRET", ""),
+        JWTExpiration:   getEnvVal("JWT_EXPIRATION", "24h"),
 		DBDriver:   	 getEnvVal("DB_DRIVER", "sqlite"),
 		DBHost:     	 getEnvVal("DB_HOST", "127.0.0.1"),
 		DBPort:     	 getEnvVal("DB_PORT", "3306"),
