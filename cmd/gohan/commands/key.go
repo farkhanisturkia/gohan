@@ -22,28 +22,40 @@ func GenerateAppKey() {
 		return
 	}
 
-	randomToken, err := gohan.GenerateRandomToken(32)
+	appToken, err := gohan.GenerateRandomToken(32)
 	if err != nil {
-		fmt.Printf("[error] Failed to generate random key: %v\n", err)
+		fmt.Printf("[error] Failed to generate random app key: %v\n", err)
+		return
+	}
+	newAppKey := "base64:" + appToken
+
+	jwtToken, err := gohan.GenerateRandomToken(32)
+	if err != nil {
+		fmt.Printf("[error] Failed to generate random JWT secret: %v\n", err)
 		return
 	}
 
-	newKey := "base64:" + randomToken
-
 	lines := strings.Split(string(content), "\n")
-	keyFound := false
+	appKeyFound := false
+	jwtSecretFound := false
 
 	for i, line := range lines {
 		trimmed := strings.TrimSpace(line)
 		if strings.HasPrefix(trimmed, "APP_KEY=") {
-			lines[i] = fmt.Sprintf("APP_KEY=%s", newKey)
-			keyFound = true
-			break
+			lines[i] = fmt.Sprintf("APP_KEY=%s", newAppKey)
+			appKeyFound = true
+		}
+		if strings.HasPrefix(trimmed, "JWT_SECRET=") {
+			lines[i] = fmt.Sprintf("JWT_SECRET=%s", jwtToken)
+			jwtSecretFound = true
 		}
 	}
 
-	if !keyFound {
-		lines = append([]string{fmt.Sprintf("APP_KEY=%s", newKey)}, lines...)
+	if !appKeyFound {
+		lines = append([]string{fmt.Sprintf("APP_KEY=%s", newAppKey)}, lines...)
+	}
+	if !jwtSecretFound {
+		lines = append(lines, fmt.Sprintf("JWT_SECRET=%s", jwtToken))
 	}
 
 	output := strings.Join(lines, "\n")
@@ -52,5 +64,6 @@ func GenerateAppKey() {
 		return
 	}
 
-	fmt.Printf("[info] Application key [%s] set successfully.\n", newKey)
+	fmt.Printf("[info] Application key [%s] set successfully.\n", newAppKey)
+	fmt.Printf("[info] JWT secret [%s] set successfully.\n", jwtToken)
 }
