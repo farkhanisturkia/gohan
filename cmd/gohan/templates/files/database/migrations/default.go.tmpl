@@ -3,11 +3,11 @@ package migrations
 import "github.com/farkhanisturkia/gohan"
 
 func SetMigrations(db *gohan.DB) {
-	UserMigration(db)
-	{{- if .UseAuth }}
-	PersonalAccessTokenMigration(db)
-	{{- end }}
-	{{- if and .UseAuth .UseForgotPassword }}
-	PasswordResetMigration(db)
-	{{- end }}
+    UserMigration(db)
+    {{- if and .UseAuth (eq .AuthType "pat") }}
+    PersonalAccessTokenMigration(db)
+    {{- end }}
+    {{- if and .UseAuth .UseForgotPassword }}
+    PasswordResetMigration(db)
+    {{- end }}
 }

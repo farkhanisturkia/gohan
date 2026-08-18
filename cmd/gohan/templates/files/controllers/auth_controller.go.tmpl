@@ -2,7 +2,9 @@ package controllers
 
 import (
     "net/http"
+{{- if ne .AuthType "jwt" }}
     "strings"
+{{- end }}
     "time"
 
     "github.com/farkhanisturkia/gohan"

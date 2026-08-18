@@ -77,8 +77,12 @@ func InitBoilerplate() {
     fmt.Println("[info] Generating project boilerplate with:")
     fmt.Printf("       - Architecture : %s\n", strings.ToUpper(config.Architecture))
     if config.UseAuth {
+        forgotPassStr := "NO"
+        if config.UseForgotPassword {
+            forgotPassStr = "YES"
+        }
         fmt.Printf("       - Auth         : YES (%s)\n", strings.ToUpper(config.AuthType))
-        fmt.Printf("       - Forgot Pass  : %v\n", config.UseForgotPassword)
+        fmt.Printf("       - Forgot Pass  : %s\n", forgotPassStr)
     } else {
         fmt.Println("       - Auth         : NO")
         fmt.Println("       - Forgot Pass  : NO")

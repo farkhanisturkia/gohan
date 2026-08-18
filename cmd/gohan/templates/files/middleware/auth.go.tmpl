@@ -4,7 +4,9 @@ import (
     "context"
     "net/http"
     "strings"
+{{- if ne .AuthType "jwt" }}
     "time"
+{{- end }}
 
     "github.com/farkhanisturkia/gohan"
     "{{ .ModuleName }}/database/migrations"
