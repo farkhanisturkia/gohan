@@ -43,7 +43,7 @@ func LoginAuth(db *gohan.DB) http.HandlerFunc {
             return
         }
 
-{{ if eq .AuthType "jwt" }}
+{{- if eq .AuthType "jwt" }}
         env := gohan.GetEnv()
 
         duration, err := time.ParseDuration(env.JWTExpiration)
@@ -56,7 +56,7 @@ func LoginAuth(db *gohan.DB) http.HandlerFunc {
             gohan.JSON(w, http.StatusInternalServerError, map[string]string{"message": "Failed to generate JWT token"})
             return
         }
-{{ else }}
+{{- else }}
         tokenStr, err := gohan.GenerateRandomToken(32)
         if err != nil {
             gohan.JSON(w, http.StatusInternalServerError, map[string]string{"message": "Failed to generate token"})
@@ -89,7 +89,7 @@ func LoginAuth(db *gohan.DB) http.HandlerFunc {
             gohan.JSON(w, http.StatusInternalServerError, map[string]string{"message": "Failed to save session"})
             return
         }
-{{ end }}
+{{- end }}
 
         gohan.JSON(w, http.StatusOK, map[string]interface{}{
             "message": "Login successful",
@@ -105,11 +105,11 @@ func LoginAuth(db *gohan.DB) http.HandlerFunc {
 
 func LogoutAuth(db *gohan.DB) http.HandlerFunc {
     return func(w http.ResponseWriter, r *http.Request) {
-{{ if eq .AuthType "jwt" }}
+{{- if eq .AuthType "jwt" }}
         gohan.JSON(w, http.StatusOK, map[string]string{
             "message": "Logout successful",
         })
-{{ else }}
+{{- else }}
         authHeader := r.Header.Get("Authorization")
         if authHeader == "" {
             gohan.JSON(w, http.StatusBadRequest, map[string]string{"message": "Authorization header missing"})
@@ -153,6 +153,6 @@ func LogoutAuth(db *gohan.DB) http.HandlerFunc {
         gohan.JSON(w, http.StatusOK, map[string]string{
             "message": "Logout successful",
         })
-{{ end }}
+{{- end }}
     }
 }

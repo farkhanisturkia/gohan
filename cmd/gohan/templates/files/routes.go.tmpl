@@ -4,10 +4,10 @@ import (
 	"net/http"
 
 	"github.com/farkhanisturkia/gohan"
-	{{- if .UseAuth }}
+{{- if .UseAuth }}
 	"{{ .ModuleName }}/controllers"
 	"{{ .ModuleName }}/middleware"
-	{{- end }}
+{{- end }}
 )
 
 func SetupRoutes(db *gohan.DB) {
@@ -17,7 +17,7 @@ func SetupRoutes(db *gohan.DB) {
 			"message": "pong",
 		})
 	})
-	{{- if .UseAuth }}
+{{- if .UseAuth }}
 
 	// Authentication Routes
 	gohan.Post("/api/login", controllers.LoginAuth(db))
@@ -37,11 +37,11 @@ func SetupRoutes(db *gohan.DB) {
 			"data":    user,
 		})
 	}))
-	{{- end }}
-	{{- if and .UseAuth .UseForgotPassword }}
+{{- end }}
+{{- if and .UseAuth .UseForgotPassword }}
 
 	// Password Reset Routes
 	gohan.Post("/api/forgot-password", controllers.ForgotPassword(db))
 	gohan.Post("/api/reset-password", controllers.ResetPassword(db))
-	{{- end }}
+{{- end }}
 }

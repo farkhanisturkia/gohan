@@ -36,7 +36,7 @@ func Authenticate(db *gohan.DB, next http.HandlerFunc) http.HandlerFunc {
 
         tokenString := parts[1]
 
-{{ if eq .AuthType "jwt" }}
+{{- if eq .AuthType "jwt" }}
         env := gohan.GetEnv()
         claims, err := gohan.ValidateJWT(tokenString, env.JWTSecret)
         if err != nil {
@@ -54,7 +54,8 @@ func Authenticate(db *gohan.DB, next http.HandlerFunc) http.HandlerFunc {
             })
             return
         }
-{{ else }}
+
+{{- else }}
         hashedToken, err := gohan.HashToken(tokenString)
         if err != nil {
             gohan.JSON(w, http.StatusInternalServerError, map[string]string{
@@ -87,8 +88,8 @@ func Authenticate(db *gohan.DB, next http.HandlerFunc) http.HandlerFunc {
             })
             return
         }
-{{ end }}
 
+{{- end }}
         ctx := context.WithValue(r.Context(), UserContextKey, user)
         next(w, r.WithContext(ctx))
     }
