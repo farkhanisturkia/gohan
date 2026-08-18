@@ -36,12 +36,18 @@ var Put = gohanHttp.Put
 var Patch = gohanHttp.Patch
 var Delete = gohanHttp.Delete
 var Serve = gohanHttp.Serve
+var Use = gohanHttp.Use
+var TimeoutMiddleware = gohanHttp.TimeoutMiddleware
 
 // Security
+type JWTClaims = security.JWTClaims
+
 var HashPassword = security.HashPassword
 var CheckPasswordHash = security.CheckPasswordHash
 var GenerateRandomToken = security.GenerateRandomToken
 var HashToken = security.HashToken
+var GenerateJWT = security.GenerateJWT
+var ValidateJWT = security.ValidateJWT
 
 // Utils
 var GetClientIP = utils.GetClientIP
@@ -49,3 +55,5 @@ var ParseTokenName = utils.ParseTokenName
 
 // Mail Export
 var SendEmail = mail.SendEmail
+var InitMailWorker = mail.InitMailWorker
+var QueueEmail = mail.QueueEmail
