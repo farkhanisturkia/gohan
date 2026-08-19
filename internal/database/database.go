@@ -82,8 +82,9 @@ func (db *DB) SetTable(model interface{}) error {
 		}
 
 		colName := strings.ToLower(field.Name)
-		dbType := getSQLType(field.Type.Kind(), db.Driver)
+		dbType := getSQLType(field.Type, db.Driver)
 		constraints := ""
+		isPrimaryKey := false
 
 		if gohanTag != "" {
 			tagParts := strings.Split(gohanTag, ";")
@@ -92,19 +93,27 @@ func (db *DB) SetTable(model interface{}) error {
 				if strings.HasPrefix(part, "type:") {
 					dbType = strings.TrimPrefix(part, "type:")
 				} else if part == "primary_key" {
-					if db.Driver == "sqlite3" {
-						constraints += " PRIMARY KEY AUTOINCREMENT"
-					} else if db.Driver == "mysql" {
-						constraints += " PRIMARY KEY AUTO_INCREMENT"
-					} else if db.Driver == "postgres" {
-						dbType = "SERIAL"
-						constraints += " PRIMARY KEY"
-					}
+					isPrimaryKey = true
 				} else if part == "not_null" {
 					constraints += " NOT NULL"
 				} else if part == "unique" {
 					constraints += " UNIQUE"
 				}
+			}
+		}
+
+		if db.Driver == "postgres" && strings.ToUpper(dbType) == "DATETIME" {
+			dbType = "TIMESTAMP"
+		}
+
+		if isPrimaryKey {
+			if db.Driver == "sqlite3" {
+				constraints = " PRIMARY KEY AUTOINCREMENT" + constraints
+			} else if db.Driver == "mysql" {
+				constraints = " PRIMARY KEY AUTO_INCREMENT" + constraints
+			} else if db.Driver == "postgres" {
+				dbType = "SERIAL"
+				constraints = " PRIMARY KEY" + constraints
 			}
 		}
 
@@ -124,12 +133,19 @@ func (db *DB) SetTable(model interface{}) error {
 	return nil
 }
 
-func getSQLType(kind reflect.Kind, driver string) string {
-	switch kind {
-	case reflect.Int, reflect.Int64:
-		return "INTEGER"
+func getSQLType(t reflect.Type, driver string) string {
+	if t.String() == "time.Time" {
+		if driver == "postgres" {
+			return "TIMESTAMP"
+		}
+		return "DATETIME"
+	}
+
+	switch t.Kind() {
+	case reflect.Int, reflect.Int32, reflect.Int64:
+		return "INT"
 	case reflect.String:
-		return "TEXT"
+		return "VARCHAR(255)"
 	case reflect.Float32, reflect.Float64:
 		return "REAL"
 	case reflect.Bool:

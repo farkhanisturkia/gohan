@@ -135,7 +135,12 @@ func (db *DB) FindByID(dest interface{}, id interface{}) error {
 		}
 	}
 
-	condition := fmt.Sprintf("%s = ?", db.quoteIdentifier(pkCol))
+	placeholder := "?"
+	if db.Driver == "postgres" {
+		placeholder = "$1"
+	}
+
+	condition := fmt.Sprintf("%s = %s", db.quoteIdentifier(pkCol), placeholder)
 	return db.FindOne(dest, condition, id)
 }
 
