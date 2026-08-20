@@ -1,17 +1,21 @@
 package migrations
 
 import (
-	"log"
+    "log"
+    "time"
 
-	"github.com/farkhanisturkia/gohan"
+    "github.com/farkhanisturkia/gohan"
 )
 
 type {{.Prefix}} struct {
-	ID       int    `gohan:"primary_key" json:"id"`
+    ID        int       `gohan:"primary_key" json:"id"`
+    Name      string    `gohan:"type:VARCHAR(255);not_null" json:"name"`
+    CreatedAt time.Time `gohan:"type:TIMESTAMP;not_null" json:"created_at"`
+    UpdatedAt time.Time `gohan:"type:TIMESTAMP;not_null" json:"updated_at"`
 }
 
 func {{.Prefix}}Migration(db *gohan.DB) {
-	if err := db.SetTable(&{{.Prefix}}{}); err != nil {
-		log.Printf("[error] Failed to migrate the {{.Prefix}} table: %v\n", err)
-	}
+    if err := db.SetTable(&{{.Prefix}}{}); err != nil {
+        log.Printf("[error] Failed to migrate the {{.Prefix}} table: %v\n", err)
+    }
 }

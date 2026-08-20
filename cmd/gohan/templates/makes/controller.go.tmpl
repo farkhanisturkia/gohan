@@ -1,63 +1,180 @@
 package controllers
 
 import (
-	"net/http"
+    "net/http"
 
-	"github.com/farkhanisturkia/gohan"
+    "github.com/farkhanisturkia/gohan"
+    "{{ .ModuleName }}/database/migrations"
 )
 
-func {{.Prefix}}Index() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		gohan.JSON(w, http.StatusOK, map[string]interface{}{
-			"message": "Index function",
-		})
-	}
+type Create{{.Prefix}}Request struct {
+    Name string `json:"name"`
 }
 
-func {{.Prefix}}Create() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		gohan.JSON(w, http.StatusOK, map[string]interface{}{
-			"message": "Create function",
-		})
-	}
+type Update{{.Prefix}}Request struct {
+    Name string `json:"name"`
 }
 
-func {{.Prefix}}Store() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		gohan.JSON(w, http.StatusOK, map[string]interface{}{
-			"message": "Store function",
-		})
-	}
+func {{.Prefix}}Index(db *gohan.DB) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        var items []migrations.{{.Prefix}}
+        if err := db.FindAll(&items); err != nil {
+            gohan.JSON(w, http.StatusInternalServerError, map[string]string{
+                "message": "Failed to fetch {{.Prefix}} data",
+            })
+            return
+        }
+
+        gohan.JSON(w, http.StatusOK, map[string]interface{}{
+            "message": "Fetch {{.Prefix}} list successful",
+            "data":    items,
+        })
+    }
 }
 
-func {{.Prefix}}Show() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		gohan.JSON(w, http.StatusOK, map[string]interface{}{
-			"message": "Show function",
-		})
-	}
+func {{.Prefix}}Create(_ *gohan.DB) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        gohan.JSON(w, http.StatusOK, map[string]interface{}{
+            "message": "Create {{.Prefix}} form / view",
+        })
+    }
 }
 
-func {{.Prefix}}Edit() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		gohan.JSON(w, http.StatusOK, map[string]interface{}{
-			"message": "Edit function",
-		})
-	}
+func {{.Prefix}}Store(db *gohan.DB) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        var req Create{{.Prefix}}Request
+        if err := gohan.BindJSON(r, &req); err != nil {
+            gohan.JSON(w, http.StatusBadRequest, map[string]string{
+                "message": "Invalid request body",
+            })
+            return
+        }
+
+        item := migrations.{{.Prefix}}{
+            Name: req.Name,
+        }
+
+        err := db.Transaction(func(tx *gohan.Tx) error {
+            return tx.Create(&item)
+        })
+
+        if err != nil {
+            gohan.JSON(w, http.StatusInternalServerError, map[string]string{
+                "message": "Failed to create {{.Prefix}}",
+            })
+            return
+        }
+
+        gohan.JSON(w, http.StatusCreated, map[string]interface{}{
+            "message": "{{.Prefix}} created successfully",
+            "data":    item,
+        })
+    }
 }
 
-func {{.Prefix}}Update() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		gohan.JSON(w, http.StatusOK, map[string]interface{}{
-			"message": "Update function",
-		})
-	}
+func {{.Prefix}}Show(db *gohan.DB) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        id := gohan.Param(r, "id")
+
+        var item migrations.{{.Prefix}}
+        if err := db.FindOne(&item, "id = ?", id); err != nil {
+            gohan.JSON(w, http.StatusNotFound, map[string]string{
+                "message": "{{.Prefix}} not found",
+            })
+            return
+        }
+
+        gohan.JSON(w, http.StatusOK, map[string]interface{}{
+            "message": "Fetch {{.Prefix}} detail successful",
+            "data":    item,
+        })
+    }
 }
 
-func {{.Prefix}}Destroy() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		gohan.JSON(w, http.StatusOK, map[string]interface{}{
-			"message": "Destroy function",
-		})
-	}
+func {{.Prefix}}Edit(db *gohan.DB) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        id := gohan.Param(r, "id")
+
+        var item migrations.{{.Prefix}}
+        if err := db.FindOne(&item, "id = ?", id); err != nil {
+            gohan.JSON(w, http.StatusNotFound, map[string]string{
+                "message": "{{.Prefix}} not found",
+            })
+            return
+        }
+
+        gohan.JSON(w, http.StatusOK, map[string]interface{}{
+            "message": "Edit {{.Prefix}} form / view",
+            "data":    item,
+        })
+    }
+}
+
+func {{.Prefix}}Update(db *gohan.DB) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        id := gohan.Param(r, "id")
+
+        var req Update{{.Prefix}}Request
+        if err := gohan.BindJSON(r, &req); err != nil {
+            gohan.JSON(w, http.StatusBadRequest, map[string]string{
+                "message": "Invalid request body",
+            })
+            return
+        }
+
+        var item migrations.{{.Prefix}}
+        if err := db.FindOne(&item, "id = ?", id); err != nil {
+            gohan.JSON(w, http.StatusNotFound, map[string]string{
+                "message": "{{.Prefix}} not found",
+            })
+            return
+        }
+
+        item.Name = req.Name
+
+        err := db.Transaction(func(tx *gohan.Tx) error {
+            return tx.Update(&item, id)
+        })
+
+        if err != nil {
+            gohan.JSON(w, http.StatusInternalServerError, map[string]string{
+                "message": "Failed to update {{.Prefix}}",
+            })
+            return
+        }
+
+        gohan.JSON(w, http.StatusOK, map[string]interface{}{
+            "message": "{{.Prefix}} updated successfully",
+            "data":    item,
+        })
+    }
+}
+
+func {{.Prefix}}Destroy(db *gohan.DB) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        id := gohan.Param(r, "id")
+
+        var item migrations.{{.Prefix}}
+        if err := db.FindOne(&item, "id = ?", id); err != nil {
+            gohan.JSON(w, http.StatusNotFound, map[string]string{
+                "message": "{{.Prefix}} not found",
+            })
+            return
+        }
+
+        err := db.Transaction(func(tx *gohan.Tx) error {
+            return tx.Delete(&migrations.{{.Prefix}}{}, id)
+        })
+
+        if err != nil {
+            gohan.JSON(w, http.StatusInternalServerError, map[string]string{
+                "message": "Failed to delete {{.Prefix}}",
+            })
+            return
+        }
+
+        gohan.JSON(w, http.StatusOK, map[string]string{
+            "message": "{{.Prefix}} deleted successfully",
+        })
+    }
 }
