@@ -17,6 +17,60 @@ func SetupRoutes(db *gohan.DB) {
             "message": "pong",
         })
     })
+
+    // Get API public
+    gohan.Get("/check-public", func(w http.ResponseWriter, r *http.Request) {
+        var result map[string]interface{}
+
+        err := gohan.FetchJSON("https://api.github.com/zen", &result)
+        if err != nil {
+            gohan.JSON(w, http.StatusBadGateway, map[string]string{
+                "message": "Failed to connect to the Public API",
+                "error":   err.Error(),
+            })
+            return
+        }
+
+        gohan.JSON(w, http.StatusOK, result)
+    })
+
+    // Post API public
+    // gohan.Post("/proxy-data", func(w http.ResponseWriter, r *http.Request) {
+    //     payload := map[string]string{"key": "value"}
+    //     var responseData map[string]interface{}
+
+    //     if err := gohan.PostJSON("https://api.example.com/v1/resources", payload, &responseData); err != nil {
+    //         gohan.JSON(w, http.StatusInternalServerError, map[string]string{"message": err.Error()})
+    //         return
+    //     }
+
+    //     gohan.JSON(w, http.StatusOK, responseData)
+    // })
+
+    // Post API public wih custom headers
+    // gohan.Get("/public-data", func(w http.ResponseWriter, r *http.Request) {
+    //     headers := map[string]string{
+    //         "Authorization": "Bearer YOUR_PUBLIC_API_KEY",
+    //         "User-Agent":    "GohanApp/1.0",
+    //     }
+
+    //     var result map[string]interface{}
+
+    //     err := gohan.NewHTTPClient(10 * time.Second).Request(
+    //         "GET", 
+    //         "https://api.example.com/v1/resources", 
+    //         nil, 
+    //         headers, 
+    //         &result,
+    //     )
+
+    //     if err != nil {
+    //         gohan.JSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
+    //         return
+    //     }
+
+    //     gohan.JSON(w, http.StatusOK, result)
+    // })
 {{- if .UseAuth }}
 
     // Authentication Routes
