@@ -1,14 +1,44 @@
 package database
 
 import (
-	"database/sql"
 	"fmt"
 	"log"
 	"reflect"
 	"strings"
 )
 
-func (db *DB) FindAll(dest interface{}) error {
+type Commander interface {
+	execer() Execer
+	driver() string
+}
+
+func (db *DB) Raw(query string, args ...interface{}) *RawQuery {
+	return &RawQuery{c: db, query: query, args: args}
+}
+
+func (tx *Tx) Raw(query string, args ...interface{}) *RawQuery {
+	return &RawQuery{c: tx, query: query, args: args}
+}
+
+func (db *DB) FindAll(dest interface{}) error { return findAll(db, dest) }
+func (db *DB) FindOne(dest interface{}, condition string, args ...interface{}) error {
+	return findOne(db, dest, condition, args...)
+}
+func (db *DB) FindByID(dest interface{}, id interface{}) error { return findByID(db, dest, id) }
+func (db *DB) Create(model interface{}) error                 { return create(db, model) }
+func (db *DB) Update(model interface{}, id interface{}) error  { return update(db, model, id) }
+func (db *DB) Delete(model interface{}, id interface{}) error  { return deleteModel(db, model, id) }
+
+func (tx *Tx) FindAll(dest interface{}) error { return findAll(tx, dest) }
+func (tx *Tx) FindOne(dest interface{}, condition string, args ...interface{}) error {
+	return findOne(tx, dest, condition, args...)
+}
+func (tx *Tx) FindByID(dest interface{}, id interface{}) error { return findByID(tx, dest, id) }
+func (tx *Tx) Create(model interface{}) error                 { return create(tx, model) }
+func (tx *Tx) Update(model interface{}, id interface{}) error  { return update(tx, model, id) }
+func (tx *Tx) Delete(model interface{}, id interface{}) error  { return deleteModel(tx, model, id) }
+
+func findAll(c Commander, dest interface{}) error {
 	sliceVal := reflect.ValueOf(dest)
 	if sliceVal.Kind() != reflect.Ptr || sliceVal.Elem().Kind() != reflect.Slice {
 		return fmt.Errorf("[error] FindAll requires a pointer to a slice of structs")
@@ -20,10 +50,10 @@ func (db *DB) FindAll(dest interface{}) error {
 		structType = structType.Elem()
 	}
 
-	tableName := strings.ToLower(structType.Name()) + "s"
-	query := fmt.Sprintf("SELECT * FROM %s", db.quoteIdentifier(tableName))
+	tableName := toSnakeCase(structType.Name()) + "s"
+	query := fmt.Sprintf("SELECT * FROM %s", quoteIdentifier(tableName, c.driver()))
 
-	rows, err := db.Query(query)
+	rows, err := c.execer().Query(query)
 	if err != nil {
 		return fmt.Errorf("[error] FindAll query failed: %w", err)
 	}
@@ -41,14 +71,15 @@ func (db *DB) FindAll(dest interface{}) error {
 		fieldMap := make(map[string]reflect.Value)
 		for i := 0; i < structType.NumField(); i++ {
 			field := structType.Field(i)
-			if field.Tag.Get("gohan") != "-" {
-				fieldMap[strings.ToLower(field.Name)] = elem.Field(i)
+			if !field.IsExported() || field.Tag.Get("gohan") == "-" {
+				continue
 			}
+			fieldMap[getColumnName(field)] = elem.Field(i)
 		}
 
 		scanArgs := make([]interface{}, len(cols))
 		for i, colName := range cols {
-			if val, ok := fieldMap[strings.ToLower(colName)]; ok {
+			if val, ok := fieldMap[strings.ToLower(colName)]; ok && val.CanAddr() {
 				scanArgs[i] = val.Addr().Interface()
 			} else {
 				var dummy interface{}
@@ -57,16 +88,20 @@ func (db *DB) FindAll(dest interface{}) error {
 		}
 
 		if err := rows.Scan(scanArgs...); err != nil {
-			return err
+			return fmt.Errorf("[error] Scan failed: %w", err)
 		}
 
-		sliceElem.Set(reflect.Append(sliceElem, elem))
+		if sliceElem.Type().Elem().Kind() == reflect.Ptr {
+			sliceElem.Set(reflect.Append(sliceElem, elemPtr))
+		} else {
+			sliceElem.Set(reflect.Append(sliceElem, elem))
+		}
 	}
 
-	return nil
+	return rows.Err()
 }
 
-func (db *DB) FindOne(dest interface{}, condition string, args ...interface{}) error {
+func findOne(c Commander, dest interface{}, condition string, args ...interface{}) error {
 	val := reflect.ValueOf(dest)
 	if val.Kind() != reflect.Ptr || val.Elem().Kind() != reflect.Struct {
 		return fmt.Errorf("[error] FindOne requires a pointer to a struct")
@@ -74,18 +109,27 @@ func (db *DB) FindOne(dest interface{}, condition string, args ...interface{}) e
 
 	structVal := val.Elem()
 	structType := structVal.Type()
-	tableName := strings.ToLower(structType.Name()) + "s"
+	tableName := toSnakeCase(structType.Name()) + "s"
 
-	if db.Driver == "postgres" {
-		for i := 1; strings.Contains(condition, "?"); i++ {
-			condition = strings.Replace(condition, "?", fmt.Sprintf("$%d", i), 1)
-		}
+	if c.driver() == "postgres" {
+		condition = formatPostgresPlaceholders(condition)
 	}
 
-	query := fmt.Sprintf("SELECT * FROM %s WHERE %s LIMIT 1", db.quoteIdentifier(tableName), condition)
-	row := db.QueryRow(query, args...)
+	query := fmt.Sprintf("SELECT * FROM %s WHERE %s LIMIT 1", quoteIdentifier(tableName, c.driver()), condition)
+	rows, err := c.execer().Query(query, args...)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
 
-	cols, err := db.getColumns(tableName)
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return err
+		}
+		return fmt.Errorf("[warning] Data not found")
+	}
+
+	cols, err := rows.Columns()
 	if err != nil {
 		return err
 	}
@@ -93,14 +137,15 @@ func (db *DB) FindOne(dest interface{}, condition string, args ...interface{}) e
 	fieldMap := make(map[string]reflect.Value)
 	for i := 0; i < structType.NumField(); i++ {
 		field := structType.Field(i)
-		if field.Tag.Get("gohan") != "-" {
-			fieldMap[strings.ToLower(field.Name)] = structVal.Field(i)
+		if !field.IsExported() || field.Tag.Get("gohan") == "-" {
+			continue
 		}
+		fieldMap[getColumnName(field)] = structVal.Field(i)
 	}
 
 	scanArgs := make([]interface{}, len(cols))
 	for i, colName := range cols {
-		if v, ok := fieldMap[strings.ToLower(colName)]; ok {
+		if v, ok := fieldMap[strings.ToLower(colName)]; ok && v.CanAddr() {
 			scanArgs[i] = v.Addr().Interface()
 		} else {
 			var dummy interface{}
@@ -108,43 +153,28 @@ func (db *DB) FindOne(dest interface{}, condition string, args ...interface{}) e
 		}
 	}
 
-	if err := row.Scan(scanArgs...); err != nil {
-		if err == sql.ErrNoRows {
-			return fmt.Errorf("[warning] Data not found")
-		}
-		return err
-	}
-
-	return nil
+	return rows.Scan(scanArgs...)
 }
 
-func (db *DB) FindByID(dest interface{}, id interface{}) error {
+func findByID(c Commander, dest interface{}, id interface{}) error {
 	val := reflect.ValueOf(dest)
 	if val.Kind() != reflect.Ptr || val.Elem().Kind() != reflect.Struct {
 		return fmt.Errorf("[error] FindByID requires a pointer to a struct")
 	}
 
 	structType := val.Elem().Type()
-	pkCol := "id"
-
-	for i := 0; i < structType.NumField(); i++ {
-		tag := structType.Field(i).Tag.Get("gohan")
-		if strings.Contains(tag, "primary_key") {
-			pkCol = strings.ToLower(structType.Field(i).Name)
-			break
-		}
-	}
+	pkCol := getPrimaryKeyColumn(structType)
 
 	placeholder := "?"
-	if db.Driver == "postgres" {
+	if c.driver() == "postgres" {
 		placeholder = "$1"
 	}
 
-	condition := fmt.Sprintf("%s = %s", db.quoteIdentifier(pkCol), placeholder)
-	return db.FindOne(dest, condition, id)
+	condition := fmt.Sprintf("%s = %s", quoteIdentifier(pkCol, c.driver()), placeholder)
+	return findOne(c, dest, condition, id)
 }
 
-func (db *DB) Create(model interface{}) error {
+func create(c Commander, model interface{}) error {
 	val := reflect.ValueOf(model)
 
 	if val.Kind() != reflect.Ptr || val.Elem().Kind() != reflect.Struct {
@@ -153,7 +183,7 @@ func (db *DB) Create(model interface{}) error {
 
 	structVal := val.Elem()
 	structType := structVal.Type()
-	tableName := strings.ToLower(structType.Name()) + "s"
+	tableName := toSnakeCase(structType.Name()) + "s"
 
 	var columns []string
 	var placeholders []string
@@ -168,11 +198,11 @@ func (db *DB) Create(model interface{}) error {
 		fieldValue := structVal.Field(i)
 		gohanTag := field.Tag.Get("gohan")
 
-		if gohanTag == "-" {
+		if !field.IsExported() || gohanTag == "-" {
 			continue
 		}
 
-		colName := strings.ToLower(field.Name)
+		colName := getColumnName(field)
 
 		if strings.Contains(gohanTag, "primary_key") {
 			hasPK = true
@@ -184,9 +214,9 @@ func (db *DB) Create(model interface{}) error {
 			}
 		}
 
-		columns = append(columns, db.quoteIdentifier(colName))
+		columns = append(columns, quoteIdentifier(colName, c.driver()))
 
-		if db.Driver == "postgres" {
+		if c.driver() == "postgres" {
 			placeholders = append(placeholders, fmt.Sprintf("$%d", len(values)+1))
 		} else {
 			placeholders = append(placeholders, "?")
@@ -195,24 +225,34 @@ func (db *DB) Create(model interface{}) error {
 		values = append(values, fieldValue.Interface())
 	}
 
-	quotedTable := db.quoteIdentifier(tableName)
+	if len(columns) == 0 {
+		return fmt.Errorf("[error] No insertable columns found for '%s'", tableName)
+	}
 
-	if db.Driver == "postgres" && hasPK {
+	quotedTable := quoteIdentifier(tableName, c.driver())
+
+	if c.driver() == "postgres" && hasPK {
 		query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s) RETURNING %s",
 			quotedTable,
 			strings.Join(columns, ", "),
 			strings.Join(placeholders, ", "),
-			db.quoteIdentifier(pkColName),
+			quoteIdentifier(pkColName, c.driver()),
 		)
 
-		var lastInsertID int64
-		err := db.QueryRow(query, values...).Scan(&lastInsertID)
-		if err != nil {
-			return fmt.Errorf("[error] Failed to insert data into '%s': %w", tableName, err)
-		}
-
-		if pkField.IsValid() && pkField.CanSet() {
-			pkField.SetInt(lastInsertID)
+		if pkField.Kind() == reflect.Int || pkField.Kind() == reflect.Int64 {
+			var lastInsertID int64
+			err := c.execer().QueryRow(query, values...).Scan(&lastInsertID)
+			if err != nil {
+				return fmt.Errorf("[error] Failed to insert data into '%s': %w", tableName, err)
+			}
+			if pkField.CanSet() {
+				pkField.SetInt(lastInsertID)
+			}
+		} else {
+			_, err := c.execer().Exec(query, values...)
+			if err != nil {
+				return fmt.Errorf("[error] Failed to insert data into '%s': %w", tableName, err)
+			}
 		}
 	} else {
 		query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)",
@@ -221,12 +261,12 @@ func (db *DB) Create(model interface{}) error {
 			strings.Join(placeholders, ", "),
 		)
 
-		res, err := db.Exec(query, values...)
+		res, err := c.execer().Exec(query, values...)
 		if err != nil {
 			return fmt.Errorf("[error] Failed to insert data into '%s': %w", tableName, err)
 		}
 
-		if hasPK && pkField.IsValid() && pkField.CanSet() {
+		if hasPK && pkField.IsValid() && pkField.CanSet() && (pkField.Kind() == reflect.Int || pkField.Kind() == reflect.Int64) {
 			if lastID, err := res.LastInsertId(); err == nil && lastID > 0 {
 				pkField.SetInt(lastID)
 			}
@@ -237,7 +277,7 @@ func (db *DB) Create(model interface{}) error {
 	return nil
 }
 
-func (db *DB) Update(model interface{}, id interface{}) error {
+func update(c Commander, model interface{}, id interface{}) error {
 	val := reflect.ValueOf(model)
 
 	if val.Kind() != reflect.Ptr || val.Elem().Kind() != reflect.Struct {
@@ -246,36 +286,36 @@ func (db *DB) Update(model interface{}, id interface{}) error {
 
 	structVal := val.Elem()
 	structType := structVal.Type()
-	tableName := strings.ToLower(structType.Name()) + "s"
+	tableName := toSnakeCase(structType.Name()) + "s"
 
 	var setClauses []string
 	var values []interface{}
 	paramIdx := 1
 
-	pkCol := "id"
+	pkCol := getPrimaryKeyColumn(structType)
+
 	for i := 0; i < structType.NumField(); i++ {
 		field := structType.Field(i)
 		fieldVal := structVal.Field(i)
 		gohanTag := field.Tag.Get("gohan")
 
-		if gohanTag == "-" {
+		if !field.IsExported() || gohanTag == "-" {
 			continue
 		}
 
-		colName := strings.ToLower(field.Name)
+		colName := getColumnName(field)
 
 		if strings.Contains(gohanTag, "primary_key") {
-			pkCol = colName
 			continue
 		}
 
 		placeholder := "?"
-		if db.Driver == "postgres" {
+		if c.driver() == "postgres" {
 			placeholder = fmt.Sprintf("$%d", paramIdx)
 			paramIdx++
 		}
 
-		setClauses = append(setClauses, fmt.Sprintf("%s = %s", db.quoteIdentifier(colName), placeholder))
+		setClauses = append(setClauses, fmt.Sprintf("%s = %s", quoteIdentifier(colName, c.driver()), placeholder))
 		values = append(values, fieldVal.Interface())
 	}
 
@@ -284,19 +324,19 @@ func (db *DB) Update(model interface{}, id interface{}) error {
 	}
 
 	pkPlaceholder := "?"
-	if db.Driver == "postgres" {
+	if c.driver() == "postgres" {
 		pkPlaceholder = fmt.Sprintf("$%d", paramIdx)
 	}
 	values = append(values, id)
 
 	query := fmt.Sprintf("UPDATE %s SET %s WHERE %s = %s",
-		db.quoteIdentifier(tableName),
+		quoteIdentifier(tableName, c.driver()),
 		strings.Join(setClauses, ", "),
-		db.quoteIdentifier(pkCol),
+		quoteIdentifier(pkCol, c.driver()),
 		pkPlaceholder,
 	)
 
-	res, err := db.Exec(query, values...)
+	res, err := c.execer().Exec(query, values...)
 	if err != nil {
 		return fmt.Errorf("[error] Data update failed: %w", err)
 	}
@@ -310,46 +350,82 @@ func (db *DB) Update(model interface{}, id interface{}) error {
 	return nil
 }
 
-func (db *DB) Delete(model interface{}, id interface{}) error {
-    t := reflect.TypeOf(model)
-    if t == nil {
-        return fmt.Errorf("[error] Delete requires a valid struct or struct pointer")
-    }
+func deleteModel(c Commander, model interface{}, id interface{}) error {
+	t := reflect.TypeOf(model)
+	if t == nil {
+		return fmt.Errorf("[error] Delete requires a valid struct or struct pointer")
+	}
 
-    if t.Kind() == reflect.Ptr {
-        t = t.Elem()
-    }
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
 
-    if t.Kind() != reflect.Struct {
-        return fmt.Errorf("[error] Delete requires a struct or a pointer to a struct")
-    }
+	if t.Kind() != reflect.Struct {
+		return fmt.Errorf("[error] Delete requires a struct or a pointer to a struct")
+	}
 
-    tableName := strings.ToLower(t.Name()) + "s"
+	tableName := toSnakeCase(t.Name()) + "s"
+	pkCol := getPrimaryKeyColumn(t)
 
-    pkCol := "id"
-    for i := 0; i < t.NumField(); i++ {
-        if strings.Contains(t.Field(i).Tag.Get("gohan"), "primary_key") {
-            pkCol = strings.ToLower(t.Field(i).Name)
-            break
-        }
-    }
+	placeholder := "?"
+	if c.driver() == "postgres" {
+		placeholder = "$1"
+	}
 
-    placeholder := "?"
-    if db.Driver == "postgres" {
-        placeholder = "$1"
-    }
+	query := fmt.Sprintf("DELETE FROM %s WHERE %s = %s", quoteIdentifier(tableName, c.driver()), quoteIdentifier(pkCol, c.driver()), placeholder)
+	res, err := c.execer().Exec(query, id)
+	if err != nil {
+		return fmt.Errorf("[error] Failed to delete data: %w", err)
+	}
 
-    query := fmt.Sprintf("DELETE FROM %s WHERE %s = %s", db.quoteIdentifier(tableName), db.quoteIdentifier(pkCol), placeholder)
-    res, err := db.Exec(query, id)
-    if err != nil {
-        return fmt.Errorf("[error] Failed to delete data: %w", err)
-    }
+	rowsAffected, _ := res.RowsAffected()
+	if rowsAffected == 0 {
+		return fmt.Errorf("[warning] Data not found")
+	}
 
-    rowsAffected, _ := res.RowsAffected()
-    if rowsAffected == 0 {
-        return fmt.Errorf("[warning] Data not found")
-    }
+	log.Printf("[info] The data in the '%s' table with ID %v was successfully deleted\n", tableName, id)
+	return nil
+}
 
-    log.Printf("[info] The data in the '%s' table with ID %v was successfully deleted\n", tableName, id)
-    return nil
+func quoteIdentifier(name string, driver string) string {
+	cleanName := strings.ReplaceAll(name, "`", "")
+	cleanName = strings.ReplaceAll(cleanName, "\"", "")
+
+	switch driver {
+	case "mysql":
+		return fmt.Sprintf("`%s`", cleanName)
+	case "postgres":
+		return fmt.Sprintf("\"%s\"", cleanName)
+	default:
+		return cleanName
+	}
+}
+
+func getPrimaryKeyColumn(t reflect.Type) string {
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		if strings.Contains(field.Tag.Get("gohan"), "primary_key") {
+			return getColumnName(field)
+		}
+	}
+	return "id"
+}
+
+func formatPostgresPlaceholders(condition string) string {
+	var result strings.Builder
+	paramIdx := 1
+	inString := false
+
+	for _, char := range condition {
+		if char == '\'' {
+			inString = !inString
+		}
+		if char == '?' && !inString {
+			result.WriteString(fmt.Sprintf("$%d", paramIdx))
+			paramIdx++
+		} else {
+			result.WriteRune(char)
+		}
+	}
+	return result.String()
 }

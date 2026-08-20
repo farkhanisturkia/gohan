@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"reflect"
+	"regexp"
 	"strings"
 
 	"github.com/farkhanisturkia/gohan/internal/config"
@@ -17,6 +18,20 @@ import (
 type DB struct {
 	*sql.DB
 	Driver string
+}
+
+type Execer interface {
+	Exec(query string, args ...interface{}) (sql.Result, error)
+	Query(query string, args ...interface{}) (*sql.Rows, error)
+	QueryRow(query string, args ...interface{}) *sql.Row
+}
+
+func (db *DB) execer() Execer {
+	return db.DB
+}
+
+func (db *DB) driver() string {
+	return db.Driver
 }
 
 func GetConn(e *config.Env) (*DB, error) {
@@ -59,6 +74,10 @@ func GetConn(e *config.Env) (*DB, error) {
 }
 
 func (db *DB) SetTable(model interface{}) error {
+	return setTable(db, model)
+}
+
+func setTable(c Commander, model interface{}) error {
 	val := reflect.ValueOf(model)
 	if val.Kind() == reflect.Ptr {
 		val = val.Elem()
@@ -69,20 +88,20 @@ func (db *DB) SetTable(model interface{}) error {
 	}
 
 	typ := val.Type()
-	tableName := strings.ToLower(typ.Name()) + "s"
+	tableName := toSnakeCase(typ.Name()) + "s"
 
 	var columns []string
 
 	for i := 0; i < typ.NumField(); i++ {
 		field := typ.Field(i)
-		gohanTag := field.Tag.Get("gohan")
 
-		if gohanTag == "-" {
+		if !field.IsExported() || field.Tag.Get("gohan") == "-" {
 			continue
 		}
 
-		colName := strings.ToLower(field.Name)
-		dbType := getSQLType(field.Type, db.Driver)
+		gohanTag := field.Tag.Get("gohan")
+		colName := getColumnName(field)
+		dbType := getSQLType(field.Type, c.driver())
 		constraints := ""
 		isPrimaryKey := false
 
@@ -102,29 +121,31 @@ func (db *DB) SetTable(model interface{}) error {
 			}
 		}
 
-		if db.Driver == "postgres" && strings.ToUpper(dbType) == "DATETIME" {
+		if c.driver() == "postgres" && strings.EqualFold(dbType, "DATETIME") {
 			dbType = "TIMESTAMP"
 		}
 
 		if isPrimaryKey {
-			if db.Driver == "sqlite3" {
-				constraints = " PRIMARY KEY AUTOINCREMENT" + constraints
-			} else if db.Driver == "mysql" {
-				constraints = " PRIMARY KEY AUTO_INCREMENT" + constraints
-			} else if db.Driver == "postgres" {
-				dbType = "SERIAL"
-				constraints = " PRIMARY KEY" + constraints
+			if c.driver() == "sqlite3" {
+				constraints = " PRIMARY KEY AUTOINCREMENT"
+			} else if c.driver() == "mysql" {
+				constraints = " PRIMARY KEY AUTO_INCREMENT"
+			} else if c.driver() == "postgres" {
+				if strings.EqualFold(dbType, "INT") || strings.EqualFold(dbType, "BIGINT") || dbType == "" {
+					dbType = "SERIAL"
+				}
+				constraints = " PRIMARY KEY"
 			}
 		}
 
-		colDef := fmt.Sprintf("%s %s%s", db.quoteIdentifier(colName), dbType, constraints)
+		colDef := fmt.Sprintf("%s %s%s", quoteIdentifier(colName, c.driver()), dbType, constraints)
 		columns = append(columns, colDef)
 	}
 
-	quotedTable := db.quoteIdentifier(tableName)
+	quotedTable := quoteIdentifier(tableName, c.driver())
 	query := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (%s);", quotedTable, strings.Join(columns, ", "))
 
-	_, err := db.Exec(query)
+	_, err := c.execer().Exec(query)
 	if err != nil {
 		return fmt.Errorf("[error] Failed to create the '%s' table: %w", tableName, err)
 	}
@@ -134,6 +155,10 @@ func (db *DB) SetTable(model interface{}) error {
 }
 
 func getSQLType(t reflect.Type, driver string) string {
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+
 	if t.String() == "time.Time" {
 		if driver == "postgres" {
 			return "TIMESTAMP"
@@ -155,24 +180,24 @@ func getSQLType(t reflect.Type, driver string) string {
 	}
 }
 
-func (db *DB) quoteIdentifier(name string) string {
-	switch db.Driver {
-	case "mysql":
-		return fmt.Sprintf("`%s`", name)
-	case "postgres":
-		return fmt.Sprintf("\"%s\"", name)
-	default:
-		return name
-	}
+var matchFirstCap = regexp.MustCompile("(.)([A-Z][a-z]+)")
+var matchAllCap = regexp.MustCompile("([a-z0-9])([A-Z])")
+
+func toSnakeCase(str string) string {
+	snake := matchFirstCap.ReplaceAllString(str, "${1}_${2}")
+	snake = matchAllCap.ReplaceAllString(snake, "${1}_${2}")
+	return strings.ToLower(snake)
 }
 
-func (db *DB) getColumns(tableName string) ([]string, error) {
-	query := fmt.Sprintf("SELECT * FROM %s LIMIT 1", db.quoteIdentifier(tableName))
-	rows, err := db.Query(query)
-	if err != nil {
-		return nil, err
+func getColumnName(field reflect.StructField) string {
+	gohanTag := field.Tag.Get("gohan")
+	if gohanTag != "" {
+		for _, part := range strings.Split(gohanTag, ";") {
+			part = strings.TrimSpace(part)
+			if strings.HasPrefix(part, "column:") {
+				return strings.TrimPrefix(part, "column:")
+			}
+		}
 	}
-	defer rows.Close()
-
-	return rows.Columns()
+	return toSnakeCase(field.Name)
 }
