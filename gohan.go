@@ -28,6 +28,13 @@ var JSON = gohanHttp.JSON
 var Error = gohanHttp.Error
 var Param = gohanHttp.Param
 
+// HTTP Client (External API Requests)
+type HTTPClient = gohanHttp.HTTPClient
+
+var NewHTTPClient = gohanHttp.NewHTTPClient
+var FetchJSON = gohanHttp.FetchJSON
+var PostJSON = gohanHttp.PostJSON
+
 // HTTP Router & Server
 type Router = gohanHttp.Router
 
