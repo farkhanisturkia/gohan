@@ -17,6 +17,8 @@ var GetEnv = config.GetEnv
 
 // Database
 type DB = database.DB
+type Tx = database.Tx
+type RawQuery = database.RawQuery
 
 var GetConn = database.GetConn
 
