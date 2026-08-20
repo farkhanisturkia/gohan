@@ -110,13 +110,16 @@ func setTable(c Commander, model interface{}) error {
             for _, part := range tagParts {
                 part = strings.TrimSpace(part)
                 if strings.HasPrefix(part, "type:") {
-                    dbType = strings.TrimPrefix(part, "type:")
+                    dbType = strings.TrimSpace(strings.TrimPrefix(part, "type:"))
                 } else if part == "primary_key" {
                     isPrimaryKey = true
                 } else if part == "not_null" {
                     constraints += " NOT NULL"
                 } else if part == "unique" {
                     constraints += " UNIQUE"
+                } else if strings.HasPrefix(part, "default:") {
+                    defaultValue := strings.TrimSpace(strings.TrimPrefix(part, "default:"))
+                    constraints += " DEFAULT " + defaultValue
                 }
             }
         }
@@ -163,7 +166,6 @@ func setTable(c Commander, model interface{}) error {
     log.Printf("[info] The '%s' table is ready to use (created/verified).\n", tableName)
     return nil
 }
-
 func getSQLType(t reflect.Type, driver string) string {
 	if t.Kind() == reflect.Ptr {
 		t = t.Elem()
