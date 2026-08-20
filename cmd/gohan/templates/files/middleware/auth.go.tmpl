@@ -26,8 +26,8 @@ func Authenticate(db *gohan.DB, next http.HandlerFunc) http.HandlerFunc {
             return
         }
 
-        parts := strings.Split(authHeader, " ")
-        if len(parts) != 2 || parts[0] != "Bearer" {
+        parts := strings.SplitN(authHeader, " ", 2)
+        if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
             gohan.JSON(w, http.StatusUnauthorized, map[string]string{
                 "message": "Invalid authorization format. Expected 'Bearer <token>'",
             })
@@ -74,6 +74,8 @@ func Authenticate(db *gohan.DB, next http.HandlerFunc) http.HandlerFunc {
         }
 
         if time.Now().After(tokenData.ExpiresAt) {
+            _ = db.Delete(&migrations.PersonalAccessToken{}, tokenData.ID)
+            
             gohan.JSON(w, http.StatusUnauthorized, map[string]string{
                 "message": "Token has expired",
             })
