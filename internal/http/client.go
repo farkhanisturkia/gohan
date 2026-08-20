@@ -5,12 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
+	netHttp "net/http"
+	"strings"
 	"time"
 )
 
 type HTTPClient struct {
-	client *http.Client
+	client *netHttp.Client
 }
 
 func NewHTTPClient(timeout time.Duration) *HTTPClient {
@@ -18,7 +19,7 @@ func NewHTTPClient(timeout time.Duration) *HTTPClient {
 		timeout = 10 * time.Second
 	}
 	return &HTTPClient{
-		client: &http.Client{Timeout: timeout},
+		client: &netHttp.Client{Timeout: timeout},
 	}
 }
 
@@ -35,7 +36,7 @@ func (c *HTTPClient) Request(method, url string, body interface{}, headers map[s
 		reqBody = bytes.NewBuffer(jsonBytes)
 	}
 
-	req, err := http.NewRequest(method, url, reqBody)
+	req, err := netHttp.NewRequest(method, url, reqBody)
 	if err != nil {
 		return fmt.Errorf("[gohan http] failed to create request: %w", err)
 	}
@@ -61,8 +62,17 @@ func (c *HTTPClient) Request(method, url string, body interface{}, headers map[s
 	}
 
 	if target != nil {
+		if strTarget, ok := target.(*string); ok {
+			*strTarget = string(respBytes)
+			return nil
+		}
+
 		if err := json.Unmarshal(respBytes, target); err != nil {
-			return fmt.Errorf("[gohan http] failed to unmarshal response: %w", err)
+			preview := string(respBytes)
+			if len(preview) > 100 {
+				preview = preview[:100] + "..."
+			}
+			return fmt.Errorf("[gohan http] failed to unmarshal response: %w (raw response: %q)", err, strings.TrimSpace(preview))
 		}
 	}
 
@@ -70,9 +80,9 @@ func (c *HTTPClient) Request(method, url string, body interface{}, headers map[s
 }
 
 func FetchJSON(url string, target interface{}) error {
-	return defaultClient.Request(http.MethodGet, url, nil, nil, target)
+	return defaultClient.Request(netHttp.MethodGet, url, nil, nil, target)
 }
 
 func PostJSON(url string, body interface{}, target interface{}) error {
-	return defaultClient.Request(http.MethodPost, url, body, nil, target)
+	return defaultClient.Request(netHttp.MethodPost, url, body, nil, target)
 }

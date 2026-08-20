@@ -20,9 +20,9 @@ func SetupRoutes(db *gohan.DB) {
 
     // Get API public
     gohan.Get("/check-public", func(w http.ResponseWriter, r *http.Request) {
-        var result map[string]interface{}
+        var textResult string
 
-        err := gohan.FetchJSON("https://api.github.com/zen", &result)
+        err := gohan.FetchJSON("https://api.github.com/zen", &textResult)
         if err != nil {
             gohan.JSON(w, http.StatusBadGateway, map[string]string{
                 "message": "Failed to connect to the Public API",
@@ -31,7 +31,9 @@ func SetupRoutes(db *gohan.DB) {
             return
         }
 
-        gohan.JSON(w, http.StatusOK, result)
+        gohan.JSON(w, http.StatusOK, map[string]string{
+            "result": textResult,
+        })
     })
 
     // Post API public
