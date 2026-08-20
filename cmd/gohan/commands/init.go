@@ -28,7 +28,7 @@ func InitBoilerplate() {
 
     fmt.Println("\n[1] Select Architecture API:")
     fmt.Println("  1) REST API (Default)")
-    fmt.Println("  2) gRPC")
+    fmt.Println("  2) gRPC (*Coming soon)")
     fmt.Print("Choose option [1-2]: ")
     archChoice := readInput(reader)
 
