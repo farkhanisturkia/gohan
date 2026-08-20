@@ -1,47 +1,51 @@
 package main
 
 import (
-	"net/http"
+    "net/http"
 
-	"github.com/farkhanisturkia/gohan"
+    "github.com/farkhanisturkia/gohan"
 {{- if .UseAuth }}
-	"{{ .ModuleName }}/controllers"
-	"{{ .ModuleName }}/middleware"
+    "{{ .ModuleName }}/controllers"
+    "{{ .ModuleName }}/middleware"
 {{- end }}
 )
 
 func SetupRoutes(db *gohan.DB) {
-	// Public Health Check Route
-	gohan.Get("/ping", func(w http.ResponseWriter, r *http.Request) {
-		gohan.JSON(w, http.StatusOK, map[string]string{
-			"message": "pong",
-		})
-	})
+    // Public Health Check Route
+    gohan.Get("/ping", func(w http.ResponseWriter, r *http.Request) {
+        gohan.JSON(w, http.StatusOK, map[string]string{
+            "message": "pong",
+        })
+    })
 {{- if .UseAuth }}
 
-	// Authentication Routes
-	gohan.Post("/api/login", controllers.LoginAuth(db))
-	gohan.Post("/api/logout", middleware.Authenticate(db, controllers.LogoutAuth(db)))
+    // Authentication Routes
+    gohan.Post("/api/login", controllers.LoginAuth(db))
+    gohan.Post("/api/logout", middleware.Authenticate(db, controllers.LogoutAuth(db)))
 
-	gohan.Get("/api/me", middleware.Authenticate(db, func(w http.ResponseWriter, r *http.Request) {
-		user, ok := middleware.GetAuthUser(r)
-		if !ok {
-			gohan.JSON(w, http.StatusInternalServerError, map[string]string{
-				"message": "Failed to get user context",
-			})
-			return
-		}
+    gohan.Get("/api/me", middleware.Authenticate(db, func(w http.ResponseWriter, r *http.Request) {
+        user, ok := middleware.GetAuthUser(r)
+        if !ok {
+            gohan.JSON(w, http.StatusInternalServerError, map[string]string{
+                "message": "Failed to get user context",
+            })
+            return
+        }
 
-		gohan.JSON(w, http.StatusOK, map[string]interface{}{
-			"message": "User profile retrieved successfully",
-			"data":    user,
-		})
-	}))
+        gohan.JSON(w, http.StatusOK, map[string]interface{}{
+            "message": "User profile retrieved successfully",
+            "data": map[string]interface{}{
+                "id":    user.ID,
+                "name":  user.Name,
+                "email": user.Email,
+            },
+        })
+    }))
 {{- end }}
 {{- if and .UseAuth .UseForgotPassword }}
 
-	// Password Reset Routes
-	gohan.Post("/api/forgot-password", controllers.ForgotPassword(db))
-	gohan.Post("/api/reset-password", controllers.ResetPassword(db))
+    // Password Reset Routes
+    gohan.Post("/api/forgot-password", controllers.ForgotPassword(db))
+    gohan.Post("/api/reset-password", controllers.ResetPassword(db))
 {{- end }}
 }
