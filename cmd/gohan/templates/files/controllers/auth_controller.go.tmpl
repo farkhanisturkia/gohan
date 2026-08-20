@@ -74,7 +74,6 @@ func LoginAuth(db *gohan.DB) http.HandlerFunc {
             IPAddress: ipAddress,
             UserAgent: userAgent,
             ExpiresAt: time.Now().Add(7 * 24 * time.Hour),
-            CreatedAt: time.Now(),
         }
 
         if err := db.Create(&pat); err != nil {
