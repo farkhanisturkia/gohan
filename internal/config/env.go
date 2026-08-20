@@ -48,9 +48,9 @@ DB_DRIVER=sqlite
 
 # MySQL / Postgres Configuration
 DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_USER=root
-DB_PASSWORD=
+DB_PORT=3306        // set (5432) for postgres
+DB_USER=root        // set (postgres) for postgres
+DB_PASSWORD=        // set (postgres) for postgres
 DB_NAME=gohan_db
 
 # SQLite Configuration
