@@ -2,15 +2,17 @@ package migrations
 
 import (
 	"log"
+    "time"
 
 	"github.com/farkhanisturkia/gohan"
 )
 
 type User struct {
-	ID       int    `gohan:"primary_key" json:"id"`
-	Name     string `gohan:"type:VARCHAR(100);not_null" json:"name"`
-	Email    string `gohan:"type:VARCHAR(150);unique;not_null" json:"email"`
-	Password string `gohan:"type:VARCHAR(255);not_null" json:"-"`
+    ID        int       `gohan:"primary_key" json:"id"`
+    Name      string    `gohan:"type:VARCHAR(100);not_null" json:"name"`
+    Email     string    `gohan:"type:VARCHAR(150);unique;not_null" json:"email"`
+    Password  string    `gohan:"type:VARCHAR(255);not_null" json:"-"`
+    CreatedAt time.Time `gohan:"type:TIMESTAMP;not_null;default:CURRENT_TIMESTAMP" json:"created_at"`
 }
 
 func UserMigration(db *gohan.DB) {

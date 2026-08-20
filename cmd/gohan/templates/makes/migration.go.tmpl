@@ -10,8 +10,7 @@ import (
 type {{.Prefix}} struct {
     ID        int       `gohan:"primary_key" json:"id"`
     Name      string    `gohan:"type:VARCHAR(255);not_null" json:"name"`
-    CreatedAt time.Time `gohan:"type:TIMESTAMP;not_null" json:"created_at"`
-    UpdatedAt time.Time `gohan:"type:TIMESTAMP;not_null" json:"updated_at"`
+    CreatedAt time.Time `gohan:"type:TIMESTAMP;not_null;default:CURRENT_TIMESTAMP" json:"created_at"`
 }
 
 func {{.Prefix}}Migration(db *gohan.DB) {
