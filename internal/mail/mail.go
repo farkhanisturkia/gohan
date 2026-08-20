@@ -12,7 +12,6 @@ import (
 func SendEmail(to string, subject string, body string) error {
 	env := config.GetEnv()
 
-	// Jika MAIL_DRIVER diset "log", cukup log ke console (cocok untuk dev local)
 	if env.MailDriver == "log" || env.MailHost == "" {
 		fmt.Printf("[MAIL LOG] To: %s | Subject: %s | Body: %s\n", to, subject, body)
 		return nil
@@ -47,7 +46,6 @@ func SendEmail(to string, subject string, body string) error {
 
 	portInt, _ := strconv.Atoi(env.MailPort)
 
-	// Koneksi SSL (Port 465) vs STARTTLS / Non-SSL (Port 587 / 25 / 2525)
 	if env.MailEncryption == "ssl" || portInt == 465 {
 		tlsconfig := &tls.Config{
 			InsecureSkipVerify: true,
@@ -89,6 +87,5 @@ func SendEmail(to string, subject string, body string) error {
 		return w.Close()
 	}
 
-	// Default: Standard SMTP / STARTTLS
 	return smtp.SendMail(addr, auth, from, []string{to}, []byte(message))
 }
