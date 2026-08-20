@@ -9,7 +9,7 @@ import (
 
 type PersonalAccessToken struct {
 	ID        int       `gohan:"primary_key" json:"id"`
-	UserID    int       `gohan:"type:INT;not_null" json:"user_id"`
+	UserID    int       `gohan:"type:INTEGER;not_null" json:"user_id"`
 	Name      string    `gohan:"type:VARCHAR(100);not_null" json:"name"`
 	Token     string    `gohan:"type:VARCHAR(255);unique;not_null" json:"token"`
 	IPAddress string    `gohan:"type:VARCHAR(45)" json:"ip_address"`

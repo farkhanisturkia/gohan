@@ -7,7 +7,7 @@ import (
 	"github.com/farkhanisturkia/gohan/cmd/gohan/commands"
 )
 
-const AppVersion = "v1.4.5"
+const AppVersion = "v1.4.6"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -33,7 +33,7 @@ func main() {
 
 	case "make:migration":
 		if len(os.Args) < 3 {
-			fmt.Println("[error] Migration name is required. Example: gohan make:migration create_users_table")
+			fmt.Println("[error] Migration name is required. Example: gohan make:migration create_user_table")
 			os.Exit(1)
 		}
 		commands.MakeMigration(os.Args[2])

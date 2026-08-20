@@ -78,80 +78,90 @@ func (db *DB) SetTable(model interface{}) error {
 }
 
 func setTable(c Commander, model interface{}) error {
-	val := reflect.ValueOf(model)
-	if val.Kind() == reflect.Ptr {
-		val = val.Elem()
-	}
+    val := reflect.ValueOf(model)
+    if val.Kind() == reflect.Ptr {
+        val = val.Elem()
+    }
 
-	if val.Kind() != reflect.Struct {
-		return fmt.Errorf("[error] SetTable requires a struct or a pointer to a struct")
-	}
+    if val.Kind() != reflect.Struct {
+        return fmt.Errorf("[error] SetTable requires a struct or a pointer to a struct")
+    }
 
-	typ := val.Type()
-	tableName := toSnakeCase(typ.Name()) + "s"
+    typ := val.Type()
+    tableName := toSnakeCase(typ.Name()) + "s"
 
-	var columns []string
+    var columns []string
 
-	for i := 0; i < typ.NumField(); i++ {
-		field := typ.Field(i)
+    for i := 0; i < typ.NumField(); i++ {
+        field := typ.Field(i)
 
-		if !field.IsExported() || field.Tag.Get("gohan") == "-" {
-			continue
-		}
+        if !field.IsExported() || field.Tag.Get("gohan") == "-" {
+            continue
+        }
 
-		gohanTag := field.Tag.Get("gohan")
-		colName := getColumnName(field)
-		dbType := getSQLType(field.Type, c.driver())
-		constraints := ""
-		isPrimaryKey := false
+        gohanTag := field.Tag.Get("gohan")
+        colName := getColumnName(field)
+        dbType := getSQLType(field.Type, c.driver())
+        constraints := ""
+        isPrimaryKey := false
 
-		if gohanTag != "" {
-			tagParts := strings.Split(gohanTag, ";")
-			for _, part := range tagParts {
-				part = strings.TrimSpace(part)
-				if strings.HasPrefix(part, "type:") {
-					dbType = strings.TrimPrefix(part, "type:")
-				} else if part == "primary_key" {
-					isPrimaryKey = true
-				} else if part == "not_null" {
-					constraints += " NOT NULL"
-				} else if part == "unique" {
-					constraints += " UNIQUE"
-				}
-			}
-		}
+        if gohanTag != "" {
+            tagParts := strings.Split(gohanTag, ";")
+            for _, part := range tagParts {
+                part = strings.TrimSpace(part)
+                if strings.HasPrefix(part, "type:") {
+                    dbType = strings.TrimPrefix(part, "type:")
+                } else if part == "primary_key" {
+                    isPrimaryKey = true
+                } else if part == "not_null" {
+                    constraints += " NOT NULL"
+                } else if part == "unique" {
+                    constraints += " UNIQUE"
+                }
+            }
+        }
 
-		if c.driver() == "postgres" && strings.EqualFold(dbType, "DATETIME") {
-			dbType = "TIMESTAMP"
-		}
+        if c.driver() == "postgres" && strings.EqualFold(dbType, "DATETIME") {
+            dbType = "TIMESTAMP"
+        }
 
-		if isPrimaryKey {
-			if c.driver() == "sqlite3" {
-				constraints = " PRIMARY KEY AUTOINCREMENT"
-			} else if c.driver() == "mysql" {
-				constraints = " PRIMARY KEY AUTO_INCREMENT"
-			} else if c.driver() == "postgres" {
-				if strings.EqualFold(dbType, "INT") || strings.EqualFold(dbType, "BIGINT") || dbType == "" {
-					dbType = "SERIAL"
-				}
-				constraints = " PRIMARY KEY"
-			}
-		}
+        if isPrimaryKey {
+            switch c.driver() {
+            case "sqlite3", "sqlite":
+                dbType = "INTEGER"
+                constraints = " PRIMARY KEY AUTOINCREMENT"
 
-		colDef := fmt.Sprintf("%s %s%s", quoteIdentifier(colName, c.driver()), dbType, constraints)
-		columns = append(columns, colDef)
-	}
+            case "mysql":
+                if dbType == "" {
+                    dbType = "INT"
+                }
+                constraints = " PRIMARY KEY AUTO_INCREMENT"
 
-	quotedTable := quoteIdentifier(tableName, c.driver())
-	query := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (%s);", quotedTable, strings.Join(columns, ", "))
+            case "postgres":
+                upperType := strings.ToUpper(dbType)
+                if upperType == "INT" || upperType == "INTEGER" || upperType == "" {
+                    dbType = "SERIAL"
+                } else if upperType == "BIGINT" {
+                    dbType = "BIGSERIAL"
+                }
+                constraints = " PRIMARY KEY"
+            }
+        }
 
-	_, err := c.execer().Exec(query)
-	if err != nil {
-		return fmt.Errorf("[error] Failed to create the '%s' table: %w", tableName, err)
-	}
+        colDef := fmt.Sprintf("%s %s%s", quoteIdentifier(colName, c.driver()), dbType, constraints)
+        columns = append(columns, colDef)
+    }
 
-	log.Printf("[info] The '%s' table is ready to use (created/verified).\n", tableName)
-	return nil
+    quotedTable := quoteIdentifier(tableName, c.driver())
+    query := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (%s);", quotedTable, strings.Join(columns, ", "))
+
+    _, err := c.execer().Exec(query)
+    if err != nil {
+        return fmt.Errorf("[error] Failed to create the '%s' table: %w", tableName, err)
+    }
+
+    log.Printf("[info] The '%s' table is ready to use (created/verified).\n", tableName)
+    return nil
 }
 
 func getSQLType(t reflect.Type, driver string) string {
