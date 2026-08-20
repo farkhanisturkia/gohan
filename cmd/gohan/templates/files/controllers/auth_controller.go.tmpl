@@ -24,21 +24,13 @@ func LoginAuth(db *gohan.DB) http.HandlerFunc {
             return
         }
 
-        var users []migrations.User
-        if err := db.FindAll(&users); err != nil {
-            gohan.JSON(w, http.StatusInternalServerError, map[string]string{"message": "Database query error"})
+        var user migrations.User
+        if err := db.FindOne(&user, "email = ?", req.Email); err != nil {
+            gohan.JSON(w, http.StatusUnauthorized, map[string]string{"message": "Invalid email or password"})
             return
         }
 
-        var targetUser *migrations.User
-        for _, u := range users {
-            if u.Email == req.Email {
-                targetUser = &u
-                break
-            }
-        }
-
-        if targetUser == nil || !gohan.CheckPasswordHash(req.Password, targetUser.Password) {
+        if !gohan.CheckPasswordHash(req.Password, user.Password) {
             gohan.JSON(w, http.StatusUnauthorized, map[string]string{"message": "Invalid email or password"})
             return
         }
@@ -51,7 +43,7 @@ func LoginAuth(db *gohan.DB) http.HandlerFunc {
             duration = 24 * time.Hour
         }
 
-        tokenStr, err := gohan.GenerateJWT(targetUser.ID, targetUser.Email, env.JWTSecret, duration)
+        tokenStr, err := gohan.GenerateJWT(user.ID, user.Email, env.JWTSecret, duration)
         if err != nil {
             gohan.JSON(w, http.StatusInternalServerError, map[string]string{"message": "Failed to generate JWT token"})
             return
@@ -76,7 +68,7 @@ func LoginAuth(db *gohan.DB) http.HandlerFunc {
         tokenName := gohan.ParseTokenName(userAgent)
 
         pat := migrations.PersonalAccessToken{
-            UserID:    targetUser.ID,
+            UserID:    user.ID,
             Name:      tokenName,
             Token:     hashedToken,
             IPAddress: ipAddress,
@@ -95,9 +87,9 @@ func LoginAuth(db *gohan.DB) http.HandlerFunc {
             "message": "Login successful",
             "token":   tokenStr,
             "user": map[string]interface{}{
-                "id":    targetUser.ID,
-                "name":  targetUser.Name,
-                "email": targetUser.Email,
+                "id":    user.ID,
+                "name":  user.Name,
+                "email": user.Email,
             },
         })
     }
@@ -126,26 +118,13 @@ func LogoutAuth(db *gohan.DB) http.HandlerFunc {
             return
         }
 
-        var tokens []migrations.PersonalAccessToken
-        if err := db.FindAll(&tokens); err != nil {
-            gohan.JSON(w, http.StatusInternalServerError, map[string]string{"message": "Failed to query session"})
-            return
-        }
-
-        var targetToken *migrations.PersonalAccessToken
-        for _, t := range tokens {
-            if t.Token == hashedToken {
-                targetToken = &t
-                break
-            }
-        }
-
-        if targetToken == nil {
+        var pat migrations.PersonalAccessToken
+        if err := db.FindOne(&pat, "token = ?", hashedToken); err != nil {
             gohan.JSON(w, http.StatusNotFound, map[string]string{"message": "Session not found"})
             return
         }
 
-        if err := db.Delete(&migrations.PersonalAccessToken{}, targetToken.ID); err != nil {
+        if err := db.Delete(&migrations.PersonalAccessToken{}, pat.ID); err != nil {
             gohan.JSON(w, http.StatusInternalServerError, map[string]string{"message": "Failed to revoke token"})
             return
         }
