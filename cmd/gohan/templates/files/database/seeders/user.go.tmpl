@@ -1,20 +1,20 @@
 package seeders
 
 import (
-	"log"
+    "log"
 
-	"github.com/farkhanisturkia/gohan"
-	"{{ .ModuleName }}/database/migrations"
+    "github.com/farkhanisturkia/gohan"
+    "{{ .ModuleName }}/database/migrations"
 )
 
 func UserSeeder(db *gohan.DB) {
-	var existingUsers []migrations.User
-	if err := db.FindAll(&existingUsers); err == nil && len(existingUsers) > 0 {
-		log.Println("[info] User seeder skipped: Data already exists")
-		return
-	}
+    var existingUser migrations.User
+    if err := db.FindOne(&existingUser, "email = ?", "user@example.com"); err == nil {
+        log.Println("[info] User seeder skipped: Data already exists")
+        return
+    }
 
-	hashedPassword, err := gohan.HashPassword("password")
+    hashedPassword, err := gohan.HashPassword("password")
     if err != nil {
         log.Fatalf("[error] Failed to hash password: %v\n", err)
     }
@@ -27,11 +27,11 @@ func UserSeeder(db *gohan.DB) {
         },
     }
 
-	for _, user := range users {
-		if err := db.Create(&user); err != nil {
-			log.Printf("[error] Failed to seed user (%s): %v\n", user.Email, err)
-		}
-	}
+    for _, user := range users {
+        if err := db.Create(&user); err != nil {
+            log.Printf("[error] Failed to seed user (%s): %v\n", user.Email, err)
+        }
+    }
 
-	log.Println("[info] User seeder successfully executed")
+    log.Println("[info] User seeder successfully executed")
 }
