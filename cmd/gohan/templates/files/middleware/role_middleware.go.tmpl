@@ -1,0 +1,29 @@
+package middleware
+
+import (
+	"net/http"
+	"slices"
+
+	"github.com/farkhanisturkia/gohan"
+)
+
+func RequireRole(allowedRoles []string, next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user, ok := GetAuthUser(r)
+		if !ok {
+			gohan.JSON(w, http.StatusUnauthorized, map[string]string{
+				"message": "Unauthorized access",
+			})
+			return
+		}
+
+		if !slices.Contains(allowedRoles, user.Role) {
+			gohan.JSON(w, http.StatusForbidden, map[string]string{
+				"message": "Forbidden: You do not have permission to access this resource",
+			})
+			return
+		}
+
+		next(w, r)
+	}
+}
