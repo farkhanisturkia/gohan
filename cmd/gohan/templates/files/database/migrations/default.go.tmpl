@@ -10,4 +10,7 @@ func SetMigrations(db *gohan.DB) {
 {{- if and .UseAuth .UseForgotPassword }}
     PasswordResetMigration(db)
 {{- end }}
+{{- if and .UseAuth .UseRole }}
+	RoleMigration(db)
+{{- end }}
 }
