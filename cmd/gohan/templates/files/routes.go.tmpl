@@ -2,6 +2,7 @@ package main
 
 import (
     "net/http"
+    // "time"
 
     "github.com/farkhanisturkia/gohan"
 {{- if .UseAuth }}
@@ -94,9 +95,21 @@ func SetupRoutes(db *gohan.DB) {
                 "id":    user.ID,
                 "name":  user.Name,
                 "email": user.Email,
+{{- if .UseRole }}
+                "role":  user.Role,
+{{- end }}
             },
         })
     }))
+{{- if .UseRole }}
+
+    // Example Role-Based Protected Routes
+    gohan.Get("/api/admin/dashboard", middleware.Authenticate(db, middleware.RequireRole([]string{"admin"}, func(w http.ResponseWriter, r *http.Request) {
+        gohan.JSON(w, http.StatusOK, map[string]string{
+            "message": "Welcome to Admin Dashboard",
+        })
+    })))
+{{- end }}
 {{- end }}
 {{- if and .UseAuth .UseForgotPassword }}
 
