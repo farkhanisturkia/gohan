@@ -17,6 +17,7 @@ type InitConfig struct {
     UseAuth           bool
     AuthType          string
     UseForgotPassword bool
+    UseRole           bool
 }
 
 func InitBoilerplate() {
@@ -67,10 +68,19 @@ func InitBoilerplate() {
         } else {
             config.UseForgotPassword = false
         }
+
+        fmt.Print("\n[4] Do you want to include Role-Based Middleware (RBAC)? (y/N): ")
+        roleChoice := readInput(reader)
+        if strings.ToLower(roleChoice) == "y" || strings.ToLower(roleChoice) == "yes" {
+            config.UseRole = true
+        } else {
+            config.UseRole = false
+        }
     } else {
         config.UseAuth = false
         config.AuthType = ""
         config.UseForgotPassword = false
+        config.UseRole = false
     }
 
     fmt.Println("\n--------------------------------------------------")
@@ -81,16 +91,22 @@ func InitBoilerplate() {
         if config.UseForgotPassword {
             forgotPassStr = "YES"
         }
-        fmt.Printf("       - Auth         : YES (%s)\n", strings.ToUpper(config.AuthType))
-        fmt.Printf("       - Forgot Pass  : %s\n", forgotPassStr)
+        roleStr := "NO"
+        if config.UseRole {
+            roleStr = "YES"
+        }
+        fmt.Printf("       - Auth           : YES (%s)\n", strings.ToUpper(config.AuthType))
+        fmt.Printf("       - Forgot Pass    : %s\n", forgotPassStr)
+        fmt.Printf("       - Role Middleware: %s\n", roleStr)
     } else {
-        fmt.Println("       - Auth         : NO")
-        fmt.Println("       - Forgot Pass  : NO")
+        fmt.Println("       - Auth           : NO")
+        fmt.Println("       - Forgot Pass    : NO")
+        fmt.Println("       - Role Middleware: NO")
     }
     fmt.Println("--------------------------------------------------\n")
 
     moduleName := utils.GetModuleName()
-    templateMap, err := templates.GetBoilerplateTemplates(moduleName, config.UseAuth, config.AuthType, config.UseForgotPassword)
+    templateMap, err := templates.GetBoilerplateTemplates(moduleName, config.UseAuth, config.AuthType, config.UseForgotPassword, config.UseRole)
     if err != nil {
         fmt.Printf("[error] Failed to load boilerplate templates: %v\n", err)
         return
@@ -142,7 +158,10 @@ func shouldSkipFile(path string, cfg InitConfig) bool {
             filename == "password_reset_controller.go" ||
             filename == "00000000000002_create_personal_access_token_table.go" ||
             filename == "00000000000003_create_password_reset_table.go" ||
-            filename == "auth.go" {
+            filename == "00000000000004_create_role_table.go" ||
+            filename == "role.go" ||
+            filename == "auth_middleware.go" ||
+            filename == "role_middleware.go" {
             return true
         }
     }
@@ -156,6 +175,14 @@ func shouldSkipFile(path string, cfg InitConfig) bool {
     if cfg.UseAuth && !cfg.UseForgotPassword {
         if filename == "password_reset_controller.go" ||
             filename == "00000000000003_create_password_reset_table.go" {
+            return true
+        }
+    }
+
+    if cfg.UseAuth && !cfg.UseRole {
+        if filename == "00000000000004_create_role_table.go" ||
+            filename == "role.go" ||
+            filename == "role_middleware.go" {
             return true
         }
     }

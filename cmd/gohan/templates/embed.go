@@ -18,15 +18,17 @@ type TemplateData struct {
     UseAuth           bool
     AuthType          string
     UseForgotPassword bool
+    UseRole           bool
 }
 
-func GetBoilerplateTemplates(moduleName string, useAuth bool, authType string, useForgotPassword bool) (map[string]string, error) {
+func GetBoilerplateTemplates(moduleName string, useAuth bool, authType string, useForgotPassword bool, useRole bool) (map[string]string, error) {
     result := make(map[string]string)
     data := TemplateData{
         ModuleName:        moduleName,
         UseAuth:           useAuth,
         AuthType:          authType,
         UseForgotPassword: useForgotPassword,
+        UseRole:           useRole,
     }
 
     err := fs.WalkDir(templateFS, "files", func(path string, d fs.DirEntry, err error) error {
