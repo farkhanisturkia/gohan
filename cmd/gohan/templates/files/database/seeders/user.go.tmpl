@@ -8,11 +8,19 @@ import (
 )
 
 func UserSeeder(db *gohan.DB) {
-    var existingUser migrations.User
-    if err := db.FindOne(&existingUser, "email = ?", "user@example.com"); err == nil {
-        log.Println("[info] User seeder skipped: Data already exists")
+{{- if .UseRole }}
+    var adminRole, userRole migrations.Role
+    
+    if err := db.FindOne(&adminRole, "name = ?", "admin"); err != nil {
+        log.Println("[error] User seeder cancelled: 'admin' role not found in database. Run RoleSeeder first.")
         return
     }
+
+    if err := db.FindOne(&userRole, "name = ?", "user"); err != nil {
+        log.Println("[error] User seeder cancelled: 'user' role not found in database. Run RoleSeeder first.")
+        return
+    }
+{{- end }}
 
     hashedPassword, err := gohan.HashPassword("password")
     if err != nil {
@@ -24,14 +32,33 @@ func UserSeeder(db *gohan.DB) {
             Name:     "User",
             Email:    "user@example.com",
             Password: hashedPassword,
+{{- if .UseRole }}
+            RoleID:   userRole.ID,
+{{- end }}
+        },
+        {
+            Name:     "Administrator",
+            Email:    "admin@example.com",
+            Password: hashedPassword,
+{{- if .UseRole }}
+            RoleID:   adminRole.ID,
+{{- end }}
         },
     }
 
     for _, user := range users {
+        var existingUser migrations.User
+        if err := db.FindOne(&existingUser, "email = ?", user.Email); err == nil {
+            log.Printf("[info] User seeder skipped for '%s': Data already exists\n", user.Email)
+            continue
+        }
+
         if err := db.Create(&user); err != nil {
             log.Printf("[error] Failed to seed user (%s): %v\n", user.Email, err)
+        } else {
+            log.Printf("[info] User '%s' successfully seeded\n", user.Email)
         }
     }
 
-    log.Println("[info] User seeder successfully executed")
+    log.Println("[info] User seeder process completed")
 }
