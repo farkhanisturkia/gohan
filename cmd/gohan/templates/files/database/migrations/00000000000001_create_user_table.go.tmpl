@@ -11,6 +11,7 @@ type User struct {
     ID        int       `gohan:"primary_key" json:"id"`
 {{- if .UseRole }}
     RoleID    int       `gohan:"type:INT;not_null;foreign_key:roles.id" json:"role_id"`
+    Role      Role      `gohan:"-" json:"role"`
 {{- end }}
     Name      string    `gohan:"type:VARCHAR(100);not_null" json:"name"`
     Email     string    `gohan:"type:VARCHAR(150);unique;not_null" json:"email"`
