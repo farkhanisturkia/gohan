@@ -1,14 +1,17 @@
 package migrations
 
 import (
-	"log"
+    "log"
     "time"
 
-	"github.com/farkhanisturkia/gohan"
+    "github.com/farkhanisturkia/gohan"
 )
 
 type User struct {
     ID        int       `gohan:"primary_key" json:"id"`
+{{- if .UseRole }}
+    RoleID    int       `gohan:"type:INT;not_null;foreign_key:roles.id" json:"role_id"`
+{{- end }}
     Name      string    `gohan:"type:VARCHAR(100);not_null" json:"name"`
     Email     string    `gohan:"type:VARCHAR(150);unique;not_null" json:"email"`
     Password  string    `gohan:"type:VARCHAR(255);not_null" json:"-"`
@@ -16,7 +19,7 @@ type User struct {
 }
 
 func UserMigration(db *gohan.DB) {
-	if err := db.SetTable(&User{}); err != nil {
-		log.Printf("[error] Failed to migrate the User table: %v\n", err)
-	}
+    if err := db.SetTable(&User{}); err != nil {
+        log.Printf("[error] Failed to migrate the User table: %v\n", err)
+    }
 }
