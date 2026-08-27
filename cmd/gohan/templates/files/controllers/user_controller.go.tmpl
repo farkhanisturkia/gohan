@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+	"context"
 
 	"github.com/farkhanisturkia/gohan"
 	"{{ .ModuleName }}/database/migrations"
@@ -255,13 +256,13 @@ func UserDestroy(db *gohan.DB) http.HandlerFunc {
 	}
 }
 
-func clearUserCache(ctx interface{}, extraKeys ...string) {
+func clearUserCache(ctx context.Context, extraKeys ...string) {
 	for _, key := range extraKeys {
-		_ = gohan.Redis.Del(ctx.(http.Request).Context(), key).Err()
+		_ = gohan.Redis.Del(ctx, key).Err()
 	}
 
-	iter := gohan.Redis.Scan(gohan.Ctx, 0, "user:all*", 0).Iterator()
-	for iter.Next(gohan.Ctx) {
-		_ = gohan.Redis.Del(gohan.Ctx, iter.Val()).Err()
+	iter := gohan.Redis.Scan(ctx, 0, "user:all*", 0).Iterator()
+	for iter.Next(ctx) {
+		_ = gohan.Redis.Del(ctx, iter.Val()).Err()
 	}
 }

@@ -21,6 +21,7 @@ var GetEnv = config.GetEnv
 type DB = database.DB
 type Tx = database.Tx
 type RawQuery = database.RawQuery
+type Pagination = database.Pagination
 
 var GetConn = database.GetConn
 
