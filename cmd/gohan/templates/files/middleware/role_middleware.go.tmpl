@@ -5,43 +5,25 @@ import (
 	"slices"
 
 	"github.com/farkhanisturkia/gohan"
-	"{{ .ModuleName }}/database/migrations"
 )
 
-func InitRoleMiddleware(db *gohan.DB) func(allowedRoles []string, next http.HandlerFunc) http.HandlerFunc {
-	return func(allowedRoles []string, next http.HandlerFunc) http.HandlerFunc {
-		return func(w http.ResponseWriter, r *http.Request) {
-			user, ok := GetAuthUser(r)
-			if !ok {
-				gohan.JSON(w, http.StatusUnauthorized, map[string]string{
-					"message": "Unauthorized access",
-				})
-				return
-			}
-
-			var matchedRoleIDs []int
-			for _, roleName := range allowedRoles {
-				var role migrations.Role
-				if err := db.FindOne(&role, "name = ?", roleName); err == nil {
-					matchedRoleIDs = append(matchedRoleIDs, role.ID)
-				}
-			}
-
-			if len(matchedRoleIDs) == 0 {
-				gohan.JSON(w, http.StatusForbidden, map[string]string{
-					"message": "Forbidden: Specified roles are invalid or not found",
-				})
-				return
-			}
-
-			if !slices.Contains(matchedRoleIDs, user.RoleID) {
-				gohan.JSON(w, http.StatusForbidden, map[string]string{
-					"message": "Forbidden: You do not have permission to access this resource",
-				})
-				return
-			}
-
-			next(w, r)
+func RequireRole(allowedRoles []string, next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user, ok := GetAuthUser(r)
+		if !ok {
+			gohan.JSON(w, http.StatusUnauthorized, map[string]string{
+				"message": "Unauthorized access",
+			})
+			return
 		}
+
+		if !slices.Contains(allowedRoles, user.Role.Name) {
+			gohan.JSON(w, http.StatusForbidden, map[string]string{
+				"message": "Forbidden: You do not have permission to access this resource",
+			})
+			return
+		}
+
+		next(w, r)
 	}
 }
