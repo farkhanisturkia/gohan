@@ -25,6 +25,8 @@ var GetConn = database.GetConn
 // HTTP Request & Response
 var BindJSON = gohanHttp.BindJSON
 var JSON = gohanHttp.JSON
+var Marshal = gohanHttp.Marshal
+var Unmarshal = gohanHttp.Unmarshal
 var Error = gohanHttp.Error
 var Param = gohanHttp.Param
 

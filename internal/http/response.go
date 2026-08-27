@@ -21,3 +21,11 @@ func Error(w http.ResponseWriter, statusCode int, message string) {
 		"error": message,
 	})
 }
+
+func Marshal(v interface{}) ([]byte, error) {
+	return json.Marshal(v)
+}
+
+func Unmarshal(data []byte, v interface{}) error {
+	return json.Unmarshal(data, v)
+}
