@@ -35,6 +35,12 @@ func LoginAuth(db *gohan.DB) http.HandlerFunc {
             return
         }
 
+{{- if .UseRole }}
+        var role migrations.Role
+        if err := db.FindOne(&role, "id = ?", user.RoleID); err == nil {
+            user.Role = role
+        }
+{{- end }}
 {{- if eq .AuthType "jwt" }}
         env := gohan.GetEnv()
 
@@ -89,6 +95,9 @@ func LoginAuth(db *gohan.DB) http.HandlerFunc {
                 "id":    user.ID,
                 "name":  user.Name,
                 "email": user.Email,
+{{- if .UseRole }}
+                "role":  user.Role.Name,
+{{- end }}
             },
         })
     }
