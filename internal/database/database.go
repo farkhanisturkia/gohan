@@ -88,7 +88,7 @@ func setTable(c Commander, model interface{}) error {
     }
 
     typ := val.Type()
-    tableName := toSnakeCase(typ.Name()) + "s"
+	tableName := getTableName(typ)
 
     var columns []string
 
@@ -151,14 +151,22 @@ func setTable(c Commander, model interface{}) error {
             }
         }
 
-        colDef := fmt.Sprintf("%s %s%s", quoteIdentifier(colName, c.driver()), dbType, constraints)
+		quotedCol, err := quoteIdentifier(colName, c.driver())
+		if err != nil {
+			return err
+		}
+
+        colDef := fmt.Sprintf("%s %s%s", quotedCol, dbType, constraints)
         columns = append(columns, colDef)
     }
 
-    quotedTable := quoteIdentifier(tableName, c.driver())
+    quotedTable, err := quoteIdentifier(tableName, c.driver())
+	if err != nil {
+		return err
+	}
     query := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (%s);", quotedTable, strings.Join(columns, ", "))
 
-    _, err := c.execer().Exec(query)
+    _, err = c.execer().Exec(query)
     if err != nil {
         return fmt.Errorf("[error] Failed to create the '%s' table: %w", tableName, err)
     }
