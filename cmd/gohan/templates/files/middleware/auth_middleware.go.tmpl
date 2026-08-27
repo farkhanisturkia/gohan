@@ -92,6 +92,13 @@ func Authenticate(db *gohan.DB, next http.HandlerFunc) http.HandlerFunc {
         }
 
 {{- end }}
+{{- if .UseRole }}
+        var role migrations.Role
+        if err := db.FindOne(&role, "id = ?", user.RoleID); err == nil {
+            user.Role = role
+        }
+
+{{- end }}
         ctx := context.WithValue(r.Context(), UserContextKey, user)
         next(w, r.WithContext(ctx))
     }
