@@ -7,6 +7,8 @@ import (
 	"github.com/farkhanisturkia/gohan/internal/security"
 	"github.com/farkhanisturkia/gohan/utils"
 	"github.com/farkhanisturkia/gohan/internal/mail"
+
+	"github.com/redis/go-redis/v9"
 )
 
 // Config
@@ -21,6 +23,14 @@ type Tx = database.Tx
 type RawQuery = database.RawQuery
 
 var GetConn = database.GetConn
+
+// Redis
+var Redis *redis.Client
+
+func InitRedis(host, port, password string) {
+    database.InitRedis(host, port, password)
+    Redis = database.Redis
+}
 
 // HTTP Request & Response
 var BindJSON = gohanHttp.BindJSON
