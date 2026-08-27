@@ -7,7 +7,7 @@ import (
 	"github.com/farkhanisturkia/gohan/cmd/gohan/commands"
 )
 
-const AppVersion = "v1.5.4"
+const AppVersion = "v1.5.5"
 
 func main() {
 	if len(os.Args) < 2 {
