@@ -13,6 +13,10 @@ type Role struct {
     CreatedAt time.Time `gohan:"type:TIMESTAMP;not_null;default:CURRENT_TIMESTAMP" json:"created_at"`
 }
 
+func (Role) TableName() string {
+    return "roles"
+}
+
 func RoleMigration(db *gohan.DB) {
 	if err := db.SetTable(&Role{}); err != nil {
 		log.Printf("[error] Failed to migrate the Role table: %v\n", err)
