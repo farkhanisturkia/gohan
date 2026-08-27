@@ -84,6 +84,7 @@ var MakeFS embed.FS
 type MakeData struct {
     Prefix     string
     ModuleName string
+    UseRedis   bool
 }
 
 func RenderMakeTemplate(filename string, data MakeData) (string, error) {
@@ -93,7 +94,11 @@ func RenderMakeTemplate(filename string, data MakeData) (string, error) {
         return "", fmt.Errorf("failed to read make template %s: %w", filename, err)
     }
 
-    tmpl, err := template.New(filename).Parse(string(content))
+    funcMap := template.FuncMap{
+        "toLower": strings.ToLower,
+    }
+
+    tmpl, err := template.New(filename).Funcs(funcMap).Parse(string(content))
     if err != nil {
         return "", fmt.Errorf("failed to parse make template %s: %w", filename, err)
     }

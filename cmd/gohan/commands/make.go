@@ -1,6 +1,7 @@
 package commands
 
 import (
+    "bufio"
     "fmt"
     "go/format"
     "os"
@@ -75,9 +76,17 @@ func MakeController(name string) {
     targetPath := filepath.Join("controllers", cleanName+".go")
     moduleName := utils.GetModuleName()
 
+    reader := bufio.NewReader(os.Stdin)
+    fmt.Print("Do you want to include Redis Caching in this controller? [y/N]: ")
+    input, _ := reader.ReadString('\n')
+    input = strings.TrimSpace(strings.ToLower(input))
+
+    useRedis := input == "y" || input == "yes"
+
     data := templates.MakeData{
         ModuleName: moduleName,
         Prefix:     prefix,
+        UseRedis:   useRedis,
     }
 
     generateFromTemplate("controller.go.tmpl", targetPath, data)
