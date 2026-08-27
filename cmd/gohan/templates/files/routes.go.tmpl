@@ -104,7 +104,9 @@ func SetupRoutes(db *gohan.DB) {
 {{- if .UseRole }}
 
     // Example Role-Based Protected Routes
-    gohan.Get("/api/admin/dashboard", middleware.Authenticate(db, middleware.RequireRole([]string{"admin"}, func(w http.ResponseWriter, r *http.Request) {
+    RequireRole := middleware.InitRoleMiddleware(db)
+
+    gohan.Get("/api/admin/dashboard", middleware.Authenticate(db, RequireRole([]string{"admin"}, func(w http.ResponseWriter, r *http.Request) {
         gohan.JSON(w, http.StatusOK, map[string]string{
             "message": "Welcome to Admin Dashboard",
         })
