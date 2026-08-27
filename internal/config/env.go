@@ -30,6 +30,9 @@ type Env struct {
 	MailEncryption  string
 	MailFromAddress string
 	MailFromName    string
+	RedisHost		string
+	RedisPort		string
+	RedisPass		string
 }
 
 func InitEnv() error {
@@ -71,6 +74,11 @@ MAIL_PASSWORD=your_mailjet_secret_key
 MAIL_ENCRYPTION=tls
 MAIL_FROM_ADDRESS=noreply.gohan@msroot.my.id
 MAIL_FROM_NAME="${APP_NAME}"
+
+# Redis Configuration
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+REDIS_PASSWORD=
 `
 	err := os.WriteFile(".env", []byte(defaultContent), 0644)
 	if err != nil {
@@ -111,6 +119,9 @@ func GetEnv() *Env {
 		MailEncryption:  getEnvVal("MAIL_ENCRYPTION", "tls"),
 		MailFromAddress: getEnvVal("MAIL_FROM_ADDRESS", "noreply@example.com"),
 		MailFromName:    getEnvVal("MAIL_FROM_NAME", "GohanApp"),
+		RedisHost: 		 getEnvVal("REDIS_HOST", "127.0.0.1"),
+		RedisPort:		 getEnvVal("REDIS_PORT", "6379"),
+		RedisPass: 		 getEnvVal("REDIS_PASSWORD", ""),
 	}
 }
 
