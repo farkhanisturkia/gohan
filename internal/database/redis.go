@@ -27,6 +27,6 @@ func InitRedis(host, port, password string) {
 	if err != nil {
 		log.Printf("[error] Failed to connect to Redis: %v. Caching will be disabled.\n", err)
 	} else {
-		fmt.Println("[info] Connect to the Redis server at", addr)
+		log.Println("[info] Connect to the Redis server at", addr)
 	}
 }
