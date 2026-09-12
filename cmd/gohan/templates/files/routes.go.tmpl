@@ -92,16 +92,23 @@ func SetupRoutes(db *gohan.DB) {
         gohan.JSON(w, http.StatusOK, map[string]interface{}{
             "message": "User profile retrieved successfully",
             "data": map[string]interface{}{
-				"id":    	user.ID,
-				"name":  	user.Name,
-				"email": 	user.Email,
+                "id":    user.ID,
+                "name":  user.Name,
+                "email": user.Email,
 {{- if .UseRole }}
-				"role": 	user.Role.Name,
+                "role":  user.Role.Name,
 {{- end }}
             },
         })
     }))
+
+    // User Resource Routes (Protected)
 {{- if .UseRole }}
+    gohan.Get("/api/users", middleware.Authenticate(db, middleware.RequireRole([]string{"admin"}, controllers.UserIndex(db))))
+    gohan.Post("/api/users", middleware.Authenticate(db, middleware.RequireRole([]string{"admin"}, controllers.UserStore(db))))
+    gohan.Get("/api/users/{id}", middleware.Authenticate(db, middleware.RequireRole([]string{"admin"}, controllers.UserShow(db))))
+    gohan.Put("/api/users/{id}", middleware.Authenticate(db, middleware.RequireRole([]string{"admin"}, controllers.UserUpdate(db))))
+    gohan.Delete("/api/users/{id}", middleware.Authenticate(db, middleware.RequireRole([]string{"admin"}, controllers.UserDestroy(db))))
 
     // Example Role-Based Protected Routes
     gohan.Get("/api/admin/dashboard", middleware.Authenticate(db, middleware.RequireRole([]string{"admin"}, func(w http.ResponseWriter, r *http.Request) {
@@ -109,8 +116,15 @@ func SetupRoutes(db *gohan.DB) {
             "message": "Welcome to Admin Dashboard",
         })
     })))
+{{- else }}
+    gohan.Get("/api/users", middleware.Authenticate(db, controllers.UserIndex(db)))
+    gohan.Post("/api/users", middleware.Authenticate(db, controllers.UserStore(db)))
+    gohan.Get("/api/users/{id}", middleware.Authenticate(db, controllers.UserShow(db)))
+    gohan.Put("/api/users/{id}", middleware.Authenticate(db, controllers.UserUpdate(db)))
+    gohan.Delete("/api/users/{id}", middleware.Authenticate(db, controllers.UserDestroy(db)))
 {{- end }}
 {{- end }}
+
 {{- if and .UseAuth .UseForgotPassword }}
 
     // Password Reset Routes

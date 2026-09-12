@@ -1,10 +1,15 @@
 package http
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
 )
+
+type contextKey string
+
+const paramsKey contextKey = "routeParams"
 
 type HandlerFunc http.HandlerFunc
 
@@ -57,55 +62,72 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	reqPath := req.URL.Path
 	reqMethod := req.Method
 
+	pathMatched := false
+
 	for _, rt := range r.routes {
-		if matchPath(rt.path, reqPath) {
-			if rt.method != reqMethod {
-				Error(w, http.StatusMethodNotAllowed, fmt.Sprintf("Method %s not allowed for %s", reqMethod, reqPath))
+		params, match := matchAndExtractParams(rt.path, reqPath)
+		if match {
+			pathMatched = true
+
+			if reqMethod == http.MethodOptions {
+				w.WriteHeader(http.StatusNoContent)
 				return
 			}
 
-			rt.handler(w, req)
-			return
+			if rt.method == reqMethod {
+				ctx := context.WithValue(req.Context(), paramsKey, params)
+				rt.handler(w, req.WithContext(ctx))
+				return
+			}
 		}
+	}
+
+	if pathMatched {
+		Error(w, http.StatusMethodNotAllowed, fmt.Sprintf("Method %s not allowed for %s", reqMethod, reqPath))
+		return
 	}
 
 	Error(w, http.StatusNotFound, fmt.Sprintf("Route %s %s not found", reqMethod, reqPath))
 }
 
-func matchPath(pattern, path string) bool {
+func matchAndExtractParams(pattern, path string) (map[string]string, bool) {
 	if pattern == path {
-		return true
+		return nil, true
 	}
 
 	patternParts := strings.Split(strings.Trim(pattern, "/"), "/")
 	pathParts := strings.Split(strings.Trim(path, "/"), "/")
 
 	if len(patternParts) != len(pathParts) {
-		return false
+		return nil, false
 	}
+
+	params := make(map[string]string)
 
 	for i := 0; i < len(patternParts); i++ {
-		if strings.HasPrefix(patternParts[i], "{") || strings.HasPrefix(patternParts[i], ":") {
-			continue
-		}
-		if patternParts[i] != pathParts[i] {
-			return false
+		pPart := patternParts[i]
+		valPart := pathParts[i]
+
+		if strings.HasPrefix(pPart, "{") && strings.HasSuffix(pPart, "}") {
+			paramName := pPart[1 : len(pPart)-1]
+			params[paramName] = valPart
+		} else if strings.HasPrefix(pPart, ":") {
+			paramName := pPart[1:]
+			params[paramName] = valPart
+		} else if pPart != valPart {
+			return nil, false
 		}
 	}
 
-	return true
+	return params, true
 }
 
 func Param(r *http.Request, key string) string {
-	val := r.URL.Query().Get(key)
-	if val != "" {
-		return val
+	if params, ok := r.Context().Value(paramsKey).(map[string]string); ok {
+		if val, exists := params[key]; exists {
+			return val
+		}
 	}
 
-	parts := strings.Split(r.URL.Path, "/")
-	if len(parts) > 0 {
-		return parts[len(parts)-1]
-	}
-
-	return ""
+	return r.URL.Query().Get(key)
 }
