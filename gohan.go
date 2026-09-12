@@ -51,6 +51,7 @@ var PostJSON = gohanHttp.PostJSON
 // HTTP Router & Server
 type Router = gohanHttp.Router
 
+var CORSMiddleware = gohanHttp.CORSMiddleware
 var SetRoute = gohanHttp.SetRoute
 var Get = gohanHttp.Get
 var Post = gohanHttp.Post
