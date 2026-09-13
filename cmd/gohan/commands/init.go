@@ -171,7 +171,9 @@ func InitBoilerplate() {
 		targetPath := path
 
 		if config.AppType == "fullstack" && !strings.HasPrefix(path, "frontend/") {
-			targetPath = filepath.Join("backend", path)
+			if path != "Makefile" {
+				targetPath = filepath.Join("backend", path)
+			}
 		}
 
 		dir := filepath.Dir(targetPath)
@@ -200,6 +202,9 @@ func InitBoilerplate() {
 	}
 
 	fmt.Println("\n✅ Gohan project initialized successfully!")
+	fmt.Println("\nNext steps:")
+	fmt.Println("  1. Run 'make setup' to install all dependencies & generate key")
+	fmt.Println("  2. Run 'make dev' to start the application")
 }
 
 func readInput(reader *bufio.Reader) string {

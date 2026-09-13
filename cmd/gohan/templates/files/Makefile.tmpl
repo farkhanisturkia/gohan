@@ -1,0 +1,31 @@
+.PHONY: setup dev dev-backend dev-frontend
+
+setup:
+	@echo "📦 Setting up all dependencies..."
+{{- if eq .AppType "fullstack" }}
+	@cd backend && go mod tidy && gohan key:generate
+	@cd frontend && npm install
+{{- else }}
+	@go mod tidy && gohan key:generate
+{{- end }}
+	@echo "✅ Setup completed!"
+
+dev:
+{{- if eq .AppType "fullstack" }}
+	@echo "🚀 Starting Backend and Frontend..."
+	@make -j2 dev-backend dev-frontend
+{{- else }}
+	@make dev-backend
+{{- end }}
+
+dev-backend:
+{{- if eq .AppType "fullstack" }}
+	@cd backend && go run .
+{{- else }}
+	@go run .
+{{- end }}
+
+dev-frontend:
+{{- if eq .AppType "fullstack" }}
+	@cd frontend && npm run dev
+{{- end }}
