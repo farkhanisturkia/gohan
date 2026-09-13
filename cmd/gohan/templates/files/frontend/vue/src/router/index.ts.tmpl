@@ -1,0 +1,54 @@
+import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router'
+import Cookies from 'js-cookie'
+import HomeView from '../views/HomeView.vue'
+
+const routes: Array<RouteRecordRaw> = [
+  { 
+    path: '/', 
+    name: 'Home', 
+    component: HomeView 
+  },
+{{- if .UseAuth }}
+  { 
+    path: '/login', 
+    name: 'Login', 
+    component: () => import('../views/LoginView.vue.tmpl'),
+    meta: { guestOnly: true }
+  },
+  { 
+    path: '/dashboard', 
+    name: 'Dashboard', 
+    component: () => import('../views/DashboardView.vue.tmpl'),
+    meta: { requiresAuth: true }
+  },
+  { 
+    path: '/users', 
+    name: 'Users', 
+    component: () => import('../views/UsersView.vue.tmpl'),
+    meta: { requiresAuth: true }
+  },
+{{- end }}
+]
+
+const router = createRouter({
+  history: createWebHistory(),
+  routes,
+})
+
+{{- if .UseAuth }}
+router.beforeEach((to, _from, next) => {
+  const token = Cookies.get('token')
+
+  if (to.meta.requiresAuth && !token) {
+    return next({ name: 'Login' })
+  }
+
+  if (to.meta.guestOnly && token) {
+    return next({ name: 'Dashboard' })
+  }
+
+  next()
+})
+{{- end }}
+
+export default router

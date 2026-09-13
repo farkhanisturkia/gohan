@@ -1,0 +1,88 @@
+<template>
+  <div class="space-y-6">
+    <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-lg">
+      <h2 class="text-2xl font-bold mb-2 text-white">Backend Connection Status</h2>
+      <p class="text-slate-400 text-sm mb-6">
+        Testing live connection to Gohan Framework API endpoints defined in <code class="text-emerald-400 bg-slate-800 px-2 py-0.5 rounded">routes.go</code>.
+      </p>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Ping Route Card -->
+        <div class="p-4 rounded-lg bg-slate-950 border border-slate-800">
+          <div class="flex items-center justify-between mb-3">
+            <span class="font-mono text-sm text-emerald-400 font-semibold">GET /ping</span>
+            <span v-if="pingLoading" class="text-xs text-amber-400 animate-pulse">Testing...</span>
+            <span v-else-if="pingError" class="text-xs text-rose-400 font-bold">Offline</span>
+            <span v-else class="text-xs text-emerald-400 font-bold">Online (200 OK)</span>
+          </div>
+          <pre class="bg-slate-900 p-3 rounded text-xs text-slate-300 font-mono overflow-x-auto">{{ pingDisplay }}</pre>
+        </div>
+
+        <!-- Check Public Route Card -->
+        <div class="p-4 rounded-lg bg-slate-950 border border-slate-800">
+          <div class="flex items-center justify-between mb-3">
+            <span class="font-mono text-sm text-emerald-400 font-semibold">GET /check-public</span>
+            <span v-if="publicLoading" class="text-xs text-amber-400 animate-pulse">Testing...</span>
+            <span v-else-if="publicError" class="text-xs text-rose-400 font-bold">Failed</span>
+            <span v-else class="text-xs text-emerald-400 font-bold">200 OK</span>
+          </div>
+          <pre class="bg-slate-900 p-3 rounded text-xs text-slate-300 font-mono overflow-x-auto whitespace-pre-wrap">{{ publicDisplay }}</pre>
+        </div>
+      </div>
+    </div>
+
+{{- if .UseAuth }}
+    <!-- Auth Status Card -->
+    <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-lg">
+      <h3 class="text-lg font-bold text-white mb-2">Authentication Module</h3>
+      <p class="text-slate-400 text-sm">
+        Auth state is set up with <span class="text-emerald-400 uppercase font-semibold">{{ .AuthType }}</span> token strategy and <code class="text-emerald-400">js-cookie</code>.
+      </p>
+    </div>
+{{- end }}
+  </div>
+</template>
+
+<script setup lang="ts">
+import { computed } from 'vue'
+import { useQuery } from '@tanstack/vue-query'
+import axios from 'axios'
+
+interface PingResponse {
+  message: string
+}
+
+interface PublicResponse {
+  result: string
+}
+
+// 1. Fetching /ping endpoint
+const { data: pingData, isLoading: pingLoading, error: pingError } = useQuery<PingResponse, Error>({
+  queryKey: ['ping'],
+  queryFn: async () => {
+    const res = await axios.get('/ping')
+    return res.data
+  },
+})
+
+// 2. Fetching /check-public endpoint
+const { data: publicData, isLoading: publicLoading, error: publicError } = useQuery<PublicResponse, Error>({
+  queryKey: ['check-public'],
+  queryFn: async () => {
+    const res = await axios.get('/check-public')
+    return res.data
+  },
+})
+
+const pingDisplay = computed<string>(() => {
+  if (pingData.value) return JSON.stringify(pingData.value, null, 2)
+  if (pingError.value) return pingError.value.message
+  return 'Fetching data...'
+})
+
+const publicDisplay = computed<string>(() => {
+  if (publicData.value) return JSON.stringify(publicData.value, null, 2)
+  if (publicError.value) return publicError.value.message
+  return 'Fetching data...'
+})
+</script>

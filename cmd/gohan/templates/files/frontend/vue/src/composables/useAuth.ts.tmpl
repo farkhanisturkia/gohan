@@ -1,0 +1,48 @@
+import { ref } from 'vue'
+import Cookies from 'js-cookie'
+import api from '../lib/axios'
+
+interface User {
+  id: number
+  name: string
+  email: string
+  role?: string
+}
+
+const user = ref<User | null>(null)
+
+export function useAuth() {
+  const token = Cookies.get('token')
+
+  const fetchUser = async () => {
+    if (!Cookies.get('token')) return null
+    try {
+      const res = await api.get('/api/me')
+      user.value = res.data.data
+      return user.value
+    } catch {
+      user.value = null
+      Cookies.remove('token')
+      return null
+    }
+  }
+
+  const logout = async () => {
+    try {
+      await api.post('/api/logout')
+    } catch (e) {
+      console.error(e)
+    } finally {
+      Cookies.remove('token')
+      user.value = null
+      window.location.href = '/login'
+    }
+  }
+
+  return {
+    user,
+    isAuthenticated: !!token,
+    fetchUser,
+    logout,
+  }
+}

@@ -1,0 +1,21 @@
+import { createApp } from 'vue'
+import { VueQueryPlugin } from '@tanstack/vue-query'
+import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router'
+import './style.css'
+import App from './App.vue'
+import HomeView from './views/HomeView.vue'
+
+const routes: Array<RouteRecordRaw> = [
+  { path: '/', name: 'Home', component: HomeView },
+]
+
+const router = createRouter({
+  history: createWebHistory(),
+  routes,
+})
+
+const app = createApp(App)
+
+app.use(router)
+app.use(VueQueryPlugin)
+app.mount('#app')
