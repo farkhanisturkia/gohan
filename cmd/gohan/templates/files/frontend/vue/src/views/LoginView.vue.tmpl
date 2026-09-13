@@ -24,7 +24,7 @@
       </div>
 
       <div v-if="errorMessage" class="text-rose-400 text-sm font-medium">
-        {{ errorMessage }}
+        {{ "{{" }} errorMessage {{ "}}" }}
       </div>
 
       <button 
@@ -32,7 +32,7 @@
         :disabled="loading"
         class="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg transition-colors disabled:opacity-50"
       >
-        {{ buttonText }}
+        {{ "{{" }} buttonText {{ "}}" }}
       </button>
     </form>
   </div>

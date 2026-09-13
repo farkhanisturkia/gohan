@@ -68,12 +68,12 @@ func InitBoilerplate() {
 		feChoice := readInput(reader)
 
 		if feChoice == "2" {
-            fmt.Println("\n[info] React + Vite frontend Framework is currently ON GOING / COMING SOON!")
-            fmt.Println("[info] Initialization aborted.")
-            return
+			fmt.Println("\n[info] React + Vite frontend Framework is currently ON GOING / COMING SOON!")
+			fmt.Println("[info] Initialization aborted.")
+			return
 		}
-        config.FrontendType = "vue"
-        fmt.Println("   ↳ Selected: Vue 3 + Vite")
+		config.FrontendType = "vue"
+		fmt.Println("   ↳ Selected: Vue 3 + Vite")
 
 	} else {
 		config.FrontendType = ""
@@ -149,25 +149,25 @@ func InitBoilerplate() {
 
 	moduleName := utils.GetModuleName()
 
-	templateMap, err := templates.GetBoilerplateTemplates(
-		moduleName,
-		config.UseAuth,
-		config.AuthType,
-		config.UseForgotPassword,
-		config.UseRole,
-		config.AppType,
-		config.FrontendType,
-	)
+	templateData := templates.TemplateData{
+		ModuleName:        moduleName,
+		UseAuth:           config.UseAuth,
+		AuthType:          config.AuthType,
+		UseForgotPassword: config.UseForgotPassword,
+		UseRole:           config.UseRole,
+		AppType:           config.AppType,
+		FrontendType:      config.FrontendType,
+	}
+
+	templateMap, err := templates.GetBoilerplateTemplates(templateData, func(path string) bool {
+		return shouldSkipFile(path, config)
+	})
 	if err != nil {
 		fmt.Printf("[error] Failed to load boilerplate templates: %v\n", err)
 		return
 	}
 
 	for path, content := range templateMap {
-		if shouldSkipFile(path, config) {
-			continue
-		}
-
 		targetPath := path
 
 		if config.AppType == "fullstack" && !strings.HasPrefix(path, "frontend/") {
@@ -221,6 +221,12 @@ func shouldSkipFile(path string, cfg InitConfig) bool {
 			filename == "role_middleware.go" {
 			return true
 		}
+
+		if filename == "LoginView.vue.tmpl" ||
+			filename == "DashboardView.vue.tmpl" ||
+			filename == "useAuth.ts.tmpl" {
+			return true
+		}
 	}
 
 	if cfg.UseAuth && cfg.AuthType == "jwt" {
@@ -231,7 +237,9 @@ func shouldSkipFile(path string, cfg InitConfig) bool {
 
 	if cfg.UseAuth && !cfg.UseForgotPassword {
 		if filename == "password_reset_controller.go" ||
-			filename == "00000000000003_create_password_reset_table.go" {
+			filename == "00000000000003_create_password_reset_table.go" ||
+			filename == "ForgotPasswordView.vue.tmpl" ||
+			filename == "ResetPasswordView.vue.tmpl" {
 			return true
 		}
 	}

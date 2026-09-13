@@ -13,6 +13,9 @@ import (
 //go:embed files
 var templateFS embed.FS
 
+//go:embed makes
+var MakeFS embed.FS
+
 type TemplateData struct {
 	ModuleName        string
 	UseAuth           bool
@@ -23,25 +26,17 @@ type TemplateData struct {
 	FrontendType      string
 }
 
+type MakeData struct {
+	Prefix     string
+	ModuleName string
+	UseRedis   bool
+}
+
 func GetBoilerplateTemplates(
-	moduleName string,
-	useAuth bool,
-	authType string,
-	useForgotPassword bool,
-	useRole bool,
-	appType string,
-	frontendType string,
+	data TemplateData,
+	shouldSkipFunc func(slashPath string) bool,
 ) (map[string]string, error) {
 	result := make(map[string]string)
-	data := TemplateData{
-		ModuleName:        moduleName,
-		UseAuth:           useAuth,
-		AuthType:          authType,
-		UseForgotPassword: useForgotPassword,
-		UseRole:           useRole,
-		AppType:           appType,
-		FrontendType:      frontendType,
-	}
 
 	err := fs.WalkDir(templateFS, "files", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -59,19 +54,23 @@ func GetBoilerplateTemplates(
 
 		slashPath := filepath.ToSlash(relPath)
 
-        if strings.HasPrefix(slashPath, "frontend/") {
-            if appType != "fullstack" {
-                return nil
-            }
+		if strings.HasPrefix(slashPath, "frontend/") {
+			if data.AppType != "fullstack" {
+				return nil
+			}
 
-            targetFrontendPrefix := "frontend/" + frontendType + "/"
-            if !strings.HasPrefix(slashPath, targetFrontendPrefix) {
-                return nil
-            }
+			targetFrontendPrefix := "frontend/" + data.FrontendType + "/"
+			if !strings.HasPrefix(slashPath, targetFrontendPrefix) {
+				return nil
+			}
 
-            relFrontendPath := strings.TrimPrefix(slashPath, targetFrontendPrefix)
-            slashPath = "frontend/" + relFrontendPath
-        }
+			relFrontendPath := strings.TrimPrefix(slashPath, targetFrontendPrefix)
+			slashPath = "frontend/" + relFrontendPath
+		}
+
+		if shouldSkipFunc != nil && shouldSkipFunc(slashPath) {
+			return nil
+		}
 
 		content, err := templateFS.ReadFile(path)
 		if err != nil {
@@ -89,7 +88,6 @@ func GetBoilerplateTemplates(
 		}
 
 		targetPath := strings.TrimSuffix(slashPath, ".tmpl")
-
 		if targetPath == "env" {
 			targetPath = ".env"
 		}
@@ -103,15 +101,6 @@ func GetBoilerplateTemplates(
 	}
 
 	return result, nil
-}
-
-//go:embed makes
-var MakeFS embed.FS
-
-type MakeData struct {
-	Prefix     string
-	ModuleName string
-	UseRedis   bool
 }
 
 func RenderMakeTemplate(filename string, data MakeData) (string, error) {
