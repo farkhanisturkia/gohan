@@ -1,191 +1,248 @@
 package commands
 
 import (
-    "bufio"
-    "fmt"
-    "go/format"
-    "os"
-    "path/filepath"
-    "strings"
+	"bufio"
+	"fmt"
+	"go/format"
+	"os"
+	"path/filepath"
+	"strings"
 
-    "github.com/farkhanisturkia/gohan/cmd/gohan/templates"
-    "github.com/farkhanisturkia/gohan/cmd/gohan/utils"
+	"github.com/farkhanisturkia/gohan/cmd/gohan/templates"
+	"github.com/farkhanisturkia/gohan/cmd/gohan/utils"
 )
 
 type InitConfig struct {
-    Architecture      string
-    UseAuth           bool
-    AuthType          string
-    UseForgotPassword bool
-    UseRole           bool
+	AppType           string
+	BackendType       string
+	FrontendType      string
+	UseAuth           bool
+	AuthType          string
+	UseForgotPassword bool
+	UseRole           bool
 }
 
 func InitBoilerplate() {
-    reader := bufio.NewReader(os.Stdin)
-    config := InitConfig{}
+	reader := bufio.NewReader(os.Stdin)
+	config := InitConfig{}
 
-    fmt.Println("🚀 Initializing Gohan Framework Project...")
-    fmt.Println("--------------------------------------------------")
+	fmt.Println("🚀 Initializing Gohan Framework Project...")
+	fmt.Println("--------------------------------------------------")
 
-    fmt.Println("\n[1] Select Architecture API:")
-    fmt.Println("  1) REST API (Default)")
-    fmt.Println("  2) gRPC (*Coming soon)")
-    fmt.Print("Choose option [1-2]: ")
-    archChoice := readInput(reader)
+	// 1. Select App Type (API Only vs Fullstack)
+	fmt.Println("\n[1] Select Application Type:")
+	fmt.Println("  1) API Only (Default)")
+	fmt.Println("  2) Fullstack")
+	fmt.Print("Choose option [1-2]: ")
+	appChoice := readInput(reader)
 
-    if archChoice == "2" {
-        fmt.Println("\n[info] gRPC architecture is currently ON GOING / COMING SOON!")
-        fmt.Println("[info] Initialization aborted.")
-        return
-    }
-    config.Architecture = "rest"
-    fmt.Println("   ↳ Selected: REST API")
+	if appChoice == "2" {
+		config.AppType = "fullstack"
+		fmt.Println("   ↳ Selected: Fullstack")
+	} else {
+		config.AppType = "api"
+		fmt.Println("   ↳ Selected: API Only")
+	}
 
-    fmt.Print("\n[2] Do you want to include Authentication? (y/N): ")
-    authChoice := readInput(reader)
+	// 2. Select Backend Type (REST vs gRPC)
+	fmt.Println("\n[2] Select Backend Architecture:")
+	fmt.Println("  1) REST API (Default)")
+	fmt.Println("  2) gRPC (*Coming soon)")
+	fmt.Print("Choose option [1-2]: ")
+	backendChoice := readInput(reader)
 
-    if strings.ToLower(authChoice) == "y" || strings.ToLower(authChoice) == "yes" {
-        config.UseAuth = true
+	if backendChoice == "2" {
+		fmt.Println("\n[info] gRPC backend architecture is currently ON GOING / COMING SOON!")
+		fmt.Println("[info] Initialization aborted.")
+		return
+	}
+	config.BackendType = "rest"
+	fmt.Println("   ↳ Selected: REST API")
 
-        fmt.Println("\n    Select Authentication Type:")
-        fmt.Println("      1) PAT (Default)")
-        fmt.Println("      2) JWT")
-        fmt.Print("    Choose option [1-2]: ")
-        authTypeChoice := readInput(reader)
+	// 3. Select Frontend Type
+	if config.AppType == "fullstack" {
+		fmt.Println("\n[3] Select Frontend Framework:")
+		fmt.Println("  1) Vue 3 + Vite (Default)")
+		fmt.Println("  2) React + Vite (*Coming soon)")
+		fmt.Print("Choose option [1-2]: ")
+		feChoice := readInput(reader)
 
-        if authTypeChoice == "2" {
-            config.AuthType = "jwt"
-            fmt.Println("       ↳ Selected: JSON Web Token (JWT)")
-        } else {
-            config.AuthType = "pat"
-            fmt.Println("       ↳ Selected: Personal Access Token (PAT)")
-        }
+		if feChoice == "2" {
+            fmt.Println("\n[info] React + Vite frontend Framework is currently ON GOING / COMING SOON!")
+            fmt.Println("[info] Initialization aborted.")
+            return
+		}
+        config.FrontendType = "vue"
+        fmt.Println("   ↳ Selected: Vue 3 + Vite")
 
-        fmt.Print("\n[3] Do you want to include Forgot Password features? (y/N): ")
-        forgotChoice := readInput(reader)
-        if strings.ToLower(forgotChoice) == "y" || strings.ToLower(forgotChoice) == "yes" {
-            config.UseForgotPassword = true
-        } else {
-            config.UseForgotPassword = false
-        }
+	} else {
+		config.FrontendType = ""
+	}
 
-        fmt.Print("\n[4] Do you want to include Role-Based Middleware (RBAC)? (y/N): ")
-        roleChoice := readInput(reader)
-        if strings.ToLower(roleChoice) == "y" || strings.ToLower(roleChoice) == "yes" {
-            config.UseRole = true
-        } else {
-            config.UseRole = false
-        }
-    } else {
-        config.UseAuth = false
-        config.AuthType = ""
-        config.UseForgotPassword = false
-        config.UseRole = false
-    }
+	// 4. Auth & Middleware Options
+	stepNum := 3
+	if config.AppType == "fullstack" {
+		stepNum = 4
+	}
 
-    fmt.Println("\n--------------------------------------------------")
-    fmt.Println("[info] Generating project boilerplate with:")
-    fmt.Printf("       - Architecture : %s\n", strings.ToUpper(config.Architecture))
-    if config.UseAuth {
-        forgotPassStr := "NO"
-        if config.UseForgotPassword {
-            forgotPassStr = "YES"
-        }
-        roleStr := "NO"
-        if config.UseRole {
-            roleStr = "YES"
-        }
-        fmt.Printf("       - Auth           : YES (%s)\n", strings.ToUpper(config.AuthType))
-        fmt.Printf("       - Forgot Pass    : %s\n", forgotPassStr)
-        fmt.Printf("       - Role Middleware: %s\n", roleStr)
-    } else {
-        fmt.Println("       - Auth           : NO")
-        fmt.Println("       - Forgot Pass    : NO")
-        fmt.Println("       - Role Middleware: NO")
-    }
-    fmt.Println("--------------------------------------------------\n")
+	fmt.Printf("\n[%d] Do you want to include Authentication? (y/N): ", stepNum)
+	authChoice := readInput(reader)
 
-    moduleName := utils.GetModuleName()
-    templateMap, err := templates.GetBoilerplateTemplates(moduleName, config.UseAuth, config.AuthType, config.UseForgotPassword, config.UseRole)
-    if err != nil {
-        fmt.Printf("[error] Failed to load boilerplate templates: %v\n", err)
-        return
-    }
+	if strings.ToLower(authChoice) == "y" || strings.ToLower(authChoice) == "yes" {
+		config.UseAuth = true
 
-    for path, content := range templateMap {
-        if shouldSkipFile(path, config) {
-            continue
-        }
+		fmt.Println("\n    Select Authentication Type:")
+		fmt.Println("      1) PAT (Default)")
+		fmt.Println("      2) JWT")
+		fmt.Print("    Choose option [1-2]: ")
+		authTypeChoice := readInput(reader)
 
-        dir := filepath.Dir(path)
-        if dir != "." {
-            _ = os.MkdirAll(dir, 0755)
-        }
+		if authTypeChoice == "2" {
+			config.AuthType = "jwt"
+			fmt.Println("       ↳ Selected: JSON Web Token (JWT)")
+		} else {
+			config.AuthType = "pat"
+			fmt.Println("       ↳ Selected: Personal Access Token (PAT)")
+		}
 
-        fileBytes := []byte(content)
+		fmt.Print("\n    Do you want to include Forgot Password features? (y/N): ")
+		forgotChoice := readInput(reader)
+		config.UseForgotPassword = strings.ToLower(forgotChoice) == "y" || strings.ToLower(forgotChoice) == "yes"
 
-        if strings.HasSuffix(path, ".go") {
-            formatted, err := format.Source(fileBytes)
-            if err == nil {
-                fileBytes = formatted
-            }
-        }
+		fmt.Print("\n    Do you want to include Role-Based Middleware (RBAC)? (y/N): ")
+		roleChoice := readInput(reader)
+		config.UseRole = strings.ToLower(roleChoice) == "y" || strings.ToLower(roleChoice) == "yes"
+	} else {
+		config.UseAuth = false
+		config.AuthType = ""
+		config.UseForgotPassword = false
+		config.UseRole = false
+	}
 
-        if _, err := os.Stat(path); os.IsNotExist(err) {
-            if err := os.WriteFile(path, fileBytes, 0644); err != nil {
-                fmt.Printf("[error] Failed to create the %s file: %v\n", path, err)
-            } else {
-                fmt.Printf("[info] %s file created\n", path)
-            }
-        } else {
-            fmt.Printf("[error] The %s file already exists\n", path)
-        }
-    }
+	// Output Summary
+	fmt.Println("\n--------------------------------------------------")
+	fmt.Println("[info] Generating project boilerplate with:")
+	fmt.Printf("       - App Type       : %s\n", strings.ToUpper(config.AppType))
+	fmt.Printf("       - Backend Type   : %s\n", strings.ToUpper(config.BackendType))
+	if config.AppType == "fullstack" {
+		fmt.Printf("       - Frontend       : %s\n", strings.ToUpper(config.FrontendType))
+	}
 
-    fmt.Println("\n✅ Gohan project initialized successfully!")
+	if config.UseAuth {
+		forgotPassStr := "NO"
+		if config.UseForgotPassword {
+			forgotPassStr = "YES"
+		}
+		roleStr := "NO"
+		if config.UseRole {
+			roleStr = "YES"
+		}
+		fmt.Printf("       - Auth           : YES (%s)\n", strings.ToUpper(config.AuthType))
+		fmt.Printf("       - Forgot Pass    : %s\n", forgotPassStr)
+		fmt.Printf("       - Role Middleware: %s\n", roleStr)
+	} else {
+		fmt.Println("       - Auth           : NO")
+		fmt.Println("       - Forgot Pass    : NO")
+		fmt.Println("       - Role Middleware: NO")
+	}
+	fmt.Println("--------------------------------------------------\n")
+
+	moduleName := utils.GetModuleName()
+
+	templateMap, err := templates.GetBoilerplateTemplates(
+		moduleName,
+		config.UseAuth,
+		config.AuthType,
+		config.UseForgotPassword,
+		config.UseRole,
+		config.AppType,
+		config.FrontendType,
+	)
+	if err != nil {
+		fmt.Printf("[error] Failed to load boilerplate templates: %v\n", err)
+		return
+	}
+
+	for path, content := range templateMap {
+		if shouldSkipFile(path, config) {
+			continue
+		}
+
+		targetPath := path
+
+		if config.AppType == "fullstack" && !strings.HasPrefix(path, "frontend/") {
+			targetPath = filepath.Join("backend", path)
+		}
+
+		dir := filepath.Dir(targetPath)
+		if dir != "." {
+			_ = os.MkdirAll(dir, 0755)
+		}
+
+		fileBytes := []byte(content)
+
+		if strings.HasSuffix(targetPath, ".go") {
+			formatted, err := format.Source(fileBytes)
+			if err == nil {
+				fileBytes = formatted
+			}
+		}
+
+		if _, err := os.Stat(targetPath); os.IsNotExist(err) {
+			if err := os.WriteFile(targetPath, fileBytes, 0644); err != nil {
+				fmt.Printf("[error] Failed to create the %s file: %v\n", targetPath, err)
+			} else {
+				fmt.Printf("[info] %s file created\n", targetPath)
+			}
+		} else {
+			fmt.Printf("[error] The %s file already exists\n", targetPath)
+		}
+	}
+
+	fmt.Println("\n✅ Gohan project initialized successfully!")
 }
 
 func readInput(reader *bufio.Reader) string {
-    input, _ := reader.ReadString('\n')
-    return strings.TrimSpace(input)
+	input, _ := reader.ReadString('\n')
+	return strings.TrimSpace(input)
 }
 
 func shouldSkipFile(path string, cfg InitConfig) bool {
-    filename := filepath.Base(path)
+	filename := filepath.Base(path)
 
-    if !cfg.UseAuth {
-        if filename == "auth_controller.go" ||
-            filename == "password_reset_controller.go" ||
-            filename == "00000000000002_create_personal_access_token_table.go" ||
-            filename == "00000000000003_create_password_reset_table.go" ||
-            filename == "00000000000004_create_role_table.go" ||
-            filename == "role.go" ||
-            filename == "auth_middleware.go" ||
-            filename == "role_middleware.go" {
-            return true
-        }
-    }
+	if !cfg.UseAuth {
+		if filename == "auth_controller.go" ||
+			filename == "password_reset_controller.go" ||
+			filename == "00000000000002_create_personal_access_token_table.go" ||
+			filename == "00000000000003_create_password_reset_table.go" ||
+			filename == "00000000000004_create_role_table.go" ||
+			filename == "role.go" ||
+			filename == "auth_middleware.go" ||
+			filename == "role_middleware.go" {
+			return true
+		}
+	}
 
-    if cfg.UseAuth && cfg.AuthType == "jwt" {
-        if filename == "00000000000002_create_personal_access_token_table.go" {
-            return true
-        }
-    }
+	if cfg.UseAuth && cfg.AuthType == "jwt" {
+		if filename == "00000000000002_create_personal_access_token_table.go" {
+			return true
+		}
+	}
 
-    if cfg.UseAuth && !cfg.UseForgotPassword {
-        if filename == "password_reset_controller.go" ||
-            filename == "00000000000003_create_password_reset_table.go" {
-            return true
-        }
-    }
+	if cfg.UseAuth && !cfg.UseForgotPassword {
+		if filename == "password_reset_controller.go" ||
+			filename == "00000000000003_create_password_reset_table.go" {
+			return true
+		}
+	}
 
-    if cfg.UseAuth && !cfg.UseRole {
-        if filename == "00000000000004_create_role_table.go" ||
-            filename == "role.go" ||
-            filename == "role_middleware.go" {
-            return true
-        }
-    }
+	if cfg.UseAuth && !cfg.UseRole {
+		if filename == "00000000000004_create_role_table.go" ||
+			filename == "role.go" ||
+			filename == "role_middleware.go" {
+			return true
+		}
+	}
 
-    return false
+	return false
 }
