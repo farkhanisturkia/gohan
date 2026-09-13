@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router'
+import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import Cookies from 'js-cookie'
 import HomeView from '../views/HomeView.vue'
 
@@ -12,19 +12,19 @@ const routes: Array<RouteRecordRaw> = [
   { 
     path: '/login', 
     name: 'Login', 
-    component: () => import('../views/LoginView.vue.tmpl'),
+    component: () => import('../views/LoginView.vue'),
     meta: { guestOnly: true }
   },
   { 
     path: '/dashboard', 
     name: 'Dashboard', 
-    component: () => import('../views/DashboardView.vue.tmpl'),
+    component: () => import('../views/DashboardView.vue'),
     meta: { requiresAuth: true }
   },
   { 
     path: '/users', 
     name: 'Users', 
-    component: () => import('../views/UsersView.vue.tmpl'),
+    component: () => import('../views/UsersView.vue'),
     meta: { requiresAuth: true }
   },
 {{- end }}
