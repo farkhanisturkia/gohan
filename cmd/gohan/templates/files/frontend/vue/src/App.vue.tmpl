@@ -17,7 +17,7 @@
         <div class="flex items-center space-x-4">
 {{- if .UseAuth }}
           <template v-if="isAuthenticated">
-            <span class="text-xs text-slate-400 font-mono">{{ userEmail }}</span>
+            <span class="text-xs text-slate-400 font-mono">{{ "{{" }} userEmail {{ "}}" }}</span>
             <button @click="logout" class="text-xs bg-rose-500/10 text-rose-400 border border-rose-500/20 px-3 py-1 rounded hover:bg-rose-500/20">
               Logout
             </button>
