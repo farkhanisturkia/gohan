@@ -15,7 +15,7 @@
             <span v-else-if="pingError" class="text-xs text-rose-400 font-bold">Offline</span>
             <span v-else class="text-xs text-emerald-400 font-bold">Online (200 OK)</span>
           </div>
-          <pre class="bg-slate-900 p-3 rounded text-xs text-slate-300 font-mono overflow-x-auto">{{ pingDisplay }}</pre>
+          <pre class="bg-slate-900 p-3 rounded text-xs text-slate-300 font-mono overflow-x-auto">{{ "{{" }} pingDisplay {{ "}}" }}</pre>
         </div>
 
         <!-- Check Public Route Card -->
@@ -26,7 +26,7 @@
             <span v-else-if="publicError" class="text-xs text-rose-400 font-bold">Failed</span>
             <span v-else class="text-xs text-emerald-400 font-bold">200 OK</span>
           </div>
-          <pre class="bg-slate-900 p-3 rounded text-xs text-slate-300 font-mono overflow-x-auto whitespace-pre-wrap">{{ publicDisplay }}</pre>
+          <pre class="bg-slate-900 p-3 rounded text-xs text-slate-300 font-mono overflow-x-auto whitespace-pre-wrap">{{ "{{" }} publicDisplay {{ "}}" }}</pre>
         </div>
       </div>
     </div>
@@ -46,7 +46,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
-import axios from 'axios'
+import api from '../lib/axios'
 
 interface PingResponse {
   message: string
@@ -60,7 +60,7 @@ interface PublicResponse {
 const { data: pingData, isLoading: pingLoading, error: pingError } = useQuery<PingResponse, Error>({
   queryKey: ['ping'],
   queryFn: async () => {
-    const res = await axios.get('/ping')
+    const res = await api.get('/ping')
     return res.data
   },
 })
@@ -69,7 +69,7 @@ const { data: pingData, isLoading: pingLoading, error: pingError } = useQuery<Pi
 const { data: publicData, isLoading: publicLoading, error: publicError } = useQuery<PublicResponse, Error>({
   queryKey: ['check-public'],
   queryFn: async () => {
-    const res = await axios.get('/check-public')
+    const res = await api.get('/check-public')
     return res.data
   },
 })

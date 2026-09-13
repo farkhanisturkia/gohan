@@ -1,0 +1,52 @@
+<template>
+  <div class="space-y-6">
+    <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-lg">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-2xl font-bold text-white">Dashboard</h2>
+        <span class="px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full text-xs font-mono font-semibold">
+          Protected Area
+        </span>
+      </div>
+      
+      <p class="text-slate-300 text-sm mb-4">
+        Welcome back, <strong class="text-white">{{ "{{" }} userDisplayName {{ "}}" }}</strong>! You have successfully authenticated using the <code class="text-emerald-400 uppercase">{{ .AuthType }}</code> strategy.
+      </p>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+        <div class="p-4 bg-slate-950 border border-slate-800 rounded-lg">
+          <div class="text-slate-400 text-xs font-medium mb-1">User ID</div>
+          <div class="text-xl font-bold font-mono text-white">{{ "{{" }} userIdDisplay {{ "}}" }}</div>
+        </div>
+
+        <div class="p-4 bg-slate-950 border border-slate-800 rounded-lg">
+          <div class="text-slate-400 text-xs font-medium mb-1">Email Address</div>
+          <div class="text-xl font-bold font-mono text-white truncate">{{ "{{" }} userEmailDisplay {{ "}}" }}</div>
+        </div>
+
+{{- if .UseRole }}
+        <div class="p-4 bg-slate-950 border border-slate-800 rounded-lg">
+          <div class="text-slate-400 text-xs font-medium mb-1">Role / Access Level</div>
+          <div class="text-xl font-bold font-mono text-emerald-400 uppercase">{{ "{{" }} userRoleDisplay {{ "}}" }}</div>
+        </div>
+{{- else }}
+        <div class="p-4 bg-slate-950 border border-slate-800 rounded-lg">
+          <div class="text-slate-400 text-xs font-medium mb-1">Status</div>
+          <div class="text-xl font-bold font-mono text-emerald-400">ACTIVE</div>
+        </div>
+{{- end }}
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { computed } from 'vue'
+import { useAuth } from '../composables/useAuth'
+
+const { user } = useAuth()
+
+const userDisplayName = computed(() => user.value ? user.value.name : 'User')
+const userEmailDisplay = computed(() => user.value ? user.value.email : '-')
+const userIdDisplay = computed(() => user.value ? user.value.id : '-')
+const userRoleDisplay = computed(() => user.value && user.value.role ? user.value.role : 'user')
+</script>
