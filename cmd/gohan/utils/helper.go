@@ -3,26 +3,32 @@ package utils
 import (
     "bufio"
     "os"
+    "path/filepath"
     "strings"
 )
 
 func GetModuleName() string {
-    file, err := os.Open("go.mod")
-    if err != nil {
-        return "myproject"
-    }
-    defer file.Close()
+	if file, err := os.Open("go.mod"); err == nil {
+		defer file.Close()
+		scanner := bufio.NewScanner(file)
+		for scanner.Scan() {
+			line := strings.TrimSpace(scanner.Text())
+			if moduleName, found := strings.CutPrefix(line, "module "); found {
+				moduleName = strings.TrimSpace(moduleName)
+				moduleName = strings.Trim(moduleName, `"'`)
+				if moduleName != "" {
+					return moduleName
+				}
+			}
+		}
+	}
 
-    scanner := bufio.NewScanner(file)
-    for scanner.Scan() {
-        line := strings.TrimSpace(scanner.Text())
-        if moduleName, found := strings.CutPrefix(line, "module "); found {
-            moduleName = strings.TrimSpace(moduleName)
-            moduleName = strings.Trim(moduleName, `"'`)
-            if moduleName != "" {
-                return moduleName
-            }
-        }
-    }
-    return "myproject"
+	if dir, err := os.Getwd(); err == nil {
+		folderName := filepath.Base(dir)
+		if folderName != "" && folderName != "." && folderName != "/" {
+			return folderName
+		}
+	}
+
+	return "myproject"
 }
