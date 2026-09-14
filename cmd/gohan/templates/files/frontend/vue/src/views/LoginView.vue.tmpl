@@ -42,7 +42,8 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import Cookies from 'js-cookie'
-import api from '../lib/axios'
+import api from '@/lib/axios'
+import { useAuth } from '@/composables/useAuth'
 
 const email = ref('')
 const password = ref('')
@@ -54,6 +55,8 @@ const buttonText = computed(() => {
   return loading.value ? 'Authenticating...' : 'Sign In'
 })
 
+const { fetchUser } = useAuth()
+
 const handleLogin = async () => {
   loading.value = true
   errorMessage.value = ''
@@ -63,11 +66,14 @@ const handleLogin = async () => {
       password: password.value,
     })
 
-    if (res.data.token) {
-      Cookies.set('token', res.data.token, { expires: 7 })
+    const token = res.data.token || res.data.data?.token
+    if (token) {
+      Cookies.set('token', token, { expires: 7 })
     }
+
+    await fetchUser()
     
-    router.push('/dashboard')
+    await router.push('/dashboard')
   } catch (err: any) {
     errorMessage.value = err.response?.data?.message || 'Login failed. Invalid credentials.'
   } finally {

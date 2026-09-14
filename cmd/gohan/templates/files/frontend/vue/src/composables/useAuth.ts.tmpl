@@ -1,12 +1,14 @@
 import { ref } from 'vue'
 import Cookies from 'js-cookie'
-import api from '../lib/axios'
+import api from '@/lib/axios'
 
 interface User {
   id: number
   name: string
   email: string
-  role?: string
+{{- if .UseRole }}
+  role?: string | { id: number; name: string }
+{{- end }}
 }
 
 const user = ref<User | null>(null)
@@ -15,10 +17,13 @@ export function useAuth() {
   const token = Cookies.get('token')
 
   const fetchUser = async () => {
-    if (!Cookies.get('token')) return null
+    if (!Cookies.get('token')) {
+      user.value = null
+      return null
+    }
     try {
       const res = await api.get('/api/me')
-      user.value = res.data.data
+      user.value = res.data.data ?? res.data
       return user.value
     } catch {
       user.value = null

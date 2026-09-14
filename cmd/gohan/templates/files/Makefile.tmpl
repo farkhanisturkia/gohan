@@ -4,7 +4,7 @@ setup:
 	@echo "📦 Setting up all dependencies..."
 {{- if eq .AppType "fullstack" }}
 	@cd backend && (test -f go.mod || go mod init {{ .ModuleName }}) && go mod tidy && gohan key:generate
-	@cd frontend && npm install
+	@cd frontend && npm install --no-fund --no-audit
 {{- else }}
 	@(test -f go.mod || go mod init {{ .ModuleName }}) && go mod tidy && gohan key:generate
 {{- end }}
