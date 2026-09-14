@@ -26,7 +26,11 @@ const routes: Array<RouteRecordRaw> = [
     path: '/users', 
     name: 'Users', 
     component: () => import('../views/UsersView.vue'),
+{{- if .UseRole }}
     meta: { requiresAuth: true, roles: ['admin'] },
+{{- else }}
+    meta: { requiresAuth: true },
+{{- end }}
   },
 {{- end }}
 ]
@@ -36,8 +40,8 @@ const router = createRouter({
   routes,
 })
 
-{{- if .UseAuth }}
 router.beforeEach(async (to, _from, next) => {
+{{- if .UseAuth }}
   const token = Cookies.get('token')
   const { user, fetchUser } = useAuth()
 
@@ -54,6 +58,7 @@ router.beforeEach(async (to, _from, next) => {
       return next({ name: 'Login' })
     }
 
+{{- if .UseRole }}
     const allowedRoles = to.meta.roles as string[] | undefined
     if (allowedRoles && allowedRoles.length > 0) {
       const rawRole = user.value?.role
@@ -63,10 +68,11 @@ router.beforeEach(async (to, _from, next) => {
         return next({ name: 'Dashboard' })
       }
     }
+{{- end }}
   }
+{{- end }}
 
   next()
 })
-{{- end }}
 
 export default router

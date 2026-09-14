@@ -48,5 +48,7 @@ const { user } = useAuth()
 const userDisplayName = computed(() => user.value ? user.value.name : 'User')
 const userEmailDisplay = computed(() => user.value ? user.value.email : '-')
 const userIdDisplay = computed(() => user.value ? user.value.id : '-')
+{{- if .UseRole }}
 const userRoleDisplay = computed(() => user.value && user.value.role ? user.value.role : 'user')
+{{- end }}
 </script>

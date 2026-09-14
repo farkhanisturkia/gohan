@@ -34,13 +34,11 @@ func UserSeeder(db *gohan.DB) {
             Password: hashedPassword,
 {{- if .UseRole }}
             RoleID:   userRole.ID,
-{{- end }}
         },
         {
             Name:     "Administrator",
             Email:    "admin@example.com",
             Password: hashedPassword,
-{{- if .UseRole }}
             RoleID:   adminRole.ID,
 {{- end }}
         },
