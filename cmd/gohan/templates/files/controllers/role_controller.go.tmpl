@@ -1,0 +1,48 @@
+package controllers
+
+import (
+	"context"
+	"net/http"
+	"time"
+
+	"github.com/farkhanisturkia/gohan"
+	"{{ .ModuleName }}/database/migrations"
+)
+
+const roleCacheKey = "role:all"
+
+func RoleIndex(db *gohan.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var roles []migrations.Role
+
+		if cachedData, err := gohan.Redis.Get(r.Context(), roleCacheKey).Result(); err == nil && cachedData != "" {
+			if err := gohan.Unmarshal([]byte(cachedData), &roles); err == nil {
+				gohan.JSON(w, http.StatusOK, map[string]interface{}{
+					"message": "Roles fetched successfully (cached)",
+					"data":    roles,
+				})
+				return
+			}
+		}
+
+		if err := db.Find(&roles); err != nil {
+			gohan.JSON(w, http.StatusInternalServerError, map[string]string{
+				"message": "Failed to fetch roles: " + err.Error(),
+			})
+			return
+		}
+
+		if jsonBytes, err := gohan.Marshal(roles); err == nil {
+			_ = gohan.Redis.Set(r.Context(), roleCacheKey, string(jsonBytes), 1*time.Hour).Err()
+		}
+
+		gohan.JSON(w, http.StatusOK, map[string]interface{}{
+			"message": "Roles fetched successfully",
+			"data":    roles,
+		})
+	}
+}
+
+func ClearRoleCache(ctx context.Context) {
+	_ = gohan.Redis.Del(ctx, roleCacheKey).Err()
+}

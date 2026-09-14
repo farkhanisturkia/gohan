@@ -26,10 +26,10 @@
         </thead>
         <tbody class="divide-y divide-slate-800">
           <tr v-if="isLoading">
-            <td colspan="5" class="p-4 text-center text-slate-500">Loading users...</td>
+            <td colspan="{{ if .UseRole }}5{{ else }}4{{ end }}" class="p-4 text-center text-slate-500">Loading users...</td>
           </tr>
           <tr v-else-if="isError">
-            <td colspan="5" class="p-4 text-center text-rose-400">Failed to load users</td>
+            <td colspan="{{ if .UseRole }}5{{ else }}4{{ end }}" class="p-4 text-center text-rose-400">Failed to load users</td>
           </tr>
           <tr v-else v-for="u in users" :key="u.id" class="hover:bg-slate-800/50">
             <td class="p-4">{{ "{{" }} u.id {{ "}}" }}</td>
@@ -74,9 +74,11 @@
 {{- if .UseRole }}
           <div>
             <label class="block text-xs font-medium text-slate-400 mb-1">Role</label>
-            <select v-model="form.role" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white focus:outline-none focus:border-emerald-500">
-              <option value="user">User</option>
-              <option value="admin">Admin</option>
+            <select v-model="form.role_id" required class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white focus:outline-none focus:border-emerald-500 capitalize">
+              <option :value="0" disabled>Select Role</option>
+              <option v-for="r in roles" :key="r.id" :value="r.id">
+                {{ "{{" }} r.name {{ "}}" }}
+              </option>
             </select>
           </div>
 {{- end }}
@@ -98,11 +100,21 @@ import { ref, computed } from 'vue'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import api from '../lib/axios'
 
+{{- if .UseRole }}
+interface Role {
+  id: number
+  name: string
+}
+{{- end }}
+
 interface User {
   id: number
   name: string
   email: string
-  role?: string
+{{- if .UseRole }}
+  role_id?: number
+  role?: Role | string
+{{- end }}
 }
 
 const queryClient = useQueryClient()
@@ -112,12 +124,28 @@ const form = ref({
   name: '',
   email: '',
   password: '',
-  role: 'user',
+{{- if .UseRole }}
+  role_id: 0,
+{{- end }}
 })
 
-const getRoleName = (role?: string): string => {
-  return role ? role : 'user'
+{{- if .UseRole }}
+const { data: roles } = useQuery<Role[]>({
+  queryKey: ['roles'],
+  queryFn: async () => {
+    const res = await api.get('/api/roles')
+    return res.data.data
+  },
+})
+
+const getRoleName = (role?: Role | string): string => {
+  if (!role) return 'user'
+  if (typeof role === 'object') {
+    return role.name && role.name.trim() !== '' ? role.name : 'user'
+  }
+  return String(role)
 }
+{{- end }}
 
 const submitBtnText = computed(() => {
   return createMutation.isPending.value ? 'Creating...' : 'Save User'
@@ -128,7 +156,7 @@ const { data: users, isLoading, isError } = useQuery<User[]>({
   queryKey: ['users'],
   queryFn: async () => {
     const res = await api.get('/api/users')
-    return res.data.data
+    return res.data.data.data
   },
 })
 
@@ -140,7 +168,14 @@ const createMutation = useMutation({
   onSuccess: () => {
     queryClient.invalidateQueries({ queryKey: ['users'] })
     showCreateModal.value = false
-    form.value = { name: '', email: '', password: '', role: 'user' }
+    form.value = { 
+      name: '', 
+      email: '', 
+      password: '', 
+{{- if .UseRole }}
+      role_id: 0
+{{- end }}
+    }
   },
 })
 

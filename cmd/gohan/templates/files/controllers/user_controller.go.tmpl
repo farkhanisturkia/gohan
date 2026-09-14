@@ -1,268 +1,292 @@
 package controllers
 
 import (
-	"fmt"
-	"net/http"
-	"strconv"
-	"time"
-	"context"
+    "fmt"
+    "net/http"
+    "strconv"
+    "time"
+    "context"
 
-	"github.com/farkhanisturkia/gohan"
-	"{{ .ModuleName }}/database/migrations"
+    "github.com/farkhanisturkia/gohan"
+    "{{ .ModuleName }}/database/migrations"
 )
 
 type CreateUserRequest struct {
-	Name     string `json:"name"`
-	Email    string `json:"email"`
-	Password string `json:"password"`
-	RoleID   int    `json:"role_id"`
+    Name     string `json:"name"`
+    Email    string `json:"email"`
+    Password string `json:"password"`
+{{- if .UseRole }}
+    RoleID   int    `json:"role_id"`
+{{- end }}
 }
 
 type UpdateUserRequest struct {
-	Name   string `json:"name"`
-	Email  string `json:"email"`
-	RoleID int    `json:"role_id"`
+    Name   string `json:"name"`
+    Email  string `json:"email"`
+{{- if .UseRole }}
+    RoleID int    `json:"role_id"`
+{{- end }}
 }
 
 func UserIndex(db *gohan.DB) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		page, _ := strconv.Atoi(r.URL.Query().Get("page"))
-		if page <= 0 {
-			page = 1
-		}
+    return func(w http.ResponseWriter, r *http.Request) {
+        page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+        if page <= 0 {
+            page = 1
+        }
 
-		perPage, _ := strconv.Atoi(r.URL.Query().Get("per_page"))
-		if perPage <= 0 {
-			perPage = 10
-		}
+        perPage, _ := strconv.Atoi(r.URL.Query().Get("per_page"))
+        if perPage <= 0 {
+            perPage = 10
+        }
 
-		var items []migrations.User
-		var paginationData gohan.Pagination
-		cacheKey := fmt.Sprintf("user:all:page:%d:limit:%d", page, perPage)
+        var items []migrations.User
+        var paginationData gohan.Pagination
+        cacheKey := fmt.Sprintf("user:all:page:%d:limit:%d", page, perPage)
 
-		if cachedData, err := gohan.Redis.Get(r.Context(), cacheKey).Result(); err == nil && cachedData != "" {
-			if err := gohan.Unmarshal([]byte(cachedData), &paginationData); err == nil {
-				gohan.JSON(w, http.StatusOK, map[string]interface{}{
-					"message": "Fetch User list successful (cached)",
-					"data":    paginationData,
-				})
-				return
-			}
-		}
+        if cachedData, err := gohan.Redis.Get(r.Context(), cacheKey).Result(); err == nil && cachedData != "" {
+            if err := gohan.Unmarshal([]byte(cachedData), &paginationData); err == nil {
+                gohan.JSON(w, http.StatusOK, map[string]interface{}{
+                    "message": "Fetch User list successful (cached)",
+                    "data":    paginationData,
+                })
+                return
+            }
+        }
 
-		res, err := db.Paginate(page, perPage).Preload("Role").Find(&items)
-		if err != nil {
-			gohan.JSON(w, http.StatusInternalServerError, map[string]string{
-				"message": "Failed to fetch User data: " + err.Error(),
-			})
-			return
-		}
+{{- if .UseRole }}
+        res, err := db.Paginate(page, perPage).Preload("Role").Find(&items)
+{{- else }}
+        res, err := db.Paginate(page, perPage).Find(&items)
+{{- end }}
+        if err != nil {
+            gohan.JSON(w, http.StatusInternalServerError, map[string]string{
+                "message": "Failed to fetch User data: " + err.Error(),
+            })
+            return
+        }
 
-		if jsonBytes, err := gohan.Marshal(res); err == nil {
-			_ = gohan.Redis.Set(r.Context(), cacheKey, string(jsonBytes), 10*time.Minute).Err()
-		}
+        if jsonBytes, err := gohan.Marshal(res); err == nil {
+            _ = gohan.Redis.Set(r.Context(), cacheKey, string(jsonBytes), 10*time.Minute).Err()
+        }
 
-		gohan.JSON(w, http.StatusOK, map[string]interface{}{
-			"message": "Fetch User list successful",
-			"data":    res,
-		})
-	}
+        gohan.JSON(w, http.StatusOK, map[string]interface{}{
+            "message": "Fetch User list successful",
+            "data":    res,
+        })
+    }
 }
 
 func UserCreate(_ *gohan.DB) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		gohan.JSON(w, http.StatusOK, map[string]interface{}{
-			"message": "Create User form / view",
-		})
-	}
+    return func(w http.ResponseWriter, r *http.Request) {
+        gohan.JSON(w, http.StatusOK, map[string]interface{}{
+            "message": "Create User form / view",
+        })
+    }
 }
 
 func UserStore(db *gohan.DB) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var req CreateUserRequest
-		if err := gohan.BindJSON(r, &req); err != nil || req.Email == "" || req.Password == "" {
-			gohan.JSON(w, http.StatusBadRequest, map[string]string{
-				"message": "Invalid request body or missing required fields (email/password)",
-			})
-			return
-		}
+    return func(w http.ResponseWriter, r *http.Request) {
+        var req CreateUserRequest
+        if err := gohan.BindJSON(r, &req); err != nil || req.Email == "" || req.Password == "" {
+            gohan.JSON(w, http.StatusBadRequest, map[string]string{
+                "message": "Invalid request body or missing required fields (email/password)",
+            })
+            return
+        }
 
-		hashedPassword, err := gohan.HashPassword(req.Password)
-		if err != nil {
-			gohan.JSON(w, http.StatusInternalServerError, map[string]string{
-				"message": "Failed to process security credentials",
-			})
-			return
-		}
+        hashedPassword, err := gohan.HashPassword(req.Password)
+        if err != nil {
+            gohan.JSON(w, http.StatusInternalServerError, map[string]string{
+                "message": "Failed to process security credentials",
+            })
+            return
+        }
 
-		item := migrations.User{
-			Name:     req.Name,
-			Email:    req.Email,
-			Password: hashedPassword,
-			RoleID:   req.RoleID,
-		}
+        item := migrations.User{
+            Name:     req.Name,
+            Email:    req.Email,
+            Password: hashedPassword,
+{{- if .UseRole }}
+            RoleID:   req.RoleID,
+{{- end }}
+        }
 
-		err = db.Transaction(func(tx *gohan.Tx) error {
-			return tx.Create(&item)
-		})
+        err = db.Transaction(func(tx *gohan.Tx) error {
+            return tx.Create(&item)
+        })
 
-		if err != nil {
-			gohan.JSON(w, http.StatusInternalServerError, map[string]string{
-				"message": "Failed to create User",
-			})
-			return
-		}
+        if err != nil {
+            gohan.JSON(w, http.StatusInternalServerError, map[string]string{
+                "message": "Failed to create User",
+            })
+            return
+        }
 
-		clearUserCache(r.Context())
+{{- if .UseRole }}
+        _ = db.Preload("Role").FindOne(&item, "id = ?", item.ID)
+{{- end }}
 
-		gohan.JSON(w, http.StatusCreated, map[string]interface{}{
-			"message": "User created successfully",
-			"data":    item,
-		})
-	}
+        clearUserCache(r.Context())
+
+        gohan.JSON(w, http.StatusCreated, map[string]interface{}{
+            "message": "User created successfully",
+            "data":    item,
+        })
+    }
 }
 
 func UserShow(db *gohan.DB) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		id := gohan.Param(r, "id")
-		var item migrations.User
-		cacheKey := fmt.Sprintf("user:%s", id)
+    return func(w http.ResponseWriter, r *http.Request) {
+        id := gohan.Param(r, "id")
+        var item migrations.User
+        cacheKey := fmt.Sprintf("user:%s", id)
 
-		if cachedData, err := gohan.Redis.Get(r.Context(), cacheKey).Result(); err == nil && cachedData != "" {
-			if err := gohan.Unmarshal([]byte(cachedData), &item); err == nil {
-				gohan.JSON(w, http.StatusOK, map[string]interface{}{
-					"message": "Fetch User detail successful (cached)",
-					"data":    item,
-				})
-				return
-			}
-		}
+        if cachedData, err := gohan.Redis.Get(r.Context(), cacheKey).Result(); err == nil && cachedData != "" {
+            if err := gohan.Unmarshal([]byte(cachedData), &item); err == nil {
+                gohan.JSON(w, http.StatusOK, map[string]interface{}{
+                    "message": "Fetch User detail successful (cached)",
+                    "data":    item,
+                })
+                return
+            }
+        }
 
-		if err := db.Preload("Role").FindOne(&item, "id = ?", id); err != nil {
-			gohan.JSON(w, http.StatusNotFound, map[string]string{
-				"message": "User not found",
-			})
-			return
-		}
+{{- if .UseRole }}
+        if err := db.Preload("Role").FindOne(&item, "id = ?", id); err != nil {
+{{- else }}
+        if err := db.FindOne(&item, "id = ?", id); err != nil {
+{{- end }}
+            gohan.JSON(w, http.StatusNotFound, map[string]string{
+                "message": "User not found",
+            })
+            return
+        }
 
-		if jsonBytes, err := gohan.Marshal(item); err == nil {
-			_ = gohan.Redis.Set(r.Context(), cacheKey, string(jsonBytes), 10*time.Minute).Err()
-		}
+        if jsonBytes, err := gohan.Marshal(item); err == nil {
+            _ = gohan.Redis.Set(r.Context(), cacheKey, string(jsonBytes), 10*time.Minute).Err()
+        }
 
-		gohan.JSON(w, http.StatusOK, map[string]interface{}{
-			"message": "Fetch User detail successful",
-			"data":    item,
-		})
-	}
+        gohan.JSON(w, http.StatusOK, map[string]interface{}{
+            "message": "Fetch User detail successful",
+            "data":    item,
+        })
+    }
 }
 
 func UserEdit(db *gohan.DB) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		id := gohan.Param(r, "id")
+    return func(w http.ResponseWriter, r *http.Request) {
+        id := gohan.Param(r, "id")
 
-		var item migrations.User
-		if err := db.FindOne(&item, "id = ?", id); err != nil {
-			gohan.JSON(w, http.StatusNotFound, map[string]string{
-				"message": "User not found",
-			})
-			return
-		}
+        var item migrations.User
+        if err := db.FindOne(&item, "id = ?", id); err != nil {
+            gohan.JSON(w, http.StatusNotFound, map[string]string{
+                "message": "User not found",
+            })
+            return
+        }
 
-		gohan.JSON(w, http.StatusOK, map[string]interface{}{
-			"message": "Edit User form / view",
-			"data":    item,
-		})
-	}
+        gohan.JSON(w, http.StatusOK, map[string]interface{}{
+            "message": "Edit User form / view",
+            "data":    item,
+        })
+    }
 }
 
 func UserUpdate(db *gohan.DB) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		id := gohan.Param(r, "id")
+    return func(w http.ResponseWriter, r *http.Request) {
+        id := gohan.Param(r, "id")
 
-		var req UpdateUserRequest
-		if err := gohan.BindJSON(r, &req); err != nil {
-			gohan.JSON(w, http.StatusBadRequest, map[string]string{
-				"message": "Invalid request body",
-			})
-			return
-		}
+        var req UpdateUserRequest
+        if err := gohan.BindJSON(r, &req); err != nil {
+            gohan.JSON(w, http.StatusBadRequest, map[string]string{
+                "message": "Invalid request body",
+            })
+            return
+        }
 
-		var item migrations.User
-		if err := db.FindOne(&item, "id = ?", id); err != nil {
-			gohan.JSON(w, http.StatusNotFound, map[string]string{
-				"message": "User not found",
-			})
-			return
-		}
+        var item migrations.User
+        if err := db.FindOne(&item, "id = ?", id); err != nil {
+            gohan.JSON(w, http.StatusNotFound, map[string]string{
+                "message": "User not found",
+            })
+            return
+        }
 
-		if req.Name != "" {
-			item.Name = req.Name
-		}
-		if req.Email != "" {
-			item.Email = req.Email
-		}
-		if req.RoleID != 0 {
-			item.RoleID = req.RoleID
-		}
+        if req.Name != "" {
+            item.Name = req.Name
+        }
+        if req.Email != "" {
+            item.Email = req.Email
+        }
+{{- if .UseRole }}
+        if req.RoleID != 0 {
+            item.RoleID = req.RoleID
+        }
+{{- end }}
 
-		err := db.Transaction(func(tx *gohan.Tx) error {
-			return tx.Update(&item, id)
-		})
+        err := db.Transaction(func(tx *gohan.Tx) error {
+            return tx.Update(&item, id)
+        })
 
-		if err != nil {
-			gohan.JSON(w, http.StatusInternalServerError, map[string]string{
-				"message": "Failed to update User",
-			})
-			return
-		}
+        if err != nil {
+            gohan.JSON(w, http.StatusInternalServerError, map[string]string{
+                "message": "Failed to update User",
+            })
+            return
+        }
 
-		clearUserCache(r.Context(), fmt.Sprintf("user:%s", id))
+{{- if .UseRole }}
+        _ = db.Preload("Role").FindOne(&item, "id = ?", id)
+{{- end }}
 
-		gohan.JSON(w, http.StatusOK, map[string]interface{}{
-			"message": "User updated successfully",
-			"data":    item,
-		})
-	}
+        clearUserCache(r.Context(), fmt.Sprintf("user:%s", id))
+
+        gohan.JSON(w, http.StatusOK, map[string]interface{}{
+            "message": "User updated successfully",
+            "data":    item,
+        })
+    }
 }
 
 func UserDestroy(db *gohan.DB) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		id := gohan.Param(r, "id")
+    return func(w http.ResponseWriter, r *http.Request) {
+        id := gohan.Param(r, "id")
 
-		var item migrations.User
-		if err := db.FindOne(&item, "id = ?", id); err != nil {
-			gohan.JSON(w, http.StatusNotFound, map[string]string{
-				"message": "User not found",
-			})
-			return
-		}
+        var item migrations.User
+        if err := db.FindOne(&item, "id = ?", id); err != nil {
+            gohan.JSON(w, http.StatusNotFound, map[string]string{
+                "message": "User not found",
+            })
+            return
+        }
 
-		err := db.Transaction(func(tx *gohan.Tx) error {
-			return tx.Delete(&migrations.User{}, id)
-		})
+        err := db.Transaction(func(tx *gohan.Tx) error {
+            return tx.Delete(&migrations.User{}, id)
+        })
 
-		if err != nil {
-			gohan.JSON(w, http.StatusInternalServerError, map[string]string{
-				"message": "Failed to delete User",
-			})
-			return
-		}
+        if err != nil {
+            gohan.JSON(w, http.StatusInternalServerError, map[string]string{
+                "message": "Failed to delete User",
+            })
+            return
+        }
 
-		clearUserCache(r.Context(), fmt.Sprintf("user:%s", id))
+        clearUserCache(r.Context(), fmt.Sprintf("user:%s", id))
 
-		gohan.JSON(w, http.StatusOK, map[string]string{
-			"message": "User deleted successfully",
-		})
-	}
+        gohan.JSON(w, http.StatusOK, map[string]string{
+            "message": "User deleted successfully",
+        })
+    }
 }
 
 func clearUserCache(ctx context.Context, extraKeys ...string) {
-	for _, key := range extraKeys {
-		_ = gohan.Redis.Del(ctx, key).Err()
-	}
+    for _, key := range extraKeys {
+        _ = gohan.Redis.Del(ctx, key).Err()
+    }
 
-	iter := gohan.Redis.Scan(ctx, 0, "user:all*", 0).Iterator()
-	for iter.Next(ctx) {
-		_ = gohan.Redis.Del(ctx, iter.Val()).Err()
-	}
+    iter := gohan.Redis.Scan(ctx, 0, "user:all*", 0).Iterator()
+    for iter.Next(ctx) {
+        _ = gohan.Redis.Del(ctx, iter.Val()).Err()
+    }
 }

@@ -62,8 +62,7 @@ const handleLogin = async () => {
       email: email.value,
       password: password.value,
     })
-    
-    // Simpan token ke cookie
+
     if (res.data.token) {
       Cookies.set('token', res.data.token, { expires: 7 })
     }

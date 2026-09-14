@@ -110,6 +110,8 @@ func SetupRoutes(db *gohan.DB) {
     gohan.Put("/api/users/{id}", middleware.Authenticate(db, middleware.RequireRole([]string{"admin"}, controllers.UserUpdate(db))))
     gohan.Delete("/api/users/{id}", middleware.Authenticate(db, middleware.RequireRole([]string{"admin"}, controllers.UserDestroy(db))))
 
+    gohan.Get("/api/roles", middleware.Authenticate(db, middleware.RequireRole([]string{"admin"}, controllers.RoleIndex(db))))
+
     // Example Role-Based Protected Routes
     gohan.Get("/api/admin/dashboard", middleware.Authenticate(db, middleware.RequireRole([]string{"admin"}, func(w http.ResponseWriter, r *http.Request) {
         gohan.JSON(w, http.StatusOK, map[string]string{

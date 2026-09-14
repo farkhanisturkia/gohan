@@ -251,6 +251,7 @@ func shouldSkipFile(path string, cfg InitConfig) bool {
 
 	if cfg.UseAuth && !cfg.UseRole {
 		if filename == "00000000000004_create_role_table.go" ||
+			filename == "role_controller.go" ||
 			filename == "role.go" ||
 			filename == "role_middleware.go" {
 			return true
