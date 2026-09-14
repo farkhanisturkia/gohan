@@ -9,7 +9,7 @@
 {{- if .UseAuth }}
           <nav v-if="isAuthenticated" class="flex space-x-4 text-sm font-medium text-slate-300">
             <router-link to="/dashboard" class="hover:text-white">Dashboard</router-link>
-            <router-link to="/users" class="hover:text-white">Users</router-link>
+            <router-link v-if="isAdmin" to="/users" class="hover:text-white">Users</router-link>
           </nav>
 {{- end }}
         </div>
@@ -51,10 +51,14 @@ const { user, isAuthenticated, fetchUser, logout } = useAuth()
 
 const userEmail = computed(() => user.value ? user.value.email : '')
 
+const isAdmin = computed(() => {
+  if (!user.value?.role) return false
+  const roleName = typeof user.value.role === 'object' ? user.value.role.name : user.value.role
+  return roleName === 'admin'
+})
+
 onMounted(() => {
-  if (isAuthenticated) {
-    fetchUser()
-  }
+  fetchUser()
 })
 {{- end }}
 </script>

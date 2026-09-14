@@ -26,7 +26,7 @@ const routes: Array<RouteRecordRaw> = [
     path: '/users', 
     name: 'Users', 
     component: () => import('../views/UsersView.vue'),
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true, roles: ['admin'] },
   },
 {{- end }}
 ]
@@ -45,12 +45,24 @@ router.beforeEach(async (to, _from, next) => {
     await fetchUser()
   }
 
-  if (to.meta.requiresAuth && !token) {
-    return next({ name: 'Login' })
-  }
-
   if (to.meta.guestOnly && token) {
     return next({ name: 'Dashboard' })
+  }
+
+  if (to.meta.requiresAuth) {
+    if (!token) {
+      return next({ name: 'Login' })
+    }
+
+    const allowedRoles = to.meta.roles as string[] | undefined
+    if (allowedRoles && allowedRoles.length > 0) {
+      const rawRole = user.value?.role
+      const userRole = typeof rawRole === 'object' && rawRole !== null ? rawRole.name : rawRole
+
+      if (!userRole || !allowedRoles.includes(userRole)) {
+        return next({ name: 'Dashboard' })
+      }
+    }
   }
 
   next()

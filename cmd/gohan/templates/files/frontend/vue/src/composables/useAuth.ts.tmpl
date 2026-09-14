@@ -14,7 +14,7 @@ interface User {
 const user = ref<User | null>(null)
 
 export function useAuth() {
-  const token = Cookies.get('token')
+  const isAuthenticated = computed(() => !!user.value || !!Cookies.get('token'))
 
   const fetchUser = async () => {
     if (!Cookies.get('token')) {
@@ -46,7 +46,7 @@ export function useAuth() {
 
   return {
     user,
-    isAuthenticated: !!token,
+    isAuthenticated,
     fetchUser,
     logout,
   }
