@@ -213,50 +213,55 @@ func readInput(reader *bufio.Reader) string {
 }
 
 func shouldSkipFile(path string, cfg InitConfig) bool {
-	filename := filepath.Base(path)
+    filename := filepath.Base(path)
 
-	if !cfg.UseAuth {
-		if filename == "auth_controller.go" ||
-			filename == "password_reset_controller.go" ||
-			filename == "00000000000002_create_personal_access_token_table.go" ||
-			filename == "00000000000003_create_password_reset_table.go" ||
-			filename == "00000000000004_create_role_table.go" ||
-			filename == "role.go" ||
-			filename == "auth_middleware.go" ||
-			filename == "role_middleware.go" {
-			return true
-		}
+    match := func(target string) bool {
+        return filename == target || filename == target+".tmpl"
+    }
 
-		if filename == "LoginView.vue.tmpl" ||
-			filename == "DashboardView.vue.tmpl" ||
-			filename == "useAuth.ts.tmpl" {
-			return true
-		}
-	}
+    if !cfg.UseAuth {
+        if match("auth_controller.go") ||
+            match("password_reset_controller.go") ||
+            match("role_controller.go") ||
+            match("00000000000002_create_personal_access_token_table.go") ||
+            match("00000000000003_create_password_reset_table.go") ||
+            match("00000000000004_create_role_table.go") ||
+            match("role.go") ||
+            match("auth_middleware.go") ||
+            match("role_middleware.go") {
+            return true
+        }
 
-	if cfg.UseAuth && cfg.AuthType == "jwt" {
-		if filename == "00000000000002_create_personal_access_token_table.go" {
-			return true
-		}
-	}
+        if match("LoginView.vue") ||
+            match("DashboardView.vue") ||
+            match("useAuth.ts") {
+            return true
+        }
+    }
 
-	if cfg.UseAuth && !cfg.UseForgotPassword {
-		if filename == "password_reset_controller.go" ||
-			filename == "00000000000003_create_password_reset_table.go" ||
-			filename == "ForgotPasswordView.vue.tmpl" ||
-			filename == "ResetPasswordView.vue.tmpl" {
-			return true
-		}
-	}
+    if cfg.UseAuth && cfg.AuthType == "jwt" {
+        if match("00000000000002_create_personal_access_token_table.go") {
+            return true
+        }
+    }
 
-	if cfg.UseAuth && !cfg.UseRole {
-		if filename == "00000000000004_create_role_table.go" ||
-			filename == "role_controller.go" ||
-			filename == "role.go" ||
-			filename == "role_middleware.go" {
-			return true
-		}
-	}
+    if cfg.UseAuth && !cfg.UseForgotPassword {
+        if match("password_reset_controller.go") ||
+            match("00000000000003_create_password_reset_table.go") ||
+            match("ForgotPasswordView.vue") ||
+            match("ResetPasswordView.vue") {
+            return true
+        }
+    }
 
-	return false
+    if cfg.UseAuth && !cfg.UseRole {
+        if match("00000000000004_create_role_table.go") ||
+            match("role_controller.go") ||
+            match("role.go") ||
+            match("role_middleware.go") {
+            return true
+        }
+    }
+
+    return false
 }
