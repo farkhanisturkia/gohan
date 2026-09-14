@@ -1,4 +1,4 @@
-.PHONY: setup dev dev-backend dev-frontend
+.PHONY: setup dev dev-backend dev-frontend clear-cache
 
 setup:
 	@echo "📦 Setting up all dependencies..."
@@ -10,6 +10,10 @@ setup:
 {{- end }}
 	@echo "✅ Setup completed!"
 
+clear-cache:
+	@echo "🧹 Clearing Redis cache..."
+	@which redis-cli > /dev/null 2>&1 && redis-cli flushdb > /dev/null 2>&1 || echo "⚠️  Redis CLI not found or Redis service is down, skipping flush..."
+
 dev:
 {{- if eq .AppType "fullstack" }}
 	@echo "🚀 Starting Backend and Frontend..."
@@ -18,7 +22,7 @@ dev:
 	@make dev-backend
 {{- end }}
 
-dev-backend:
+dev-backend: clear-cache
 {{- if eq .AppType "fullstack" }}
 	@cd backend && go run .
 {{- else }}
