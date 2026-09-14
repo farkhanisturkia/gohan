@@ -25,7 +25,7 @@ func RoleIndex(db *gohan.DB) http.HandlerFunc {
 			}
 		}
 
-		if err := db.Find(&roles); err != nil {
+		if err := db.FindAll(&roles); err != nil {
 			gohan.JSON(w, http.StatusInternalServerError, map[string]string{
 				"message": "Failed to fetch roles: " + err.Error(),
 			})
