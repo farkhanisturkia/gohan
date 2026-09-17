@@ -13,7 +13,7 @@ func RoleSeeder(db *gohan.DB) {
 	for _, roleName := range roles {
 		var existingRole migrations.Role
 		if err := db.FindOne(&existingRole, "name = ?", roleName); err == nil {
-			log.Printf("[info] Role '%s' already exists, skipping...\n", roleName)
+			// log.Printf("[info] Role '%s' already exists, skipping...\n", roleName)
 			continue
 		}
 

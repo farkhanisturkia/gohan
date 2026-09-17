@@ -47,7 +47,7 @@ func UserSeeder(db *gohan.DB) {
     for _, user := range users {
         var existingUser migrations.User
         if err := db.FindOne(&existingUser, "email = ?", user.Email); err == nil {
-            log.Printf("[info] User seeder skipped for '%s': Data already exists\n", user.Email)
+            // log.Printf("[info] User seeder skipped for '%s': Data already exists\n", user.Email)
             continue
         }
 
