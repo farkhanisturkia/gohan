@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"bufio"
 	"fmt"
 	"go/format"
 	"os"
@@ -10,6 +9,7 @@ import (
 
 	"github.com/farkhanisturkia/gohan/cmd/gohan/templates"
 	"github.com/farkhanisturkia/gohan/cmd/gohan/utils"
+	"github.com/manifoldco/promptui"
 )
 
 type InitConfig struct {
@@ -23,95 +23,125 @@ type InitConfig struct {
 }
 
 func InitBoilerplate() {
-	reader := bufio.NewReader(os.Stdin)
 	config := InitConfig{}
 
 	fmt.Println("🚀 Initializing Gohan Framework Project...")
 	fmt.Println("--------------------------------------------------")
 
 	// 1. Select App Type (API Only vs Fullstack)
-	fmt.Println("\n[1] Select Application Type:")
-	fmt.Println("  1) API Only (Default)")
-	fmt.Println("  2) Fullstack")
-	fmt.Print("Choose option [1-2]: ")
-	appChoice := readInput(reader)
-
-	if appChoice == "2" {
-		config.AppType = "fullstack"
-		fmt.Println("   ↳ Selected: Fullstack")
-	} else {
-		config.AppType = "api"
-		fmt.Println("   ↳ Selected: API Only")
+	promptAppType := promptui.Select{
+		Label: "Select Application Type",
+		Items: []string{"API Only (Default)", "Fullstack"},
+	}
+	_, appChoice, err := promptAppType.Run()
+	if err != nil {
+		fmt.Println("[info] Initialization cancelled.")
+		return
 	}
 
-	// 2. Select Backend Type (REST vs gRPC)
-	fmt.Println("\n[2] Select Backend Architecture:")
-	fmt.Println("  1) REST API (Default)")
-	fmt.Println("  2) gRPC (*Coming soon)")
-	fmt.Print("Choose option [1-2]: ")
-	backendChoice := readInput(reader)
+	if strings.Contains(appChoice, "Fullstack") {
+		config.AppType = "fullstack"
+	} else {
+		config.AppType = "api"
+	}
 
-	if backendChoice == "2" {
+	// 2. Select Backend Type (REST, gRPC, GraphQL)
+	promptBackend := promptui.Select{
+		Label: "Select Backend Architecture",
+		Items: []string{"REST API (Default)", "gRPC (*Coming soon)", "GraphQL (*Coming soon)"},
+	}
+	_, backendChoice, err := promptBackend.Run()
+	if err != nil {
+		fmt.Println("[info] Initialization cancelled.")
+		return
+	}
+
+	if strings.Contains(backendChoice, "gRPC") {
 		fmt.Println("\n[info] gRPC backend architecture is currently ON GOING / COMING SOON!")
 		fmt.Println("[info] Initialization aborted.")
 		return
 	}
+	if strings.Contains(backendChoice, "GraphQL") {
+		fmt.Println("\n[info] GraphQL backend architecture is currently ON GOING / COMING SOON!")
+		fmt.Println("[info] Initialization aborted.")
+		return
+	}
 	config.BackendType = "rest"
-	fmt.Println("   ↳ Selected: REST API")
 
 	// 3. Select Frontend Type
 	if config.AppType == "fullstack" {
-		fmt.Println("\n[3] Select Frontend Framework:")
-		fmt.Println("  1) Vue 3 (Default)")
-		fmt.Println("  2) React (*Coming soon)")
-		fmt.Print("Choose option [1-2]: ")
-		feChoice := readInput(reader)
+		promptFrontend := promptui.Select{
+			Label: "Select Frontend Framework",
+			Items: []string{"Vue 3 (Default)", "React (*Coming soon)"},
+		}
+		_, feChoice, err := promptFrontend.Run()
+		if err != nil {
+			fmt.Println("[info] Initialization cancelled.")
+			return
+		}
 
-		if feChoice == "2" {
+		if strings.Contains(feChoice, "React") {
 			fmt.Println("\n[info] React frontend Framework is currently ON GOING / COMING SOON!")
 			fmt.Println("[info] Initialization aborted.")
 			return
 		}
 		config.FrontendType = "vue"
-		fmt.Println("   ↳ Selected: Vue 3")
-
-	} else {
-		config.FrontendType = ""
 	}
 
 	// 4. Auth & Middleware Options
-	stepNum := 3
-	if config.AppType == "fullstack" {
-		stepNum = 4
+	promptAuth := promptui.Select{
+		Label: "Include Authentication?",
+		Items: []string{"Yes", "No"},
+	}
+	_, authChoice, err := promptAuth.Run()
+	if err != nil {
+		fmt.Println("[info] Initialization cancelled.")
+		return
 	}
 
-	fmt.Printf("\n[%d] Do you want to include Authentication? (y/N): ", stepNum)
-	authChoice := readInput(reader)
-
-	if strings.ToLower(authChoice) == "y" || strings.ToLower(authChoice) == "yes" {
+	if authChoice == "Yes" {
 		config.UseAuth = true
 
-		fmt.Println("\n    Select Authentication Type:")
-		fmt.Println("      1) PAT (Default)")
-		fmt.Println("      2) JWT")
-		fmt.Print("    Choose option [1-2]: ")
-		authTypeChoice := readInput(reader)
-
-		if authTypeChoice == "2" {
-			config.AuthType = "jwt"
-			fmt.Println("       ↳ Selected: JSON Web Token (JWT)")
-		} else {
-			config.AuthType = "pat"
-			fmt.Println("       ↳ Selected: Personal Access Token (PAT)")
+		// Select Auth Type
+		promptAuthType := promptui.Select{
+			Label: "  ↳ Select Authentication Type",
+			Items: []string{"PAT - Personal Access Token (Default)", "JWT - JSON Web Token"},
+		}
+		_, authTypeChoice, err := promptAuthType.Run()
+		if err != nil {
+			fmt.Println("[info] Initialization cancelled.")
+			return
 		}
 
-		fmt.Print("\n    Do you want to include Forgot Password features? (y/N): ")
-		forgotChoice := readInput(reader)
-		config.UseForgotPassword = strings.ToLower(forgotChoice) == "y" || strings.ToLower(forgotChoice) == "yes"
+		if strings.Contains(authTypeChoice, "JWT") {
+			config.AuthType = "jwt"
+		} else {
+			config.AuthType = "pat"
+		}
 
-		fmt.Print("\n    Do you want to include Role-Based Middleware (RBAC)? (y/N): ")
-		roleChoice := readInput(reader)
-		config.UseRole = strings.ToLower(roleChoice) == "y" || strings.ToLower(roleChoice) == "yes"
+		// Forgot Password Prompt
+		promptForgot := promptui.Select{
+			Label: "  ↳ Include Forgot Password features?",
+			Items: []string{"Yes", "No"},
+		}
+		_, forgotChoice, err := promptForgot.Run()
+		if err != nil {
+			fmt.Println("[info] Initialization cancelled.")
+			return
+		}
+		config.UseForgotPassword = (forgotChoice == "Yes")
+
+		// Role-Based Middleware Prompt
+		promptRole := promptui.Select{
+			Label: "  ↳ Include Role-Based Middleware (RBAC)?",
+			Items: []string{"Yes", "No"},
+		}
+		_, roleChoice, err := promptRole.Run()
+		if err != nil {
+			fmt.Println("[info] Initialization cancelled.")
+			return
+		}
+		config.UseRole = (roleChoice == "Yes")
 	} else {
 		config.UseAuth = false
 		config.AuthType = ""
@@ -205,11 +235,6 @@ func InitBoilerplate() {
 	fmt.Println("\nNext steps:")
 	fmt.Println("  1. Run 'make setup' to install all dependencies & generate key")
 	fmt.Println("  2. Run 'make dev' to start the application")
-}
-
-func readInput(reader *bufio.Reader) string {
-	input, _ := reader.ReadString('\n')
-	return strings.TrimSpace(input)
 }
 
 func shouldSkipFile(path string, cfg InitConfig) bool {
