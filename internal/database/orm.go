@@ -2,7 +2,7 @@ package database
 
 import (
 	"fmt"
-	"log"
+	// "log"
 	"reflect"
 	"regexp"
 	"strings"
