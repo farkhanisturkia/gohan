@@ -232,9 +232,10 @@ func shouldSkipFile(path string, cfg InitConfig) bool {
             return true
         }
 
-        if match("LoginView.vue") ||
-            match("DashboardView.vue") ||
-            match("useAuth.ts") {
+        if match("useAuth.ts") ||
+			match("DashboardView.vue") ||
+			match("LoginView.vue") ||
+            match("UsersView.vue") {
             return true
         }
     }
