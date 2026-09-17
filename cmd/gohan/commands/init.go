@@ -62,18 +62,18 @@ func InitBoilerplate() {
 	// 3. Select Frontend Type
 	if config.AppType == "fullstack" {
 		fmt.Println("\n[3] Select Frontend Framework:")
-		fmt.Println("  1) Vue 3 + Vite (Default)")
-		fmt.Println("  2) React + Vite (*Coming soon)")
+		fmt.Println("  1) Vue 3 (Default)")
+		fmt.Println("  2) React (*Coming soon)")
 		fmt.Print("Choose option [1-2]: ")
 		feChoice := readInput(reader)
 
 		if feChoice == "2" {
-			fmt.Println("\n[info] React + Vite frontend Framework is currently ON GOING / COMING SOON!")
+			fmt.Println("\n[info] React frontend Framework is currently ON GOING / COMING SOON!")
 			fmt.Println("[info] Initialization aborted.")
 			return
 		}
 		config.FrontendType = "vue"
-		fmt.Println("   ↳ Selected: Vue 3 + Vite")
+		fmt.Println("   ↳ Selected: Vue 3")
 
 	} else {
 		config.FrontendType = ""

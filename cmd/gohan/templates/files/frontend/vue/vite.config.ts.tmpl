@@ -11,6 +11,10 @@ export default defineConfig({
   server: {
     port: 3000,
     proxy: {
+      '/version': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
       '/ping': {
         target: 'http://localhost:8080',
         changeOrigin: true,
