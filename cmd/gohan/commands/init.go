@@ -127,7 +127,7 @@ func InitBoilerplate() {
 
         // Select Auth Type
         authTypeChoice, err := utils.RunSelect(
-            "  ↳ Select Authentication Type", 
+            "Select Authentication Type", 
             []string{
                 "PAT - Personal Access Token (Default)", 
                 "JWT - JSON Web Token",
@@ -146,7 +146,7 @@ func InitBoilerplate() {
 
         // Forgot Password Prompt
         forgotChoice, err := utils.RunSelect(
-            "  ↳ Include Forgot Password features?", 
+            "Include Forgot Password features?", 
             []string{
                 "Yes", 
                 "No",
@@ -160,7 +160,7 @@ func InitBoilerplate() {
 
         // Role-Based Middleware Prompt
         roleChoice, err := utils.RunSelect(
-            "  ↳ Include Role-Based Middleware (RBAC)?", 
+            "Include Role-Based Middleware (RBAC)?", 
             []string{
                 "Yes", 
                 "No",

@@ -44,6 +44,7 @@ func UserSeeder(db *gohan.DB) {
         },
     }
 
+    var seededCount int
     for _, user := range users {
         var existingUser migrations.User
         if err := db.FindOne(&existingUser, "email = ?", user.Email); err == nil {
@@ -54,9 +55,12 @@ func UserSeeder(db *gohan.DB) {
         if err := db.Create(&user); err != nil {
             log.Printf("[error] Failed to seed user (%s): %v\n", user.Email, err)
         } else {
+            seededCount++
             // log.Printf("[info] User '%s' successfully seeded\n", user.Email)
         }
     }
 
-    log.Println("[info] User seeder process completed")
+    if seededCount > 0 {
+        log.Println("[info] User seeder process completed")
+    }
 }
