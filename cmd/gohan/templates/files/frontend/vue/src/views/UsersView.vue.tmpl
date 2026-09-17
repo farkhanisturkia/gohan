@@ -43,15 +43,15 @@
           >
             <div class="min-w-0 flex-1 space-y-1">
               <div class="flex items-center gap-2">
-                <span class="font-mono text-[10px] text-purple-400 dark:text-slate-500">#{{ u.id }}</span>
-                <h3 class="font-bold text-sm text-purple-950 dark:text-purple-100 truncate">{{ u.name }}</h3>
+                <span class="font-mono text-[10px] text-purple-400 dark:text-slate-500">#{{ "{{" }} u.id {{ "}}" }}</span>
+                <h3 class="font-bold text-sm text-purple-950 dark:text-purple-100 truncate">{{ "{{" }} u.name {{ "}}" }}</h3>
 {{- if .UseRole }}
                 <span class="px-2 py-0.5 bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800/50 rounded-full text-[9px] font-mono font-bold uppercase tracking-wider shrink-0">
                   {{ "{{" }} getRoleName(u.role) {{ "}}" }}
                 </span>
 {{ end }}
               </div>
-              <p class="font-mono text-xs text-purple-900/70 dark:text-slate-400 truncate">{{ u.email }}</p>
+              <p class="font-mono text-xs text-purple-900/70 dark:text-slate-400 truncate">{{ "{{" }} u.email {{ "}}" }}</p>
             </div>
 
             <div class="relative shrink-0">
@@ -104,9 +104,9 @@
             </thead>
             <tbody class="divide-y divide-purple-100/60 dark:divide-slate-800/80">
               <tr v-for="u in users" :key="u.id" class="hover:bg-purple-50/40 dark:hover:bg-slate-800/40 transition-colors">
-                <td class="p-4 pl-6 font-mono text-xs text-purple-400 dark:text-slate-500">#{{ u.id }}</td>
-                <td class="p-4 font-bold text-purple-950 dark:text-purple-100">{{ u.name }}</td>
-                <td class="p-4 font-mono text-xs text-purple-900/70 dark:text-slate-400">{{ u.email }}</td>'
+                <td class="p-4 pl-6 font-mono text-xs text-purple-400 dark:text-slate-500">#{{ "{{" }} u.id {{ "}}" }}</td>
+                <td class="p-4 font-bold text-purple-950 dark:text-purple-100">{{ "{{" }} u.name {{ "}}" }}</td>
+                <td class="p-4 font-mono text-xs text-purple-900/70 dark:text-slate-400">{{ "{{" }} u.email {{ "}}" }}</td>'
 {{- if .UseRole }}
                 <td class="p-4">
                   <span class="px-3 py-1 bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800/50 rounded-full text-[11px] font-mono font-bold uppercase tracking-wider">
