@@ -1,80 +1,206 @@
 <template>
-  <div class="space-y-6">
-    <div class="flex items-center justify-between">
-      <h2 class="text-2xl font-bold text-white">Users Management</h2>
+  <div class="space-y-6 font-sans">
+    
+    <!-- Top Bar & Title -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div>
+        <h2 class="text-2xl md:text-3xl font-bold text-purple-950 dark:text-purple-100 tracking-tight">
+          Users Management
+        </h2>
+        <p class="text-xs text-purple-400 dark:text-purple-400 mt-0.5 font-medium">Manage user accounts {{ if .UseRole }}and role {{ end }} permissions</p>
+      </div>
+
       <button 
-        @click="showCreateModal = true"
-        class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-medium rounded-lg text-sm transition-colors"
+        @click="openCreateModal"
+        class="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-purple-800 hover:bg-purple-900 dark:bg-purple-700 dark:hover:bg-purple-600 text-white font-bold rounded-full text-xs transition-all shadow-md hover:shadow-purple-900/20 uppercase tracking-wider cursor-pointer self-start sm:self-auto"
       >
-        + Add User
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+        Add User
       </button>
     </div>
 
-    <!-- Users Table -->
-    <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
-      <table class="w-full text-left text-sm text-slate-300">
-        <thead class="bg-slate-950 text-slate-400 uppercase text-xs">
-          <tr>
-            <th class="p-4">ID</th>
-            <th class="p-4">Name</th>
-            <th class="p-4">Email</th>
+    <!-- Users Container Card -->
+    <div class="bg-white dark:bg-slate-900 border border-purple-100 dark:border-slate-800 rounded-3xl shadow-2xl overflow-hidden transition-colors duration-300">
+      
+      <!-- STATE: Loading & Error -->
+      <div v-if="isLoading" class="p-8 text-center text-purple-400 dark:text-slate-500 font-medium">
+        <div class="flex items-center justify-center gap-2">
+          <svg class="w-4 h-4 animate-spin text-purple-700 dark:text-purple-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+          Loading users...
+        </div>
+      </div>
+      <div v-else-if="isError" class="p-8 text-center text-rose-500 font-medium">
+        Failed to load users list.
+      </div>
+
+      <template v-else>
+        <!-- MOBILE -->
+        <div class="block md:hidden divide-y divide-purple-100/60 dark:divide-slate-800/80">
+          <div 
+            v-for="u in users" 
+            :key="u.id" 
+            class="p-4 flex items-center justify-between gap-3 hover:bg-purple-50/30 dark:hover:bg-slate-800/30 transition-colors"
+          >
+            <div class="min-w-0 flex-1 space-y-1">
+              <div class="flex items-center gap-2">
+                <span class="font-mono text-[10px] text-purple-400 dark:text-slate-500">#{{ u.id }}</span>
+                <h3 class="font-bold text-sm text-purple-950 dark:text-purple-100 truncate">{{ u.name }}</h3>
 {{- if .UseRole }}
-            <th class="p-4">Role</th>
-{{- end }}
-            <th class="p-4 text-right">Actions</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-slate-800">
-          <tr v-if="isLoading">
-            <td colspan="{{ if .UseRole }}5{{ else }}4{{ end }}" class="p-4 text-center text-slate-500">Loading users...</td>
-          </tr>
-          <tr v-else-if="isError">
-            <td colspan="{{ if .UseRole }}5{{ else }}4{{ end }}" class="p-4 text-center text-rose-400">Failed to load users</td>
-          </tr>
-          <tr v-else v-for="u in users" :key="u.id" class="hover:bg-slate-800/50">
-            <td class="p-4">{{ "{{" }} u.id {{ "}}" }}</td>
-            <td class="p-4 font-medium text-white">{{ "{{" }} u.name {{ "}}" }}</td>
-            <td class="p-4">{{ "{{" }} u.email {{ "}}" }}</td>
+                <span class="px-2 py-0.5 bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800/50 rounded-full text-[9px] font-mono font-bold uppercase tracking-wider shrink-0">
+                  {{ "{{" }} getRoleName(u.role) {{ "}}" }}
+                </span>
+{{ end }}
+              </div>
+              <p class="font-mono text-xs text-purple-900/70 dark:text-slate-400 truncate">{{ u.email }}</p>
+            </div>
+
+            <div class="relative shrink-0">
+              <button 
+                @click.stop="toggleActionMenu(u.id)"
+                class="p-2 text-slate-400 hover:text-purple-900 dark:hover:text-purple-200 rounded-full hover:bg-purple-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <!-- Kebab Icon -->
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path>
+                </svg>
+              </button>
+
+              <div 
+                v-if="activeMenuId === u.id"
+                class="absolute right-0 mt-1 w-32 bg-white dark:bg-slate-800 border border-purple-100 dark:border-slate-700 rounded-2xl shadow-xl z-20 py-1.5 transition-all overflow-hidden"
+              >
+                <button 
+                  @click="handleEditFromMenu(u)"
+                  class="w-full px-4 py-2 text-left text-xs font-bold text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 flex items-center gap-2 cursor-pointer"
+                >
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                  Edit
+                </button>
+                <button 
+                  @click="handleDeleteFromMenu(u.id)"
+                  class="w-full px-4 py-2 text-left text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2 cursor-pointer"
+                >
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- DESKTOP -->
+        <div class="hidden md:block overflow-x-auto">
+          <table class="w-full text-left text-sm text-purple-900/80 dark:text-slate-300">
+            <thead class="bg-purple-50/70 dark:bg-slate-950/80 border-b border-purple-100 dark:border-slate-800 text-purple-950 dark:text-purple-300 uppercase text-[11px] font-bold tracking-wider">
+              <tr>
+                <th class="p-4 pl-6">ID</th>
+                <th class="p-4">Name</th>
+                <th class="p-4">Email</th>
 {{- if .UseRole }}
-            <td class="p-4">
-              <span class="px-2 py-1 bg-slate-800 text-emerald-400 rounded text-xs font-mono">
-                {{ "{{" }} getRoleName(u.role) {{ "}}" }}
-              </span>
-            </td>
+                <th class="p-4">Role</th>
 {{- end }}
-            <td class="p-4 text-right space-x-2">
-              <button @click="deleteUser(u.id)" class="text-rose-400 hover:underline">Delete</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+                <th class="p-4 pr-6 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-purple-100/60 dark:divide-slate-800/80">
+              <tr v-for="u in users" :key="u.id" class="hover:bg-purple-50/40 dark:hover:bg-slate-800/40 transition-colors">
+                <td class="p-4 pl-6 font-mono text-xs text-purple-400 dark:text-slate-500">#{{ u.id }}</td>
+                <td class="p-4 font-bold text-purple-950 dark:text-purple-100">{{ u.name }}</td>
+                <td class="p-4 font-mono text-xs text-purple-900/70 dark:text-slate-400">{{ u.email }}</td>'
+{{- if .UseRole }}
+                <td class="p-4">
+                  <span class="px-3 py-1 bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800/50 rounded-full text-[11px] font-mono font-bold uppercase tracking-wider">
+                    {{ "{{" }} getRoleName(u.role) {{ "}}" }}
+                  </span>
+                </td>
+{{-  end }}
+                <td class="p-4 pr-6 text-right">
+                  <div class="flex items-center justify-end gap-1.5">
+                    <button 
+                      @click="openEditModal(u)" 
+                      title="Edit User"
+                      class="p-2 text-amber-600 dark:text-amber-400 hover:bg-amber-100/80 dark:hover:bg-amber-950/50 rounded-xl transition-all cursor-pointer"
+                    >
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                      </svg>
+                    </button>
+
+                    <button 
+                      @click="deleteUser(u.id)" 
+                      title="Delete User"
+                      class="p-2 text-rose-600 dark:text-rose-400 hover:bg-rose-100/80 dark:hover:bg-rose-950/50 rounded-xl transition-all cursor-pointer"
+                    >
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                      </svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </template>
+
     </div>
 
-    <!-- Create User Modal -->
-    <div v-if="showCreateModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 w-full max-w-md shadow-2xl">
-        <h3 class="text-xl font-bold text-white mb-4">Add New User</h3>
+    <!-- Create / Edit User Modal -->
+    <div v-if="showModal" class="fixed inset-0 bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4 z-50">
+      <div class="bg-white dark:bg-slate-900 border border-purple-100 dark:border-slate-800 rounded-3xl p-6 md:p-8 w-full max-w-md shadow-2xl relative overflow-hidden transition-colors duration-300">
         
-        <form @submit.prevent="createUser" class="space-y-4">
+        <div class="flex items-center justify-between mb-6">
+          <h3 class="text-xl font-bold text-purple-950 dark:text-purple-100">
+            {{ "{{" }} isEditing ? 'Edit User' : 'Add New User' {{ "}}" }}
+          </h3>
+          <button @click="closeModal" class="text-purple-400 hover:text-purple-900 dark:hover:text-purple-200 transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+          </button>
+        </div>
+        
+        <form @submit.prevent="handleSubmit" class="space-y-4">
           <div>
-            <label class="block text-xs font-medium text-slate-400 mb-1">Name</label>
-            <input v-model="form.name" type="text" required class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white focus:outline-none focus:border-emerald-500" />
+            <label class="block text-xs font-bold uppercase tracking-wider text-purple-900/70 dark:text-slate-400 mb-1.5">Name</label>
+            <input 
+              v-model="form.name" 
+              type="text" 
+              required 
+              placeholder="Full Name"
+              class="w-full px-4 py-2.5 bg-purple-50/50 dark:bg-slate-950 border border-purple-100 dark:border-slate-800 rounded-xl text-purple-950 dark:text-white placeholder-purple-300 dark:placeholder-slate-600 focus:outline-none focus:border-purple-600 dark:focus:border-purple-500 text-sm transition-all" 
+            />
           </div>
 
           <div>
-            <label class="block text-xs font-medium text-slate-400 mb-1">Email</label>
-            <input v-model="form.email" type="email" required class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white focus:outline-none focus:border-emerald-500" />
+            <label class="block text-xs font-bold uppercase tracking-wider text-purple-900/70 dark:text-slate-400 mb-1.5">Email</label>
+            <input 
+              v-model="form.email" 
+              type="email" 
+              required 
+              placeholder="name@example.com"
+              class="w-full px-4 py-2.5 bg-purple-50/50 dark:bg-slate-950 border border-purple-100 dark:border-slate-800 rounded-xl text-purple-950 dark:text-white placeholder-purple-300 dark:placeholder-slate-600 focus:outline-none focus:border-purple-600 dark:focus:border-purple-500 text-sm transition-all" 
+            />
           </div>
 
           <div>
-            <label class="block text-xs font-medium text-slate-400 mb-1">Password</label>
-            <input v-model="form.password" type="password" required class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white focus:outline-none focus:border-emerald-500" />
+            <label class="block text-xs font-bold uppercase tracking-wider text-purple-900/70 dark:text-slate-400 mb-1.5">
+              Password <span v-if="isEditing" class="text-[10px] lowercase text-purple-400 font-normal">(leave blank to keep current)</span>
+            </label>
+            <input 
+              v-model="form.password" 
+              type="password" 
+              :required="!isEditing"
+              placeholder="••••••••"
+              class="w-full px-4 py-2.5 bg-purple-50/50 dark:bg-slate-950 border border-purple-100 dark:border-slate-800 rounded-xl text-purple-950 dark:text-white placeholder-purple-300 dark:placeholder-slate-600 focus:outline-none focus:border-purple-600 dark:focus:border-purple-500 text-sm transition-all" 
+            />
           </div>
-
 {{- if .UseRole }}
           <div>
-            <label class="block text-xs font-medium text-slate-400 mb-1">Role</label>
-            <select v-model="form.role_id" required class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white focus:outline-none focus:border-emerald-500 capitalize">
+            <label class="block text-xs font-bold uppercase tracking-wider text-purple-900/70 dark:text-slate-400 mb-1.5">Role</label>
+            <select 
+              v-model="form.role_id" 
+              required 
+              class="w-full px-4 py-2.5 bg-purple-50/50 dark:bg-slate-950 border border-purple-100 dark:border-slate-800 rounded-xl text-purple-950 dark:text-white focus:outline-none focus:border-purple-600 dark:focus:border-purple-500 text-sm capitalize transition-all"
+            >
               <option :value="0" disabled>Select Role</option>
               <option v-for="r in roles" :key="r.id" :value="r.id">
                 {{ "{{" }} r.name {{ "}}" }}
@@ -82,10 +208,19 @@
             </select>
           </div>
 {{- end }}
-
-          <div class="flex justify-end space-x-3 mt-6">
-            <button type="button" @click="showCreateModal = false" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-sm">Cancel</button>
-            <button type="submit" :disabled="createMutation.isPending.value" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-medium rounded-lg text-sm">
+          <div class="flex items-center justify-end space-x-3 pt-4">
+            <button 
+              type="button" 
+              @click="closeModal" 
+              class="px-5 py-2.5 bg-purple-50 dark:bg-slate-800 hover:bg-purple-100 dark:hover:bg-slate-700 text-purple-900 dark:text-slate-300 font-bold rounded-full text-xs transition-all cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button 
+              type="submit" 
+              :disabled="isSubmitting" 
+              class="px-5 py-2.5 bg-purple-800 hover:bg-purple-900 dark:bg-purple-700 dark:hover:bg-purple-600 text-white font-bold rounded-full text-xs transition-all shadow-md uppercase tracking-wider cursor-pointer"
+            >
               {{ "{{" }} submitBtnText {{ "}}" }}
             </button>
           </div>
@@ -96,7 +231,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import api from '@/lib/axios'
 
@@ -118,7 +253,10 @@ interface User {
 }
 
 const queryClient = useQueryClient()
-const showCreateModal = ref(false)
+const showModal = ref(false)
+const isEditing = ref(false)
+const editingUserId = ref<number | null>(null)
+const activeMenuId = ref<number | null>(null)
 
 const form = ref({
   name: '',
@@ -129,7 +267,36 @@ const form = ref({
 {{- end }}
 })
 
+// Toggle Dropdown Menu pada Mobile
+const toggleActionMenu = (id: number) => {
+  activeMenuId.value = activeMenuId.value === id ? null : id
+}
+
+const closeAllMenus = () => {
+  activeMenuId.value = null
+}
+
+const handleEditFromMenu = (user: User) => {
+  closeAllMenus()
+  openEditModal(user)
+}
+
+const handleDeleteFromMenu = (id: number) => {
+  closeAllMenus()
+  deleteUser(id)
+}
+
+// Global click listener untuk menutup dropdown saat klik luar
+onMounted(() => {
+  window.addEventListener('click', closeAllMenus)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('click', closeAllMenus)
+})
+
 {{- if .UseRole }}
+// Fetch Roles
 const { data: roles } = useQuery<Role[]>({
   queryKey: ['roles'],
   queryFn: async () => {
@@ -138,18 +305,71 @@ const { data: roles } = useQuery<Role[]>({
   },
 })
 
+// Type Guard untuk mengecek apakah role berupa Object
+const isRoleObject = (role?: Role | string): role is Role => {
+  return typeof role === 'object' && role !== null && 'name' in role
+}
+
+// Extract role name safely
 const getRoleName = (role?: Role | string): string => {
   if (!role) return 'user'
-  if (typeof role === 'object') {
+  if (isRoleObject(role)) {
     return role.name && role.name.trim() !== '' ? role.name : 'user'
   }
   return String(role)
 }
+
+// Extract role ID safely
+const getRoleId = (user: User): number => {
+  if (user.role_id) return user.role_id
+  
+  if (isRoleObject(user.role)) {
+    return user.role.id || 0
+  }
+
+  if (roles.value && typeof user.role === 'string') {
+    const roleName = user.role
+    const found = roles.value.find(r => r.name.toLowerCase() === roleName.toLowerCase())
+    if (found) return found.id
+  }
+
+  return 0
+}
 {{- end }}
 
-const submitBtnText = computed(() => {
-  return createMutation.isPending.value ? 'Creating...' : 'Save User'
-})
+// Open modal for Create
+const openCreateModal = () => {
+  isEditing.value = false
+  editingUserId.value = null
+  form.value = { 
+    name: '', 
+    email: '', 
+    password: '', 
+{{- if .UseRole }}
+    role_id: 0 
+{{- end }}
+  }
+  showModal.value = true
+}
+
+// Open modal for Edit
+const openEditModal = (user: User) => {
+  isEditing.value = true
+  editingUserId.value = user.id
+  form.value = {
+    name: user.name,
+    email: user.email,
+    password: '',
+{{- if .UseRole }}
+    role_id: getRoleId(user),
+{{- end }}
+  }
+  showModal.value = true
+}
+
+const closeModal = () => {
+  showModal.value = false
+}
 
 // Fetch Users
 const { data: users, isLoading, isError } = useQuery<User[]>({
@@ -167,20 +387,46 @@ const createMutation = useMutation({
   },
   onSuccess: () => {
     queryClient.invalidateQueries({ queryKey: ['users'] })
-    showCreateModal.value = false
-    form.value = { 
-      name: '', 
-      email: '', 
-      password: '', 
-{{- if .UseRole }}
-      role_id: 0
-{{- end }}
-    }
+    closeModal()
   },
 })
 
-const createUser = () => {
-  createMutation.mutate(form.value)
+// Update User Mutation
+const updateMutation = useMutation({
+  mutationFn: async ({ id, data }: { id: number; data: typeof form.value }) => {
+    const payload: Record<string, any> = {
+      name: data.name,
+      email: data.email,
+{{- if .UseRole }}
+      role_id: data.role_id,
+{{- end }}
+    }
+    if (data.password) {
+      payload.password = data.password
+    }
+    await api.put(`/api/users/${id}`, payload)
+  },
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ['users'] })
+    closeModal()
+  },
+})
+
+const isSubmitting = computed(() => {
+  return createMutation.isPending.value || updateMutation.isPending.value
+})
+
+const submitBtnText = computed(() => {
+  if (isSubmitting.value) return 'Saving...'
+  return isEditing.value ? 'Update User' : 'Save User'
+})
+
+const handleSubmit = () => {
+  if (isEditing.value && editingUserId.value) {
+    updateMutation.mutate({ id: editingUserId.value, data: form.value })
+  } else {
+    createMutation.mutate(form.value)
+  }
 }
 
 // Delete User Mutation

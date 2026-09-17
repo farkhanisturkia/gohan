@@ -1,45 +1,90 @@
 <template>
-  <div class="space-y-6">
-    <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-lg">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-2xl font-bold text-white">Dashboard</h2>
-        <span class="px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full text-xs font-mono font-semibold">
-          Protected Area
-        </span>
-      </div>
+  <div class="space-y-6 font-sans">
+    
+    <!-- Welcome Header / Main Card -->
+    <div class="bg-white dark:bg-slate-900 border border-purple-100 dark:border-slate-800 rounded-3xl p-6 md:p-8 shadow-2xl transition-colors duration-300 relative overflow-hidden">
       
-      <p class="text-slate-300 text-sm mb-4">
-        Welcome back, <strong class="text-white">{{ "{{" }} userDisplayName {{ "}}" }}</strong>! You have successfully authenticated using the <code class="text-emerald-400 uppercase">{{ .AuthType }}</code> strategy.
-      </p>
-
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-        <div class="p-4 bg-slate-950 border border-slate-800 rounded-lg">
-          <div class="text-slate-400 text-xs font-medium mb-1">User ID</div>
-          <div class="text-xl font-bold font-mono text-white">{{ "{{" }} userIdDisplay {{ "}}" }}</div>
+      <!-- Top Title & Badge -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+        <div>
+          <h2 class="text-2xl md:text-3xl font-bold text-purple-950 dark:text-purple-100 tracking-tight">
+            Dashboard
+          </h2>
+          <p class="text-xs text-purple-400 dark:text-purple-400 mt-0.5 font-medium">Gohan Framework Control Panel</p>
         </div>
 
-        <div class="p-4 bg-slate-950 border border-slate-800 rounded-lg">
-          <div class="text-slate-400 text-xs font-medium mb-1">Email Address</div>
-          <div class="text-xl font-bold font-mono text-white truncate">{{ "{{" }} userEmailDisplay {{ "}}" }}</div>
+{{- if .UseAuth }}
+        <span class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold bg-emerald-500/10 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/50 self-start sm:self-auto shadow-xs">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          Protected Area
+        </span>
+{{- end }}
+      </div>
+      
+      <p class="text-purple-900/70 dark:text-slate-400 text-sm mb-6 leading-relaxed">
+{{- if .UseAuth }}
+        Welcome back, <strong class="text-purple-950 dark:text-purple-100 font-bold">{{ "{{" }} userDisplayName {{ "}}" }}</strong>! You have successfully authenticated using the 
+        <code class="text-purple-800 dark:text-purple-300 bg-purple-100/60 dark:bg-slate-950 px-2.5 py-1 rounded-full font-mono text-xs border border-purple-200 dark:border-slate-800 font-bold uppercase tracking-wider">PAT</code> strategy.
+{{- else }}
+        Welcome to your Gohan Framework application panel!
+{{- end }}
+      </p>
+
+{{- if .UseAuth }}
+      <!-- User Stats Cards Grid -->
+      <div class="grid grid-cols-1 {{- if .UseRole }} md:grid-cols-3 {{- else }} md:grid-cols-2 {{- end }} gap-5 mt-6">
+        
+        <!-- Card User ID -->
+        <div class="p-5 bg-purple-50/50 dark:bg-slate-950 border border-purple-100 dark:border-slate-800/80 rounded-2xl shadow-xs transition-all duration-300 hover:border-purple-300 dark:hover:border-purple-800">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-purple-400 dark:text-slate-500 text-xs font-bold uppercase tracking-wider">User ID</span>
+            <div class="p-1.5 bg-purple-100 dark:bg-purple-900/40 rounded-lg text-purple-700 dark:text-purple-300">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 2a1 1 0 00-1 1v1a1 1 0 002 0V3a1 1 0 00-1-1zM4 4a2 2 0 00-2 2v11a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H4zm0 2h12v11H4V6z" clip-rule="evenodd" />
+              </svg>
+            </div>
+          </div>
+          <div class="text-xl font-bold font-mono text-purple-950 dark:text-purple-100">{{ "{{" }} userIdDisplay {{ "}}" }}</div>
+        </div>
+
+        <!-- Card Email -->
+        <div class="p-5 bg-purple-50/50 dark:bg-slate-950 border border-purple-100 dark:border-slate-800/80 rounded-2xl shadow-xs transition-all duration-300 hover:border-purple-300 dark:hover:border-purple-800">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-purple-400 dark:text-slate-500 text-xs font-bold uppercase tracking-wider">Email Address</span>
+            <div class="p-1.5 bg-purple-100 dark:bg-purple-900/40 rounded-lg text-purple-700 dark:text-purple-300">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+                <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+              </svg>
+            </div>
+          </div>
+          <div class="text-xl font-bold font-mono text-purple-950 dark:text-purple-100 truncate" :title="userEmailDisplay">{{ "{{" }} userEmailDisplay {{ "}}" }}</div>
         </div>
 
 {{- if .UseRole }}
-        <div class="p-4 bg-slate-950 border border-slate-800 rounded-lg">
-          <div class="text-slate-400 text-xs font-medium mb-1">Role / Access Level</div>
-          <div class="text-xl font-bold font-mono text-emerald-400 uppercase">{{ "{{" }} userRoleDisplay {{ "}}" }}</div>
-        </div>
-{{- else }}
-        <div class="p-4 bg-slate-950 border border-slate-800 rounded-lg">
-          <div class="text-slate-400 text-xs font-medium mb-1">Status</div>
-          <div class="text-xl font-bold font-mono text-emerald-400">ACTIVE</div>
+        <!-- Card Role -->
+        <div class="p-5 bg-purple-50/50 dark:bg-slate-950 border border-purple-100 dark:border-slate-800/80 rounded-2xl shadow-xs transition-all duration-300 hover:border-purple-300 dark:hover:border-purple-800">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-purple-400 dark:text-slate-500 text-xs font-bold uppercase tracking-wider">Role / Access Level</span>
+            <div class="p-1.5 bg-purple-100 dark:bg-purple-900/40 rounded-lg text-purple-700 dark:text-purple-300">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+              </svg>
+            </div>
+          </div>
+          <div class="text-xl font-bold font-mono text-purple-800 dark:text-purple-300 uppercase tracking-wider">{{ "{{" }} userRoleDisplay {{ "}}" }}</div>
         </div>
 {{- end }}
+
       </div>
+{{- end }}
     </div>
+
   </div>
 </template>
 
 <script setup lang="ts">
+{{- if .UseAuth }}
 import { computed } from 'vue'
 import { useAuth } from '@/composables/useAuth'
 
@@ -48,7 +93,12 @@ const { user } = useAuth()
 const userDisplayName = computed(() => user.value ? user.value.name : 'User')
 const userEmailDisplay = computed(() => user.value ? user.value.email : '-')
 const userIdDisplay = computed(() => user.value ? user.value.id : '-')
+
 {{- if .UseRole }}
-const userRoleDisplay = computed(() => user.value && user.value.role ? user.value.role : 'user')
+const userRoleDisplay = computed(() => {
+  if (!user.value || !user.value.role) return 'user'
+  return typeof user.value.role === 'object' ? user.value.role.name : user.value.role
+})
+{{- end }}
 {{- end }}
 </script>

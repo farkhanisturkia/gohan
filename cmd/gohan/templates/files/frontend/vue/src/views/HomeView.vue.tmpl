@@ -1,45 +1,133 @@
 <template>
   <div class="space-y-6">
-    <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-lg">
-      <h2 class="text-2xl font-bold mb-2 text-white">Backend Connection Status</h2>
-      <p class="text-slate-400 text-sm mb-6">
-        Testing live connection to Gohan Framework API endpoints defined in <code class="text-emerald-400 bg-slate-800 px-2 py-0.5 rounded">routes.go</code>.
-      </p>
-
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <!-- Ping Route Card -->
-        <div class="p-4 rounded-lg bg-slate-950 border border-slate-800">
-          <div class="flex items-center justify-between mb-3">
-            <span class="font-mono text-sm text-emerald-400 font-semibold">GET /ping</span>
-            <span v-if="pingLoading" class="text-xs text-amber-400 animate-pulse">Testing...</span>
-            <span v-else-if="pingError" class="text-xs text-rose-400 font-bold">Offline</span>
-            <span v-else class="text-xs text-emerald-400 font-bold">Online (200 OK)</span>
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+      
+      <!-- Framework Info & Hero -->
+      <div class="lg:col-span-5 bg-white dark:bg-slate-900/40 border border-slate-200/80 dark:border-slate-800/80 rounded-3xl p-6 md:p-8 flex flex-col justify-between space-y-6 shadow-sm dark:shadow-none backdrop-blur-sm transition-colors duration-300">
+        <div class="space-y-4">
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-50 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800/50 text-purple-700 dark:text-purple-300 text-xs font-mono font-medium">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse"></span>
+            {{ "{{" }} gohanVersion {{ "}}" }}
           </div>
-          <pre class="bg-slate-900 p-3 rounded text-xs text-slate-300 font-mono overflow-x-auto">{{ "{{" }} pingDisplay {{ "}}" }}</pre>
+          
+          <h2 class="text-3xl md:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight">
+            Gohan Framework
+          </h2>
+          
+          <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+            A lightweight, fast, and structured Go fullstack ecosystem integrated with Vue 3, Tailwind CSS, and TanStack Query.
+          </p>
         </div>
 
-        <!-- Check Public Route Card -->
-        <div class="p-4 rounded-lg bg-slate-950 border border-slate-800">
-          <div class="flex items-center justify-between mb-3">
-            <span class="font-mono text-sm text-emerald-400 font-semibold">GET /check-public</span>
-            <span v-if="publicLoading" class="text-xs text-amber-400 animate-pulse">Testing...</span>
-            <span v-else-if="publicError" class="text-xs text-rose-400 font-bold">Failed</span>
-            <span v-else class="text-xs text-emerald-400 font-bold">200 OK</span>
-          </div>
-          <pre class="bg-slate-900 p-3 rounded text-xs text-slate-300 font-mono overflow-x-auto whitespace-pre-wrap">{{ "{{" }} publicDisplay {{ "}}" }}</pre>
+        <div class="pt-4">
+          <a 
+            href="https://msroot.my.id" 
+            target="_blank"
+            class="inline-flex items-center gap-2 px-6 py-3 bg-purple-700 hover:bg-purple-800 dark:bg-purple-800 dark:hover:bg-purple-700 text-white text-xs font-bold rounded-full uppercase tracking-wider transition-all shadow-md shadow-purple-200 dark:shadow-purple-900/30"
+          >
+            <span>Explore Documentation</span>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+          </a>
         </div>
       </div>
+
+      <!-- Backend Connection Status -->
+      <div class="lg:col-span-7 bg-white dark:bg-slate-900/40 border border-slate-200/80 dark:border-slate-800/80 rounded-3xl p-6 md:p-8 flex flex-col justify-between space-y-6 shadow-sm dark:shadow-none backdrop-blur-sm transition-colors duration-300">
+        <div class="space-y-6">
+          
+          <!-- Header Backend Connection Status -->
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800/80 pb-4">
+            <div class="space-y-1">
+              <div class="flex items-center justify-between sm:justify-start gap-2">
+                <span class="px-2.5 py-0.5 bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/50 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider">
+                  API Monitor
+                </span>
+              </div>
+
+              <h3 class="text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight">
+                Backend Connection Status
+              </h3>
+
+              <p class="text-xs text-slate-500 dark:text-purple-400 font-mono leading-normal">
+                Testing live endpoints
+              </p>
+            </div>
+          </div>
+
+          <!-- Cards Endpoint Status -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            
+            <!-- Endpoint /ping -->
+            <div class="bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800/80 rounded-2xl p-4 space-y-3 flex flex-col justify-between shadow-sm dark:shadow-none">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="px-2 py-0.5 bg-purple-700 dark:bg-purple-800/80 text-white rounded text-[10px] font-mono font-bold">GET</span>
+                  <span class="text-xs font-mono font-semibold text-slate-800 dark:text-slate-200">/ping</span>
+                </div>
+
+                <span v-if="pingLoading" class="inline-flex items-center gap-1.5 text-[10px] text-amber-600 dark:text-amber-400 font-mono font-bold animate-pulse">
+                  Testing...
+                </span>
+                <span v-else-if="pingError" class="px-2 py-0.5 bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800/50 rounded-full text-[10px] font-mono font-bold">
+                  Offline
+                </span>
+                <span v-else class="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50 rounded-full text-[10px] font-mono font-bold flex items-center gap-1">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse"></span> 200 OK
+                </span>
+              </div>
+
+              <pre class="bg-slate-100 text-slate-800 border-slate-200 dark:bg-slate-900 dark:text-emerald-400 dark:border-slate-800 p-3 rounded-xl text-[11px] font-mono border overflow-x-auto max-h-36 leading-relaxed transition-colors duration-300">{{ "{{" }} pingDisplay {{ "}}" }}</pre>
+            </div>
+
+            <!-- Endpoint /check-public -->
+            <div class="bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800/80 rounded-2xl p-4 space-y-3 flex flex-col justify-between shadow-sm dark:shadow-none">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="px-2 py-0.5 bg-purple-700 dark:bg-purple-800/80 text-white rounded text-[10px] font-mono font-bold">GET</span>
+                  <span class="text-xs font-mono font-semibold text-slate-800 dark:text-slate-200">/check-public</span>
+                </div>
+
+                <span v-if="publicLoading" class="inline-flex items-center gap-1.5 text-[10px] text-amber-600 dark:text-amber-400 font-mono font-bold animate-pulse">
+                  Testing...
+                </span>
+                <span v-else-if="publicError" class="px-2 py-0.5 bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800/50 rounded-full text-[10px] font-mono font-bold">
+                  Failed
+                </span>
+                <span v-else class="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50 rounded-full text-[10px] font-mono font-bold flex items-center gap-1">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse"></span> 200 OK
+                </span>
+              </div>
+
+              <pre class="bg-slate-100 text-slate-800 border-slate-200 dark:bg-slate-900 dark:text-emerald-400 dark:border-slate-800 p-3 rounded-xl text-[11px] font-mono border overflow-x-auto max-h-36 leading-relaxed transition-colors duration-300">{{ "{{" }} publicDisplay {{ "}}" }}</pre>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
     </div>
 
 {{- if .UseAuth }}
-    <!-- Auth Status Card -->
-    <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-lg">
-      <h3 class="text-lg font-bold text-white mb-2">Authentication Module</h3>
-      <p class="text-slate-400 text-sm">
-        Auth state is set up with <span class="text-emerald-400 uppercase font-semibold">{{ .AuthType }}</span> token strategy and <code class="text-emerald-400">js-cookie</code>.
-      </p>
+    <!-- Authentication Module Card -->
+    <div class="bg-white dark:bg-slate-900/50 border border-purple-100 dark:border-purple-900/30 rounded-3xl p-6 md:p-8 flex items-center gap-5 shadow-sm dark:shadow-none backdrop-blur-sm transition-colors duration-300">
+      <div class="w-12 h-12 rounded-2xl bg-purple-100 dark:bg-purple-900/60 border border-purple-200 dark:border-purple-700/50 flex items-center justify-center text-purple-700 dark:text-purple-300 shrink-0">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+        </svg>
+      </div>
+      <div>
+        <h4 class="text-base font-bold text-slate-900 dark:text-white uppercase tracking-wider">Authentication Module</h4>
+        <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">
+          Auth state is set up with 
+          <span class="px-2 py-0.5 bg-purple-100 dark:bg-purple-800/80 text-purple-700 dark:text-purple-200 border border-purple-200 dark:border-none rounded text-[11px] font-mono font-bold uppercase mx-1">
+            {{ "{{" }} authStrategy {{ "}}" }}
+          </span> 
+          token strategy and <code class="text-purple-700 dark:text-purple-300 font-mono font-semibold">js-cookie</code>.
+        </p>
+      </div>
     </div>
 {{- end }}
+
   </div>
 </template>
 
@@ -47,6 +135,11 @@
 import { computed } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
 import api from '@/lib/axios'
+
+interface VersionResponse {
+  message: string
+  version: string
+}
 
 interface PingResponse {
   message: string
@@ -56,7 +149,24 @@ interface PublicResponse {
   result: string
 }
 
-// 1. Fetching /ping endpoint
+{{- if .UseAuth }}
+const authStrategy = '{{ if eq .AuthType "jwt" }}JWT{{ else }}PAT{{ end }}'
+{{- end }}
+
+// Fetch App Version
+const { data: versionData } = useQuery<VersionResponse, Error>({
+  queryKey: ['version'],
+  queryFn: async () => {
+    const res = await api.get('/version')
+    return res.data
+  },
+})
+
+const gohanVersion = computed<string>(() => {
+  return versionData.value?.version ? `version ${versionData.value.version}` : 'version loading...'
+})
+
+// Fetch Ping Status
 const { data: pingData, isLoading: pingLoading, error: pingError } = useQuery<PingResponse, Error>({
   queryKey: ['ping'],
   queryFn: async () => {
@@ -65,7 +175,7 @@ const { data: pingData, isLoading: pingLoading, error: pingError } = useQuery<Pi
   },
 })
 
-// 2. Fetching /check-public endpoint
+// Fetch Public Status
 const { data: publicData, isLoading: publicLoading, error: publicError } = useQuery<PublicResponse, Error>({
   queryKey: ['check-public'],
   queryFn: async () => {

@@ -5,13 +5,16 @@ import (
     // "time"
 
     "github.com/farkhanisturkia/gohan"
-{{- if .UseAuth }}
     "{{ .ModuleName }}/controllers"
+{{- if .UseAuth }}
     "{{ .ModuleName }}/middleware"
 {{- end }}
 )
 
 func SetupRoutes(db *gohan.DB) {
+    // Public Application Routes
+	gohan.Get("/version", controllers.GetVersion())
+
     // Public Health Check Route
     gohan.Get("/ping", func(w http.ResponseWriter, r *http.Request) {
         gohan.JSON(w, http.StatusOK, map[string]string{
@@ -36,49 +39,17 @@ func SetupRoutes(db *gohan.DB) {
             "result": textResult,
         })
     })
-
-    // Post API public
-    // gohan.Post("/proxy-data", func(w http.ResponseWriter, r *http.Request) {
-    //     payload := map[string]string{"key": "value"}
-    //     var responseData map[string]interface{}
-
-    //     if err := gohan.PostJSON("https://api.example.com/v1/resources", payload, &responseData); err != nil {
-    //         gohan.JSON(w, http.StatusInternalServerError, map[string]string{"message": err.Error()})
-    //         return
-    //     }
-
-    //     gohan.JSON(w, http.StatusOK, responseData)
-    // })
-
-    // Post API public wih custom headers
-    // gohan.Get("/public-data", func(w http.ResponseWriter, r *http.Request) {
-    //     headers := map[string]string{
-    //         "Authorization": "Bearer YOUR_PUBLIC_API_KEY",
-    //         "User-Agent":    "GohanApp/1.0",
-    //     }
-
-    //     var result map[string]interface{}
-
-    //     err := gohan.NewHTTPClient(10 * time.Second).Request(
-    //         "GET", 
-    //         "https://api.example.com/v1/resources", 
-    //         nil, 
-    //         headers, 
-    //         &result,
-    //     )
-
-    //     if err != nil {
-    //         gohan.JSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
-    //         return
-    //     }
-
-    //     gohan.JSON(w, http.StatusOK, result)
-    // })
 {{- if .UseAuth }}
 
     // Authentication Routes
     gohan.Post("/api/login", controllers.LoginAuth(db))
     gohan.Post("/api/logout", middleware.Authenticate(db, controllers.LogoutAuth(db)))
+
+{{- if .UseForgotPassword }}
+    // Password Reset Routes
+    gohan.Post("/api/forgot-password", controllers.ForgotPassword(db))
+    gohan.Post("/api/reset-password", controllers.ResetPassword(db))
+{{- end }}
 
     gohan.Get("/api/me", middleware.Authenticate(db, func(w http.ResponseWriter, r *http.Request) {
         user, ok := middleware.GetAuthUser(r)
@@ -111,13 +82,6 @@ func SetupRoutes(db *gohan.DB) {
     gohan.Delete("/api/users/{id}", middleware.Authenticate(db, middleware.RequireRole([]string{"admin"}, controllers.UserDestroy(db))))
 
     gohan.Get("/api/roles", middleware.Authenticate(db, middleware.RequireRole([]string{"admin"}, controllers.RoleIndex(db))))
-
-    // Example Role-Based Protected Routes
-    gohan.Get("/api/admin/dashboard", middleware.Authenticate(db, middleware.RequireRole([]string{"admin"}, func(w http.ResponseWriter, r *http.Request) {
-        gohan.JSON(w, http.StatusOK, map[string]string{
-            "message": "Welcome to Admin Dashboard",
-        })
-    })))
 {{- else }}
     gohan.Get("/api/users", middleware.Authenticate(db, controllers.UserIndex(db)))
     gohan.Post("/api/users", middleware.Authenticate(db, controllers.UserStore(db)))
@@ -125,12 +89,5 @@ func SetupRoutes(db *gohan.DB) {
     gohan.Put("/api/users/{id}", middleware.Authenticate(db, controllers.UserUpdate(db)))
     gohan.Delete("/api/users/{id}", middleware.Authenticate(db, controllers.UserDestroy(db)))
 {{- end }}
-{{- end }}
-
-{{- if and .UseAuth .UseForgotPassword }}
-
-    // Password Reset Routes
-    gohan.Post("/api/forgot-password", controllers.ForgotPassword(db))
-    gohan.Post("/api/reset-password", controllers.ResetPassword(db))
 {{- end }}
 }

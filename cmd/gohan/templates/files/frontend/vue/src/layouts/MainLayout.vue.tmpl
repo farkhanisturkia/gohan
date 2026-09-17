@@ -1,0 +1,188 @@
+<template>
+  <div class="min-h-screen bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100 flex flex-col font-sans transition-colors duration-300">
+
+    <!-- Header Global -->
+    <header class="w-full border-b border-slate-200 bg-white/80 dark:border-slate-800/80 dark:bg-slate-950/80 backdrop-blur-md sticky top-0 z-40 shadow-sm transition-colors duration-300">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+
+        <div class="flex items-center gap-3 md:w-1/4">
+{{- if .UseAuth }}
+          <!-- Hamburger -->
+          <button 
+            v-if="user"
+            @click="isMobileMenuOpen = !isMobileMenuOpen"
+            type="button"
+            class="md:hidden p-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-600 hover:text-slate-900 dark:bg-slate-900 dark:border-slate-800 dark:text-slate-300 dark:hover:text-white transition-colors"
+            aria-label="Toggle Navigation Menu"
+          >
+            <svg v-if="isMobileMenuOpen" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+            <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+{{- end }}
+
+          <!-- Logo & Brand GF -->
+          <router-link 
+            to="/" 
+            class="flex items-center gap-2.5 group"
+{{- if .UseAuth }}
+            :class="{ 'hidden md:flex': user }"
+{{- end }}
+          >
+            <div class="w-10 h-10 rounded-2xl bg-purple-700 flex items-center justify-center font-black text-white text-sm shadow-md shadow-purple-200 dark:shadow-purple-900/30 group-hover:bg-purple-600 transition-colors shrink-0">
+              GF
+            </div>
+            
+            <div class="flex flex-col justify-center">
+              <h1 class="text-base font-bold tracking-tight text-slate-900 dark:text-white leading-none whitespace-nowrap">
+                Gohan Framework
+              </h1>
+              <span class="text-[10px] uppercase tracking-widest text-purple-600 dark:text-purple-400 font-semibold mt-0.5">
+                Fullstack Edition
+              </span>
+            </div>
+          </router-link>
+        </div>
+
+{{- if .UseAuth }}
+        <!-- Navigation Menu Desktop (Hanya jika UseAuth = true) -->
+        <div class="hidden md:flex flex-1 items-center justify-center">
+          <nav v-if="user" class="flex items-center gap-2 p-1 bg-slate-100 border border-slate-200 dark:bg-slate-900/60 dark:border-slate-800/80 rounded-full">
+            <router-link 
+              to="/dashboard" 
+              class="px-4 py-1.5 rounded-full text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-purple-700 dark:hover:text-white hover:bg-white dark:hover:bg-slate-800/80 transition-all duration-200"
+              active-class="!text-purple-700 !bg-white dark:!text-purple-300 dark:!bg-purple-950/80 dark:border dark:border-purple-800/50 shadow-sm font-bold"
+            >
+              Dashboard
+            </router-link>
+
+            <router-link 
+{{- if .UseRole }}
+              v-if="userRole === 'admin'"
+{{- end }}
+              to="/users" 
+              class="px-4 py-1.5 rounded-full text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-purple-700 dark:hover:text-white hover:bg-white dark:hover:bg-slate-800/80 transition-all duration-200"
+              active-class="!text-purple-700 !bg-white dark:!text-purple-300 dark:!bg-purple-950/80 dark:border dark:border-purple-800/50 shadow-sm font-bold"
+            >
+              Users
+            </router-link>
+          </nav>
+        </div>
+{{- else }}
+
+        <div class="hidden md:flex flex-1"></div>
+{{- end }}
+
+        <!-- Logout / Login Button -->
+        <div class="flex items-center justify-end md:w-1/4">
+{{- if .UseAuth }}
+          <button 
+            v-if="user" 
+            @click="handleLogout"
+            class="px-4 py-1.5 sm:px-5 sm:py-2 rounded-full text-[11px] sm:text-xs font-bold bg-purple-700 hover:bg-purple-800 dark:bg-purple-800 dark:hover:bg-purple-700 text-white shadow-md shadow-purple-200 dark:shadow-purple-900/30 transition-all cursor-pointer"
+          >
+            LOGOUT
+          </button>
+
+          <router-link 
+            v-else
+            to="/login" 
+            class="px-4 py-1.5 sm:px-5 sm:py-2 rounded-full text-[11px] sm:text-xs font-bold bg-purple-700 hover:bg-purple-800 dark:bg-purple-800 dark:hover:bg-purple-700 text-white shadow-md shadow-purple-200 dark:shadow-purple-900/30 transition-all cursor-pointer inline-flex items-center justify-center"
+          >
+            LOGIN
+          </router-link>
+{{- end }}
+        </div>
+
+      </div>
+
+{{- if .UseAuth }}
+      <!-- MOBILE DROPDOWN MENU -->
+      <transition
+        enter-active-class="transition duration-200 ease-out"
+        enter-from-class="opacity-0 -translate-y-2"
+        enter-to-class="opacity-100 translate-y-0"
+        leave-active-class="transition duration-150 ease-in"
+        leave-from-class="opacity-100 translate-y-0"
+        leave-to-class="opacity-0 -translate-y-2"
+      >
+        <div v-if="isMobileMenuOpen && user" class="md:hidden border-t border-slate-200 dark:border-slate-800/80 bg-white/95 dark:bg-slate-950/95 px-4 py-4 space-y-3">
+          <div class="flex items-center gap-2.5 pb-3 border-b border-slate-200 dark:border-slate-800/80 px-1">
+            <div class="w-8 h-8 rounded-xl bg-purple-700 flex items-center justify-center font-black text-white text-xs shadow-md shadow-purple-200 dark:shadow-purple-900/30 shrink-0">
+              GF
+            </div>
+            <div>
+              <h2 class="text-xs font-bold text-slate-900 dark:text-white leading-none">Gohan Framework</h2>
+              <span class="text-[9px] uppercase tracking-widest text-purple-600 dark:text-purple-400 font-medium block mt-0.5">Fullstack Edition</span>
+            </div>
+          </div>
+
+          <nav class="flex flex-col gap-1.5">
+            <router-link 
+              to="/dashboard" 
+              @click="isMobileMenuOpen = false"
+              class="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-900 transition-all"
+              active-class="!text-purple-700 !bg-purple-50 dark:!text-purple-300 dark:!bg-purple-950/80 dark:border dark:border-purple-800/50 font-bold"
+            >
+              Dashboard
+            </router-link>
+
+            <router-link 
+{{- if .UseRole }}
+              v-if="userRole === 'admin'"
+{{- end }}
+              to="/users" 
+              @click="isMobileMenuOpen = false"
+              class="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-900 transition-all"
+              active-class="!text-purple-700 !bg-purple-50 dark:!text-purple-300 dark:!bg-purple-950/80 dark:border dark:border-purple-800/50 font-bold"
+            >
+              Users
+            </router-link>
+          </nav>
+        </div>
+      </transition>
+{{- end }}
+    </header>
+
+    <!-- Main Content -->
+    <main class="w-full max-w-7xl mx-auto flex-1 p-4 sm:p-6 md:p-8 space-y-6">
+      <router-view />
+    </main>
+
+  </div>
+</template>
+
+<script setup lang="ts">
+{{- if .UseAuth }}
+import { ref{{ if .UseRole }}, computed{{ end }} } from 'vue'
+import { useRouter } from 'vue-router'
+import Cookies from 'js-cookie'
+import { useAuth } from '@/composables/useAuth'
+
+const router = useRouter()
+const { user, logout } = useAuth()
+const isMobileMenuOpen = ref(false)
+
+{{- if .UseRole }}
+const userRole = computed(() => {
+  if (!user.value) return null
+  const rawRole = user.value.role
+  return typeof rawRole === 'object' && rawRole !== null ? rawRole.name : rawRole
+})
+{{- end }}
+
+const handleLogout = async () => {
+  isMobileMenuOpen.value = false
+  if (typeof logout === 'function') {
+    await logout()
+  } else {
+    Cookies.remove('token')
+    if (user) user.value = null
+  }
+  await router.push('/login')
+}
+{{- end }}
+</script>

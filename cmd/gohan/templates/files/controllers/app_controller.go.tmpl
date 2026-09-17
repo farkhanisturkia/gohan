@@ -1,0 +1,16 @@
+package controllers
+
+import (
+	"net/http"
+
+	"github.com/farkhanisturkia/gohan"
+)
+
+func GetVersion() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		gohan.JSON(w, http.StatusOK, map[string]interface{}{
+			"message": "App version fetched successfully",
+			"version": gohan.Version,
+		})
+	}
+}

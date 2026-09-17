@@ -1,38 +1,54 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
+{{- if .UseAuth }}
 import Cookies from 'js-cookie'
-import HomeView from '@/views/HomeView.vue'
 import { useAuth } from '@/composables/useAuth'
+{{- end }}
+import MainLayout from '@/layouts/MainLayout.vue'
+import HomeView from '@/views/HomeView.vue'
 
 const routes: Array<RouteRecordRaw> = [
-  { 
-    path: '/', 
-    name: 'Home', 
-    component: HomeView 
+  {
+    path: '/',
+    component: MainLayout,
+    children: [
+      { 
+        path: '', 
+        name: 'Home', 
+        component: HomeView 
+      },
+{{- if .UseAuth }}
+      { 
+        path: 'dashboard', 
+        name: 'Dashboard', 
+        component: () => import('@/views/DashboardView.vue'),
+        meta: { requiresAuth: true }
+      },
+      { 
+        path: 'users', 
+        name: 'Users', 
+        component: () => import('@/views/UsersView.vue'),
+        meta: { 
+          requiresAuth: true,
+{{- if .UseRole }}
+          roles: ['admin']
+{{- end }}
+        },
+      },
+{{- end }}
+    ]
   },
 {{- if .UseAuth }}
-  { 
-    path: '/login', 
-    name: 'Login', 
-    component: () => import('../views/LoginView.vue'),
+  {
+    path: '/login',
+    name: 'Login',
+    component: () => import('@/views/LoginView.vue'),
     meta: { guestOnly: true }
   },
-  { 
-    path: '/dashboard', 
-    name: 'Dashboard', 
-    component: () => import('../views/DashboardView.vue'),
-    meta: { requiresAuth: true }
-  },
-  { 
-    path: '/users', 
-    name: 'Users', 
-    component: () => import('../views/UsersView.vue'),
-{{- if .UseRole }}
-    meta: { requiresAuth: true, roles: ['admin'] },
-{{- else }}
-    meta: { requiresAuth: true },
 {{- end }}
-  },
-{{- end }}
+  {
+    path: '/:pathMatch(.*)*',
+    redirect: '/'
+  }
 ]
 
 const router = createRouter({
@@ -40,13 +56,17 @@ const router = createRouter({
   routes,
 })
 
-router.beforeEach(async (to, _from, next) => {
 {{- if .UseAuth }}
+router.beforeEach(async (to, _from, next) => {
   const token = Cookies.get('token')
   const { user, fetchUser } = useAuth()
 
   if (token && !user.value) {
-    await fetchUser()
+    try {
+      await fetchUser()
+    } catch {
+      Cookies.remove('token')
+    }
   }
 
   if (to.meta.guestOnly && token) {
@@ -57,7 +77,7 @@ router.beforeEach(async (to, _from, next) => {
     if (!token) {
       return next({ name: 'Login' })
     }
-
+    
 {{- if .UseRole }}
     const allowedRoles = to.meta.roles as string[] | undefined
     if (allowedRoles && allowedRoles.length > 0) {
@@ -70,9 +90,9 @@ router.beforeEach(async (to, _from, next) => {
     }
 {{- end }}
   }
-{{- end }}
 
   next()
 })
+{{- end }}
 
 export default router
