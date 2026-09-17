@@ -167,7 +167,7 @@ func InitBoilerplate() {
 	fmt.Println("\n--------------------------------------------------")
 	fmt.Println("[info] Generating project boilerplate with:")
 	fmt.Printf("       - App Type       : %s\n", strings.ToUpper(config.AppType))
-	fmt.Printf("       - Backend Type   : %s\n", strings.ToUpper(config.BackendType))
+	fmt.Printf("       - Backend        : %s\n", strings.ToUpper(config.BackendType))
 	if config.AppType == "fullstack" {
 		fmt.Printf("       - Frontend       : %s\n", strings.ToUpper(config.FrontendType))
 	}
@@ -238,7 +238,7 @@ func InitBoilerplate() {
 			if err := os.WriteFile(targetPath, fileBytes, 0644); err != nil {
 				fmt.Printf("[error] Failed to create the %s file: %v\n", targetPath, err)
 			} else {
-				fmt.Printf("[info] %s file created\n", targetPath)
+				// fmt.Printf("[info] %s file created\n", targetPath)
 			}
 		} else {
 			fmt.Printf("[error] The %s file already exists\n", targetPath)

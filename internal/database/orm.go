@@ -347,7 +347,7 @@ func create(c Commander, model interface{}) error {
 		}
 	}
 
-	log.Printf("[info] The data was successfully saved to the '%s' table\n", tableName)
+	// log.Printf("[info] The data was successfully saved to the '%s' table\n", tableName)
 	return nil
 }
 
@@ -446,7 +446,7 @@ func update(c Commander, model interface{}, id interface{}) error {
 		return fmt.Errorf("[warning] Data not found or no changes")
 	}
 
-	log.Printf("[info] The data in the '%s' table with ID %v has been successfully updated\n", tableName, id)
+	// log.Printf("[info] The data in the '%s' table with ID %v has been successfully updated\n", tableName, id)
 	return nil
 }
 
@@ -493,7 +493,7 @@ func deleteModel(c Commander, model interface{}, id interface{}) error {
 		return fmt.Errorf("[warning] Data not found")
 	}
 
-	log.Printf("[info] The data in the '%s' table with ID %v was successfully deleted\n", tableName, id)
+	// log.Printf("[info] The data in the '%s' table with ID %v was successfully deleted\n", tableName, id)
 	return nil
 }
 

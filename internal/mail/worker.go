@@ -25,7 +25,7 @@ func InitMailWorker(workerCount int) {
 			}
 		}(i)
 	}
-	log.Printf("[info] Mail worker pool started with %d workers\n", workerCount)
+	// log.Printf("[info] Mail worker pool started with %d workers\n", workerCount)
 }
 
 func QueueEmail(to, subject, body string) error {

@@ -21,7 +21,9 @@ func RoleSeeder(db *gohan.DB) {
 		if err := db.Create(&newRole); err != nil {
 			log.Printf("[error] Failed to seed role (%s): %v\n", roleName, err)
 		} else {
-			log.Printf("[info] Role '%s' successfully seeded\n", roleName)
+			// log.Printf("[info] Role '%s' successfully seeded\n", roleName)
 		}
 	}
+
+    log.Println("[info] Role seeder process completed")
 }

@@ -171,7 +171,7 @@ func setTable(c Commander, model interface{}) error {
         return fmt.Errorf("[error] Failed to create the '%s' table: %w", tableName, err)
     }
 
-    log.Printf("[info] The '%s' table is ready to use (created/verified).\n", tableName)
+    // log.Printf("[info] The '%s' table is ready to use (created/verified).\n", tableName)
     return nil
 }
 func getSQLType(t reflect.Type, driver string) string {

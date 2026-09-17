@@ -54,7 +54,7 @@ func UserSeeder(db *gohan.DB) {
         if err := db.Create(&user); err != nil {
             log.Printf("[error] Failed to seed user (%s): %v\n", user.Email, err)
         } else {
-            log.Printf("[info] User '%s' successfully seeded\n", user.Email)
+            // log.Printf("[info] User '%s' successfully seeded\n", user.Email)
         }
     }
 
