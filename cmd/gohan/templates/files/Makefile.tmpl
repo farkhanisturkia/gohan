@@ -1,4 +1,4 @@
-.PHONY: setup dev dev-backend dev-frontend clear-cache
+.PHONY: setup dev dev-backend{{ if eq .AppType "fullstack" }} dev-frontend{{ end }} clear-cache
 
 setup:
 	@echo "📦 Setting up all dependencies..."
@@ -29,7 +29,7 @@ dev-backend: clear-cache
 	@go run .
 {{- end }}
 
-dev-frontend:
 {{- if eq .AppType "fullstack" }}
+dev-frontend:
 	@cd frontend && npm run dev
 {{- end }}
