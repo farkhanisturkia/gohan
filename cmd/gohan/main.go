@@ -4,10 +4,9 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/farkhanisturkia/gohan"
 	"github.com/farkhanisturkia/gohan/cmd/gohan/commands"
 )
-
-const AppVersion = "v1.7.2"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -59,7 +58,7 @@ func main() {
 }
 
 func printVersion() {
-	fmt.Printf("Gohan CLI version %s\n", AppVersion)
+	fmt.Printf("Gohan CLI version %s\n", gohan.Version)
 }
 
 func printHelp() {

@@ -11,6 +11,9 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+// Framework Meta
+const Version = "v1.7.3"
+
 // Config
 type Env = config.Env
 
