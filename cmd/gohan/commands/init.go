@@ -9,7 +9,6 @@ import (
 
 	"github.com/farkhanisturkia/gohan/cmd/gohan/templates"
 	"github.com/farkhanisturkia/gohan/cmd/gohan/utils"
-	"github.com/manifoldco/promptui"
 )
 
 type InitConfig struct {
@@ -29,14 +28,13 @@ func InitBoilerplate() {
 	fmt.Println("--------------------------------------------------")
 
 	// 1. Select App Type (API Only vs Fullstack)
-	promptAppType := newSelect(
+	appChoice, err := utils.RunSelect(
 		"Select Application Type", 
 		[]string{
 			"API Only (Default)", 
 			"Fullstack",
 		},
 	)
-	_, appChoice, err := promptAppType.Run()
 	if err != nil {
 		fmt.Println("[info] Initialization cancelled.")
 		return
@@ -49,7 +47,7 @@ func InitBoilerplate() {
 	}
 
 	// 2. Select Backend Type (REST, gRPC, GraphQL)
-	promptBackend := newSelect(
+	backendChoice, err := utils.RunSelect(
 		"Select Backend Architecture", 
 		[]string{
 			"REST API (Default)", 
@@ -57,7 +55,6 @@ func InitBoilerplate() {
 			"GraphQL (*Coming soon)",
 		},
 	)
-	_, backendChoice, err := promptBackend.Run()
 	if err != nil {
 		fmt.Println("[info] Initialization cancelled.")
 		return
@@ -77,14 +74,13 @@ func InitBoilerplate() {
 
 	// 3. Select Frontend Type
 	if config.AppType == "fullstack" {
-		promptFrontend := newSelect(
+		feChoice, err := utils.RunSelect(
 			"Select Frontend Framework", 
 			[]string{
 				"Vue 3 (Default)", 
 				"React (*Coming soon)",
 			},
 		)
-		_, feChoice, err := promptFrontend.Run()
 		if err != nil {
 			fmt.Println("[info] Initialization cancelled.")
 			return
@@ -99,14 +95,13 @@ func InitBoilerplate() {
 	}
 
 	// 4. Auth & Middleware Options
-	promptAuth := newSelect(
+	authChoice, err := utils.RunSelect(
 		"Include Authentication?", 
 		[]string{
 			"Yes", 
 			"No",
 		},
 	)
-	_, authChoice, err := promptAuth.Run()
 	if err != nil {
 		fmt.Println("[info] Initialization cancelled.")
 		return
@@ -116,14 +111,13 @@ func InitBoilerplate() {
 		config.UseAuth = true
 
 		// Select Auth Type
-		promptAuthType := newSelect(
+		authTypeChoice, err := utils.RunSelect(
 			"  ↳ Select Authentication Type", 
 			[]string{
 				"PAT - Personal Access Token (Default)", 
 				"JWT - JSON Web Token",
 			},
 		)
-		_, authTypeChoice, err := promptAuthType.Run()
 		if err != nil {
 			fmt.Println("[info] Initialization cancelled.")
 			return
@@ -136,14 +130,13 @@ func InitBoilerplate() {
 		}
 
 		// Forgot Password Prompt
-		promptForgot := newSelect(
+		forgotChoice, err := utils.RunSelect(
 			"  ↳ Include Forgot Password features?", 
 			[]string{
 				"Yes", 
 				"No",
 			},
 		)
-		_, forgotChoice, err := promptForgot.Run()
 		if err != nil {
 			fmt.Println("[info] Initialization cancelled.")
 			return
@@ -151,14 +144,13 @@ func InitBoilerplate() {
 		config.UseForgotPassword = (forgotChoice == "Yes")
 
 		// Role-Based Middleware Prompt
-		promptRole := newSelect(
+		roleChoice, err := utils.RunSelect(
 			"  ↳ Include Role-Based Middleware (RBAC)?", 
 			[]string{
 				"Yes", 
 				"No",
 			},
 		)
-		_, roleChoice, err := promptRole.Run()
 		if err != nil {
 			fmt.Println("[info] Initialization cancelled.")
 			return
@@ -312,19 +304,4 @@ func shouldSkipFile(path string, cfg InitConfig) bool {
     }
 
     return false
-}
-
-func newSelect(label string, items []string) promptui.Select {
-	return promptui.Select{
-		Label:  label,
-		Items:  items,
-		Stdin:  os.Stdin,
-		Stdout: os.Stdout,
-		Templates: &promptui.SelectTemplates{
-			Label:    "{{ . | bold }}",
-			Active:   "  {{ \">\" | cyan }} {{ . | cyan }}",
-			Inactive: "    {{ . }}",
-			Selected: "  {{ \"✔\" | green }} {{ . | bold }}",
-		},
-	}
 }
