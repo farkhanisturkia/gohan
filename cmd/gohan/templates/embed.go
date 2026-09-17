@@ -18,6 +18,7 @@ var MakeFS embed.FS
 
 type TemplateData struct {
 	ModuleName        string
+	UseRedis		  bool
 	UseAuth           bool
 	AuthType          string
 	UseForgotPassword bool

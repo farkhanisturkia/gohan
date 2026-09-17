@@ -26,8 +26,10 @@ func main() {
 
     gohan.InitMailWorker(5)
 
+{{- if .UseRedis }}
     gohan.InitRedis(env.RedisHost, env.RedisPort, env.RedisPass)
 
+{{- end }}
     SetupRoutes(db)
 
     if err := gohan.Serve(&env.AppPort); err != nil {

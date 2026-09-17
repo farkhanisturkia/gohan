@@ -1,238 +1,260 @@
 package commands
 
 import (
-	"fmt"
-	"go/format"
-	"os"
-	"path/filepath"
-	"strings"
+    "fmt"
+    "go/format"
+    "os"
+    "path/filepath"
+    "strings"
 
-	"github.com/farkhanisturkia/gohan/cmd/gohan/templates"
-	"github.com/farkhanisturkia/gohan/cmd/gohan/utils"
+    "github.com/farkhanisturkia/gohan/cmd/gohan/templates"
+    "github.com/farkhanisturkia/gohan/cmd/gohan/utils"
 )
 
 type InitConfig struct {
-	AppType           string
-	BackendType       string
-	FrontendType      string
-	UseAuth           bool
-	AuthType          string
-	UseForgotPassword bool
-	UseRole           bool
+    AppType           string
+    BackendType       string
+    FrontendType      string
+    UseRedis          bool
+    UseAuth           bool
+    AuthType          string
+    UseForgotPassword bool
+    UseRole           bool
 }
 
 func InitBoilerplate() {
-	config := InitConfig{}
+    config := InitConfig{}
 
-	fmt.Println("🚀 Initializing Gohan Framework Project...")
-	fmt.Println("--------------------------------------------------")
+    fmt.Println("🚀 Initializing Gohan Framework Project...")
+    fmt.Println("--------------------------------------------------")
 
-	// 1. Select App Type (API Only vs Fullstack)
-	appChoice, err := utils.RunSelect(
-		"Select Application Type", 
-		[]string{
-			"API Only (Default)", 
-			"Fullstack",
-		},
-	)
-	if err != nil {
-		fmt.Println("[info] Initialization cancelled.")
-		return
-	}
+    // 1. Select App Type (API Only vs Fullstack)
+    appChoice, err := utils.RunSelect(
+        "Select Application Type", 
+        []string{
+            "API Only (Default)", 
+            "Fullstack",
+        },
+    )
+    if err != nil {
+        fmt.Println("[info] Initialization cancelled.")
+        return
+    }
 
-	if strings.Contains(appChoice, "Fullstack") {
-		config.AppType = "fullstack"
-	} else {
-		config.AppType = "api"
-	}
+    if strings.Contains(appChoice, "Fullstack") {
+        config.AppType = "fullstack"
+    } else {
+        config.AppType = "api"
+    }
 
-	// 2. Select Backend Type (REST, gRPC, GraphQL)
-	backendChoice, err := utils.RunSelect(
-		"Select Backend Architecture", 
-		[]string{
-			"REST API (Default)", 
-			"gRPC (*Coming soon)", 
-			"GraphQL (*Coming soon)",
-		},
-	)
-	if err != nil {
-		fmt.Println("[info] Initialization cancelled.")
-		return
-	}
+    // 2. Select Backend Type (REST, gRPC, GraphQL)
+    backendChoice, err := utils.RunSelect(
+        "Select Backend Architecture", 
+        []string{
+            "REST API (Default)", 
+            "gRPC (*Coming soon)", 
+            "GraphQL (*Coming soon)",
+        },
+    )
+    if err != nil {
+        fmt.Println("[info] Initialization cancelled.")
+        return
+    }
 
-	if strings.Contains(backendChoice, "gRPC") {
-		fmt.Println("\n[info] gRPC backend architecture is currently ON GOING / COMING SOON!")
-		fmt.Println("[info] Initialization aborted.")
-		return
-	}
-	if strings.Contains(backendChoice, "GraphQL") {
-		fmt.Println("\n[info] GraphQL backend architecture is currently ON GOING / COMING SOON!")
-		fmt.Println("[info] Initialization aborted.")
-		return
-	}
-	config.BackendType = "rest"
+    if strings.Contains(backendChoice, "gRPC") {
+        fmt.Println("\n[info] gRPC backend architecture is currently ON GOING / COMING SOON!")
+        fmt.Println("[info] Initialization aborted.")
+        return
+    }
+    if strings.Contains(backendChoice, "GraphQL") {
+        fmt.Println("\n[info] GraphQL backend architecture is currently ON GOING / COMING SOON!")
+        fmt.Println("[info] Initialization aborted.")
+        return
+    }
+    config.BackendType = "rest"
 
-	// 3. Select Frontend Type
-	if config.AppType == "fullstack" {
-		feChoice, err := utils.RunSelect(
-			"Select Frontend Framework", 
-			[]string{
-				"Vue 3 (Default)", 
-				"React (*Coming soon)",
-			},
-		)
-		if err != nil {
-			fmt.Println("[info] Initialization cancelled.")
-			return
-		}
+    // 3. Select Frontend Type
+    if config.AppType == "fullstack" {
+        feChoice, err := utils.RunSelect(
+            "Select Frontend Framework", 
+            []string{
+                "Vue 3 (Default)", 
+                "React (*Coming soon)",
+            },
+        )
+        if err != nil {
+            fmt.Println("[info] Initialization cancelled.")
+            return
+        }
 
-		if strings.Contains(feChoice, "React") {
-			fmt.Println("\n[info] React frontend Framework is currently ON GOING / COMING SOON!")
-			fmt.Println("[info] Initialization aborted.")
-			return
-		}
-		config.FrontendType = "vue"
-	}
+        if strings.Contains(feChoice, "React") {
+            fmt.Println("\n[info] React frontend Framework is currently ON GOING / COMING SOON!")
+            fmt.Println("[info] Initialization aborted.")
+            return
+        }
+        config.FrontendType = "vue"
+    }
 
-	// 4. Auth & Middleware Options
-	authChoice, err := utils.RunSelect(
-		"Include Authentication?", 
-		[]string{
-			"Yes", 
-			"No",
-		},
-	)
-	if err != nil {
-		fmt.Println("[info] Initialization cancelled.")
-		return
-	}
+    // 4. Redis Integration Option
+    redisChoice, err := utils.RunSelect(
+        "Include Redis Support (Caching / Session)?", 
+        []string{
+            "Yes", 
+            "No",
+        },
+    )
+    if err != nil {
+        fmt.Println("[info] Initialization cancelled.")
+        return
+    }
+    config.UseRedis = (redisChoice == "Yes")
 
-	if authChoice == "Yes" {
-		config.UseAuth = true
+    // 5. Auth & Middleware Options
+    authChoice, err := utils.RunSelect(
+        "Include Authentication?", 
+        []string{
+            "Yes", 
+            "No",
+        },
+    )
+    if err != nil {
+        fmt.Println("[info] Initialization cancelled.")
+        return
+    }
 
-		// Select Auth Type
-		authTypeChoice, err := utils.RunSelect(
-			"  ↳ Select Authentication Type", 
-			[]string{
-				"PAT - Personal Access Token (Default)", 
-				"JWT - JSON Web Token",
-			},
-		)
-		if err != nil {
-			fmt.Println("[info] Initialization cancelled.")
-			return
-		}
+    if authChoice == "Yes" {
+        config.UseAuth = true
 
-		if strings.Contains(authTypeChoice, "JWT") {
-			config.AuthType = "jwt"
-		} else {
-			config.AuthType = "pat"
-		}
+        // Select Auth Type
+        authTypeChoice, err := utils.RunSelect(
+            "  ↳ Select Authentication Type", 
+            []string{
+                "PAT - Personal Access Token (Default)", 
+                "JWT - JSON Web Token",
+            },
+        )
+        if err != nil {
+            fmt.Println("[info] Initialization cancelled.")
+            return
+        }
 
-		// Forgot Password Prompt
-		forgotChoice, err := utils.RunSelect(
-			"  ↳ Include Forgot Password features?", 
-			[]string{
-				"Yes", 
-				"No",
-			},
-		)
-		if err != nil {
-			fmt.Println("[info] Initialization cancelled.")
-			return
-		}
-		config.UseForgotPassword = (forgotChoice == "Yes")
+        if strings.Contains(authTypeChoice, "JWT") {
+            config.AuthType = "jwt"
+        } else {
+            config.AuthType = "pat"
+        }
 
-		// Role-Based Middleware Prompt
-		roleChoice, err := utils.RunSelect(
-			"  ↳ Include Role-Based Middleware (RBAC)?", 
-			[]string{
-				"Yes", 
-				"No",
-			},
-		)
-		if err != nil {
-			fmt.Println("[info] Initialization cancelled.")
-			return
-		}
-		config.UseRole = (roleChoice == "Yes")
-	} else {
-		config.UseAuth = false
-		config.AuthType = ""
-		config.UseForgotPassword = false
-		config.UseRole = false
-	}
+        // Forgot Password Prompt
+        forgotChoice, err := utils.RunSelect(
+            "  ↳ Include Forgot Password features?", 
+            []string{
+                "Yes", 
+                "No",
+            },
+        )
+        if err != nil {
+            fmt.Println("[info] Initialization cancelled.")
+            return
+        }
+        config.UseForgotPassword = (forgotChoice == "Yes")
 
-	// Output Summary
-	fmt.Println("\n--------------------------------------------------")
-	fmt.Println("[info] Generating project boilerplate with:")
-	fmt.Printf("       - App Type       : %s\n", strings.ToUpper(config.AppType))
-	fmt.Printf("       - Backend        : %s\n", strings.ToUpper(config.BackendType))
-	if config.AppType == "fullstack" {
-		fmt.Printf("       - Frontend       : %s\n", strings.ToUpper(config.FrontendType))
-	}
+        // Role-Based Middleware Prompt
+        roleChoice, err := utils.RunSelect(
+            "  ↳ Include Role-Based Middleware (RBAC)?", 
+            []string{
+                "Yes", 
+                "No",
+            },
+        )
+        if err != nil {
+            fmt.Println("[info] Initialization cancelled.")
+            return
+        }
+        config.UseRole = (roleChoice == "Yes")
+    } else {
+        config.UseAuth = false
+        config.AuthType = ""
+        config.UseForgotPassword = false
+        config.UseRole = false
+    }
 
-	if config.UseAuth {
-		forgotPassStr := "NO"
-		if config.UseForgotPassword {
-			forgotPassStr = "YES"
-		}
-		roleStr := "NO"
-		if config.UseRole {
-			roleStr = "YES"
-		}
-		fmt.Printf("       - Auth           : YES (%s)\n", strings.ToUpper(config.AuthType))
-		fmt.Printf("       - Forgot Pass    : %s\n", forgotPassStr)
-		fmt.Printf("       - Role Middleware: %s\n", roleStr)
-	} else {
-		fmt.Println("       - Auth           : NO")
-		fmt.Println("       - Forgot Pass    : NO")
-		fmt.Println("       - Role Middleware: NO")
-	}
-	fmt.Println("--------------------------------------------------\n")
+    // Output Summary
+    fmt.Println("\n--------------------------------------------------")
+    fmt.Println("[info] Generating project boilerplate with:")
+    fmt.Printf("       - App Type       : %s\n", strings.ToUpper(config.AppType))
+    fmt.Printf("       - Backend        : %s\n", strings.ToUpper(config.BackendType))
+    if config.AppType == "fullstack" {
+        fmt.Printf("       - Frontend       : %s\n", strings.ToUpper(config.FrontendType))
+    }
 
-	moduleName := utils.GetModuleName()
+    redisStr := "NO"
+    if config.UseRedis {
+        redisStr = "YES"
+    }
+    fmt.Printf("       - Redis Support  : %s\n", redisStr)
 
-	templateData := templates.TemplateData{
-		ModuleName:        moduleName,
-		UseAuth:           config.UseAuth,
-		AuthType:          config.AuthType,
-		UseForgotPassword: config.UseForgotPassword,
-		UseRole:           config.UseRole,
-		AppType:           config.AppType,
-		FrontendType:      config.FrontendType,
-	}
+    if config.UseAuth {
+        forgotPassStr := "NO"
+        if config.UseForgotPassword {
+            forgotPassStr = "YES"
+        }
+        roleStr := "NO"
+        if config.UseRole {
+            roleStr = "YES"
+        }
+        fmt.Printf("       - Auth           : YES (%s)\n", strings.ToUpper(config.AuthType))
+        fmt.Printf("       - Forgot Pass    : %s\n", forgotPassStr)
+        fmt.Printf("       - Role Middleware: %s\n", roleStr)
+    } else {
+        fmt.Println("       - Auth           : NO")
+        fmt.Println("       - Forgot Pass    : NO")
+        fmt.Println("       - Role Middleware: NO")
+    }
+    fmt.Println("--------------------------------------------------\n")
 
-	templateMap, err := templates.GetBoilerplateTemplates(templateData, func(path string) bool {
-		return shouldSkipFile(path, config)
-	})
-	if err != nil {
-		fmt.Printf("[error] Failed to load boilerplate templates: %v\n", err)
-		return
-	}
+    moduleName := utils.GetModuleName()
 
-	for path, content := range templateMap {
-		targetPath := path
+    templateData := templates.TemplateData{
+        ModuleName:        moduleName,
+        UseRedis:          config.UseRedis,
+        UseAuth:           config.UseAuth,
+        AuthType:          config.AuthType,
+        UseForgotPassword: config.UseForgotPassword,
+        UseRole:           config.UseRole,
+        AppType:           config.AppType,
+        FrontendType:      config.FrontendType,
+    }
 
-		if config.AppType == "fullstack" && !strings.HasPrefix(path, "frontend/") {
-			if path != "Makefile" {
-				targetPath = filepath.Join("backend", path)
-			}
-		}
+    templateMap, err := templates.GetBoilerplateTemplates(templateData, func(path string) bool {
+        return shouldSkipFile(path, config)
+    })
+    if err != nil {
+        fmt.Printf("[error] Failed to load boilerplate templates: %v\n", err)
+        return
+    }
 
-		dir := filepath.Dir(targetPath)
-		if dir != "." {
-			_ = os.MkdirAll(dir, 0755)
-		}
+    for path, content := range templateMap {
+        targetPath := path
 
-		fileBytes := []byte(content)
+        if config.AppType == "fullstack" && !strings.HasPrefix(path, "frontend/") {
+            if path != "Makefile" {
+                targetPath = filepath.Join("backend", path)
+            }
+        }
 
-		if strings.HasSuffix(targetPath, ".go") {
-			formatted, err := format.Source(fileBytes)
-			if err == nil {
-				fileBytes = formatted
-			}
-		}
+        dir := filepath.Dir(targetPath)
+        if dir != "." {
+            _ = os.MkdirAll(dir, 0755)
+        }
+
+        fileBytes := []byte(content)
+
+        if strings.HasSuffix(targetPath, ".go") {
+            formatted, err := format.Source(fileBytes)
+            if err == nil {
+                fileBytes = formatted
+            }
+        }
 
 		if _, err := os.Stat(targetPath); os.IsNotExist(err) {
 			if err := os.WriteFile(targetPath, fileBytes, 0644); err != nil {
@@ -245,10 +267,10 @@ func InitBoilerplate() {
 		}
 	}
 
-	fmt.Println("\n✅ Gohan project initialized successfully!")
-	fmt.Println("\nNext steps:")
-	fmt.Println("  1. Run 'make setup' to install all dependencies & generate key")
-	fmt.Println("  2. Run 'make dev' to start the application")
+    fmt.Println("\n✅ Gohan project initialized successfully!")
+    fmt.Println("\nNext steps:")
+    fmt.Println("  1. Run 'make setup' to install all dependencies & generate key")
+    fmt.Println("  2. Run 'make dev' to start the application")
 }
 
 func shouldSkipFile(path string, cfg InitConfig) bool {
@@ -272,8 +294,8 @@ func shouldSkipFile(path string, cfg InitConfig) bool {
         }
 
         if match("useAuth.ts") ||
-			match("DashboardView.vue") ||
-			match("LoginView.vue") ||
+            match("DashboardView.vue") ||
+            match("LoginView.vue") ||
             match("UsersView.vue") {
             return true
         }

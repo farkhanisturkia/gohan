@@ -4,8 +4,10 @@ import (
     "fmt"
     "net/http"
     "strconv"
-    "time"
+{{- if .UseRedis }}
     "context"
+    "time"
+{{- end }}
 
     "github.com/farkhanisturkia/gohan"
     "{{ .ModuleName }}/database/migrations"
@@ -41,6 +43,7 @@ func UserIndex(db *gohan.DB) http.HandlerFunc {
         }
 
         var items []migrations.User
+{{- if .UseRedis }}
         var paginationData gohan.Pagination
         cacheKey := fmt.Sprintf("user:all:page:%d:limit:%d", page, perPage)
 
@@ -54,6 +57,7 @@ func UserIndex(db *gohan.DB) http.HandlerFunc {
             }
         }
 
+{{- end }}
 {{- if .UseRole }}
         res, err := db.Paginate(page, perPage).Preload("Role").Find(&items)
 {{- else }}
@@ -66,10 +70,12 @@ func UserIndex(db *gohan.DB) http.HandlerFunc {
             return
         }
 
+{{- if .UseRedis }}
         if jsonBytes, err := gohan.Marshal(res); err == nil {
             _ = gohan.Redis.Set(r.Context(), cacheKey, string(jsonBytes), 10*time.Minute).Err()
         }
 
+{{- end }}
         gohan.JSON(w, http.StatusOK, map[string]interface{}{
             "message": "Fetch User list successful",
             "data":    res,
@@ -127,8 +133,10 @@ func UserStore(db *gohan.DB) http.HandlerFunc {
         _ = db.Preload("Role").FindOne(&item, "id = ?", item.ID)
 {{- end }}
 
+{{- if .UseRedis }}
         clearUserCache(r.Context())
 
+{{- end }}
         gohan.JSON(w, http.StatusCreated, map[string]interface{}{
             "message": "User created successfully",
             "data":    item,
@@ -140,6 +148,7 @@ func UserShow(db *gohan.DB) http.HandlerFunc {
     return func(w http.ResponseWriter, r *http.Request) {
         id := gohan.Param(r, "id")
         var item migrations.User
+{{- if .UseRedis }}
         cacheKey := fmt.Sprintf("user:%s", id)
 
         if cachedData, err := gohan.Redis.Get(r.Context(), cacheKey).Result(); err == nil && cachedData != "" {
@@ -152,6 +161,7 @@ func UserShow(db *gohan.DB) http.HandlerFunc {
             }
         }
 
+{{- end }}
 {{- if .UseRole }}
         if err := db.Preload("Role").FindOne(&item, "id = ?", id); err != nil {
 {{- else }}
@@ -163,10 +173,12 @@ func UserShow(db *gohan.DB) http.HandlerFunc {
             return
         }
 
+{{- if .UseRedis }}
         if jsonBytes, err := gohan.Marshal(item); err == nil {
             _ = gohan.Redis.Set(r.Context(), cacheKey, string(jsonBytes), 10*time.Minute).Err()
         }
 
+{{- end }}
         gohan.JSON(w, http.StatusOK, map[string]interface{}{
             "message": "Fetch User detail successful",
             "data":    item,
@@ -240,8 +252,10 @@ func UserUpdate(db *gohan.DB) http.HandlerFunc {
         _ = db.Preload("Role").FindOne(&item, "id = ?", id)
 {{- end }}
 
+{{- if .UseRedis }}
         clearUserCache(r.Context(), fmt.Sprintf("user:%s", id))
 
+{{- end }}
         gohan.JSON(w, http.StatusOK, map[string]interface{}{
             "message": "User updated successfully",
             "data":    item,
@@ -272,13 +286,16 @@ func UserDestroy(db *gohan.DB) http.HandlerFunc {
             return
         }
 
+{{- if .UseRedis }}
         clearUserCache(r.Context(), fmt.Sprintf("user:%s", id))
 
+{{- end }}
         gohan.JSON(w, http.StatusOK, map[string]string{
             "message": "User deleted successfully",
         })
     }
 }
+{{- if .UseRedis }}
 
 func clearUserCache(ctx context.Context, extraKeys ...string) {
     for _, key := range extraKeys {
@@ -290,3 +307,4 @@ func clearUserCache(ctx context.Context, extraKeys ...string) {
         _ = gohan.Redis.Del(ctx, iter.Val()).Err()
     }
 }
+{{- end }}
