@@ -73,7 +73,6 @@ func SetupRoutes(db *gohan.DB) {
         })
     }))
 
-{{- end }}
     // User Resource Routes (Protected)
 {{- if .UseRole }}
     gohan.Get("/api/users", middleware.Authenticate(db, middleware.RequireRole([]string{"admin"}, controllers.UserIndex(db))))
@@ -89,5 +88,6 @@ func SetupRoutes(db *gohan.DB) {
     gohan.Get("/api/users/{id}", middleware.Authenticate(db, controllers.UserShow(db)))
     gohan.Put("/api/users/{id}", middleware.Authenticate(db, controllers.UserUpdate(db)))
     gohan.Delete("/api/users/{id}", middleware.Authenticate(db, controllers.UserDestroy(db)))
+{{- end }}
 {{- end }}
 }
