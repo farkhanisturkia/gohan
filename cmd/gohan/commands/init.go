@@ -310,8 +310,7 @@ func shouldSkipFile(path string, cfg InitConfig) bool {
     if cfg.UseAuth && !cfg.UseForgotPassword {
         if match("password_reset_controller.go") ||
             match("00000000000003_create_password_reset_table.go") ||
-            match("ForgotPasswordView.vue") ||
-            match("ResetPasswordView.vue") {
+            match("ForgotPasswordView.vue") {
             return true
         }
     }
