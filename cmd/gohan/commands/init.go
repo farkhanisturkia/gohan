@@ -18,6 +18,7 @@ type InitConfig struct {
     UseRedis          bool
     UseAuth           bool
     AuthType          string
+    UseRegister       bool
     UseForgotPassword bool
     UseRole           bool
 }
@@ -144,6 +145,20 @@ func InitBoilerplate() {
             config.AuthType = "pat"
         }
 
+        // Register Promt
+        registerChoice, err := utils.RunSelect(
+            "Include Register features?",
+            []string{
+                "Yes",
+                "No",
+            },
+        )
+        if err != nil {
+            fmt.Println("[info] Initialization cancelled.")
+            return
+        }
+        config.UseRegister = (registerChoice == "Yes")
+
         // Forgot Password Prompt
         forgotChoice, err := utils.RunSelect(
             "Include Forgot Password features?", 
@@ -174,6 +189,7 @@ func InitBoilerplate() {
     } else {
         config.UseAuth = false
         config.AuthType = ""
+        config.UseRegister = false
         config.UseForgotPassword = false
         config.UseRole = false
     }
@@ -194,6 +210,10 @@ func InitBoilerplate() {
     fmt.Printf("       - Redis Support  : %s\n", redisStr)
 
     if config.UseAuth {
+        registerStr := "NO"
+        if config.UseRegister {
+            registerStr = "YES"
+        }
         forgotPassStr := "NO"
         if config.UseForgotPassword {
             forgotPassStr = "YES"
@@ -203,10 +223,12 @@ func InitBoilerplate() {
             roleStr = "YES"
         }
         fmt.Printf("       - Auth           : YES (%s)\n", strings.ToUpper(config.AuthType))
+        fmt.Printf("       - Register       : %s\n", registerStr)
         fmt.Printf("       - Forgot Pass    : %s\n", forgotPassStr)
         fmt.Printf("       - Role Middleware: %s\n", roleStr)
     } else {
         fmt.Println("       - Auth           : NO")
+        fmt.Println("       - Register       : NO")
         fmt.Println("       - Forgot Pass    : NO")
         fmt.Println("       - Role Middleware: NO")
     }
@@ -219,6 +241,7 @@ func InitBoilerplate() {
         UseRedis:          config.UseRedis,
         UseAuth:           config.UseAuth,
         AuthType:          config.AuthType,
+        UseRegister:       config.UseRegister,
         UseForgotPassword: config.UseForgotPassword,
         UseRole:           config.UseRole,
         AppType:           config.AppType,
@@ -303,6 +326,12 @@ func shouldSkipFile(path string, cfg InitConfig) bool {
 
     if cfg.UseAuth && cfg.AuthType == "jwt" {
         if match("00000000000002_create_personal_access_token_table.go") {
+            return true
+        }
+    }
+
+    if cfg.UseAuth && !cfg.UseRegister {
+        if match("RegisterView.vue") {
             return true
         }
     }

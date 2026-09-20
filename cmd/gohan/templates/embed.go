@@ -21,6 +21,7 @@ type TemplateData struct {
 	UseRedis		  bool
 	UseAuth           bool
 	AuthType          string
+	UseRegister       bool
 	UseForgotPassword bool
 	UseRole           bool
 	AppType           string
