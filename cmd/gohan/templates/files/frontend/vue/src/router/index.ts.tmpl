@@ -2,9 +2,9 @@ import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 {{- if .UseAuth }}
 import Cookies from 'js-cookie'
 import { useAuth } from '@/composables/useAuth'
+import GuestLayout from '@/layouts/GuestLayout.vue'
 {{- end }}
 import AuthLayout from '@/layouts/AuthLayout.vue'
-import GuestLayout from '@/layouts/GuestLayout.vue'
 import HomeView from '@/views/HomeView.vue'
 
 const routes: Array<RouteRecordRaw> = [

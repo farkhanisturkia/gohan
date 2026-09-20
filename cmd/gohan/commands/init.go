@@ -314,7 +314,6 @@ func shouldSkipFile(path string, cfg InitConfig) bool {
             match("auth_middleware.go") ||
             match("role_middleware.go") ||
             match("useAuth.ts") ||
-            match("AuthLayout.vue") ||
             match("GuestLayout.vue") ||
             match("LoginView.vue") ||
             match("RegisterView.vue") ||
