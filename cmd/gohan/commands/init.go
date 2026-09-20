@@ -310,46 +310,47 @@ func shouldSkipFile(path string, cfg InitConfig) bool {
             match("00000000000002_create_personal_access_token_table.go") ||
             match("00000000000003_create_password_reset_table.go") ||
             match("00000000000004_create_role_table.go") ||
-            match("role.go") ||
+            match("role_seeder.go") ||
             match("auth_middleware.go") ||
-            match("role_middleware.go") {
-            return true
-        }
-
-        if match("useAuth.ts") ||
-            match("DashboardView.vue") ||
+            match("role_middleware.go") ||
+            match("useAuth.ts") ||
+            match("AuthLayout.vue") ||
+            match("GuestLayout.vue") ||
             match("LoginView.vue") ||
+            match("RegisterView.vue") ||
+            match("ForgotPasswordView.vue") ||
+            match("DashboardView.vue") ||
             match("UsersView.vue") {
             return true
         }
-    }
-
-    if cfg.UseAuth && cfg.AuthType == "jwt" {
-        if match("00000000000002_create_personal_access_token_table.go") {
-            return true
+    } else {
+        if cfg.AuthType == "jwt" {
+            if match("00000000000002_create_personal_access_token_table.go") {
+                return true
+            }  
         }
-    }
 
-    if cfg.UseAuth && !cfg.UseRegister {
-        if match("RegisterView.vue") {
-            return true
+        if !cfg.UseRegister {
+            if match("RegisterView.vue") {
+                return true
+            }
         }
-    }
 
-    if cfg.UseAuth && !cfg.UseForgotPassword {
-        if match("password_reset_controller.go") ||
-            match("00000000000003_create_password_reset_table.go") ||
-            match("ForgotPasswordView.vue") {
-            return true
+        if !cfg.UseForgotPassword {
+            if match("password_reset_controller.go") ||
+                match("00000000000003_create_password_reset_table.go") ||
+                match("ForgotPasswordView.vue") {
+                return true
+            }
         }
-    }
 
-    if cfg.UseAuth && !cfg.UseRole {
-        if match("00000000000004_create_role_table.go") ||
-            match("role_controller.go") ||
-            match("role.go") ||
-            match("role_middleware.go") {
-            return true
+        if !cfg.UseRole {
+            if match("00000000000004_create_role_table.go") ||
+                match("role_controller.go") ||
+                match("role_seeder.go") ||
+                match("role_middleware.go") {
+                return true
+            }
         }
     }
 

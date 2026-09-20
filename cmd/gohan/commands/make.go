@@ -124,7 +124,7 @@ func MakeSeeder(name string) {
 	cleanName := strings.TrimSuffix(name, ".go")
 	prefix := toPascalCase(cleanName)
 
-	targetPath := filepath.Join(resolveBasePath("database/seeders"), strings.ToLower(prefix)+".go")
+	targetPath := filepath.Join(resolveBasePath("database/seeders"), cleanName+".go")
 	moduleName := utils.GetModuleName()
 
 	data := templates.MakeData{
