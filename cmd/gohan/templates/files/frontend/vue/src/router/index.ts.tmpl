@@ -3,13 +3,14 @@ import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import Cookies from 'js-cookie'
 import { useAuth } from '@/composables/useAuth'
 {{- end }}
-import MainLayout from '@/layouts/MainLayout.vue'
+import AuthLayout from '@/layouts/AuthLayout.vue'
+import GuestLayout from '@/layouts/GuestLayout.vue'
 import HomeView from '@/views/HomeView.vue'
 
 const routes: Array<RouteRecordRaw> = [
   {
     path: '/',
-    component: MainLayout,
+    component: AuthLayout,
     children: [
       { 
         path: '', 
@@ -39,26 +40,32 @@ const routes: Array<RouteRecordRaw> = [
   },
 {{- if .UseAuth }}
   {
-    path: '/login',
-    name: 'Login',
-    component: () => import('@/views/LoginView.vue'),
-    meta: { guestOnly: true }
-  },
-{{- end }}
+    path: '/',
+    component: GuestLayout,
+    children: [
+      {
+        path: 'login',
+        name: 'Login',
+        component: () => import('@/views/LoginView.vue'),
+        meta: { guestOnly: true }
+      },
 {{- if .UseRegister }}
-  {
-    path: '/register',
-    name: 'Register',
-    component: () => import('@/views/RegisterView.vue'),
-    meta: { guestOnly: true }
-  },
+      {
+        path: 'register',
+        name: 'Register',
+        component: () => import('@/views/RegisterView.vue'),
+        meta: { guestOnly: true }
+      },
 {{- end }}
 {{- if .UseForgotPassword }}
-  {
-    path: '/forgot-password',
-    name: 'ForgotPassword',
-    component: () => import('@/views/ForgotPasswordView.vue'),
-    meta: { guestOnly: true }
+      {
+        path: 'forgot-password',
+        name: 'ForgotPassword',
+        component: () => import('@/views/ForgotPasswordView.vue'),
+        meta: { guestOnly: true }
+      },
+{{- end }}
+    ]
   },
 {{- end }}
   {
