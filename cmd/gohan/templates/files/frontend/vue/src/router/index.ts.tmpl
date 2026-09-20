@@ -45,6 +45,14 @@ const routes: Array<RouteRecordRaw> = [
     meta: { guestOnly: true }
   },
 {{- end }}
+{{- if .UseRegister }}
+  {
+    path: '/register',
+    name: 'Register',
+    component: () => import('@/views/RegisterView.vue'),
+    meta: { guestOnly: true }
+  },
+{{- end }}
 {{- if .UseForgotPassword }}
   {
     path: '/forgot-password',

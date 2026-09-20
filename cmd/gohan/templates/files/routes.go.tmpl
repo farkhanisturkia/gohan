@@ -44,6 +44,9 @@ func SetupRoutes(db *gohan.DB) {
     // Authentication Routes
     gohan.Post("/api/login", controllers.LoginAuth(db))
     gohan.Post("/api/logout", middleware.Authenticate(db, controllers.LogoutAuth(db)))
+{{- if .UseRegister }}
+    gohan.Post("/api/register", controllers.RegisterAuth(db))
+{{- end }}
 
 {{- if .UseForgotPassword }}
     // Password Reset Routes

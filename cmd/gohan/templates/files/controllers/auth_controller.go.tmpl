@@ -15,6 +15,14 @@ type LoginRequest struct {
     Email    string `json:"email"`
     Password string `json:"password"`
 }
+{{- if .UseRegister }}
+
+type RegisterRequest struct {
+    Name     string `json:"name"`
+    Email    string `json:"email"`
+    Password string `json:"password"`
+}
+{{- end }}
 
 func LoginAuth(db *gohan.DB) http.HandlerFunc {
     return func(w http.ResponseWriter, r *http.Request) {
@@ -143,3 +151,61 @@ func LogoutAuth(db *gohan.DB) http.HandlerFunc {
 {{- end }}
     }
 }
+{{- if .UseRegister }}
+
+func RegisterAuth(db *gohan.DB) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        var req RegisterRequest
+        if err := gohan.BindJSON(r, &req); err != nil {
+            gohan.JSON(w, http.StatusBadRequest, map[string]string{"message": "Invalid request body"})
+            return
+        }
+
+        if req.Name == "" || req.Email == "" || req.Password == "" {
+            gohan.JSON(w, http.StatusBadRequest, map[string]string{"message": "Name, email, and password are required"})
+            return
+        }
+
+        var existingUser migrations.User
+        if err := db.FindOne(&existingUser, "email = ?", req.Email); err == nil {
+            gohan.JSON(w, http.StatusConflict, map[string]string{"message": "Email is already registered"})
+            return
+        }
+
+        hashedPassword, err := gohan.HashPassword(req.Password)
+        if err != nil {
+            gohan.JSON(w, http.StatusInternalServerError, map[string]string{"message": "Failed to process password"})
+            return
+        }
+
+        user := migrations.User{
+            Name:     req.Name,
+            Email:    req.Email,
+            Password: hashedPassword,
+        }
+{{- if .UseRole }}
+
+        var defaultRole migrations.Role
+        if err := db.FindOne(&defaultRole, "name = ?", "user"); err == nil {
+            user.RoleID = defaultRole.ID
+        } else if err := db.FindOne(&defaultRole, "1 = 1"); err == nil {
+            user.RoleID = defaultRole.ID
+        }
+{{- end }}
+
+        if err := db.Create(&user); err != nil {
+            gohan.JSON(w, http.StatusInternalServerError, map[string]string{"message": "Failed to create user"})
+            return
+        }
+
+        gohan.JSON(w, http.StatusCreated, map[string]interface{}{
+            "message": "User registered successfully",
+            "user": map[string]interface{}{
+                "id":    user.ID,
+                "name":  user.Name,
+                "email": user.Email,
+            },
+        })
+    }
+}
+{{- end }}
