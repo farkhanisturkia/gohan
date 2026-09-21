@@ -2,6 +2,7 @@ package commands
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"go/format"
 	"os"
@@ -13,11 +14,52 @@ import (
 	"github.com/farkhanisturkia/gohan/cmd/gohan/utils"
 )
 
+type GohanConfig struct {
+	AppName  string     `json:"app_name"`
+	AppType  string     `json:"app_type"`
+	AppSpecs GohanSpecs `json:"app_specs"`
+}
+
+type GohanSpecs struct {
+	Auth     bool   `json:"auth"`
+	AuthType string `json:"auth_type"`
+	RBAC     bool   `json:"rbac"`
+	Redis    bool   `json:"redis"`
+}
+
 func resolveBasePath(subPath string) string {
-	if _, err := os.Stat("backend"); err == nil {
-		return filepath.Join("backend", subPath)
+	currDir, err := os.Getwd()
+	if err != nil {
+		fmt.Printf("[error] Failed to get current working directory: %v\n", err)
+		os.Exit(1)
 	}
-	return subPath
+
+	for {
+		configPath := filepath.Join(currDir, "gohan.json")
+		if _, err := os.Stat(configPath); err == nil {
+			content, err := os.ReadFile(configPath)
+			if err == nil {
+				var cfg GohanConfig
+				if err := json.Unmarshal(content, &cfg); err == nil {
+					if strings.ToLower(cfg.AppType) == "fullstack" {
+						return filepath.Join(currDir, "backend", subPath)
+					}
+					return filepath.Join(currDir, subPath)
+				}
+			}
+			return filepath.Join(currDir, subPath)
+		}
+
+		parentDir := filepath.Dir(currDir)
+		if parentDir == currDir {
+			break
+		}
+		currDir = parentDir
+	}
+
+	fmt.Println("[error] Gohan app is not detected. Please run 'gohan init' or execute this command inside a Gohan project.")
+	os.Exit(1)
+	return ""
 }
 
 func toPascalCase(s string) string {
