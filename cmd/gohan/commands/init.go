@@ -260,7 +260,7 @@ func InitBoilerplate() {
         targetPath := path
 
         if config.AppType == "fullstack" && !strings.HasPrefix(path, "frontend/") {
-            if path != "Makefile" {
+            if path != "Makefile" && path != "gohan.json" {
                 targetPath = filepath.Join("backend", path)
             }
         }
