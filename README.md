@@ -51,5 +51,5 @@ gohan -v
 
 Create a new Gohan project:
 ```bash
-gohan init
+gohan init <project_name> / .
 ```
