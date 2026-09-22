@@ -21,7 +21,7 @@ func main() {
     migrations.SetMigrations(db)
     seeders.SetSeeders(db)
 
-    gohan.Use(gohan.CORSMiddleware)
+    gohan.Use(gohan.CORSMiddleware(env.AllowedOrigins))
     gohan.Use(gohan.TimeoutMiddleware(10 * time.Second))
 
     gohan.InitMailWorker(5)
