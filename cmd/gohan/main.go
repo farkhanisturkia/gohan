@@ -18,7 +18,7 @@ func main() {
 
 	switch arg {
 	case "init":
-		commands.InitBoilerplate()
+		commands.InitBoilerplate(os.Args[2:])
 
 	case "key:generate":
         commands.GenerateAppKey()
@@ -64,14 +64,14 @@ func printVersion() {
 func printHelp() {
 	fmt.Println("Gohan Framework CLI Generator")
 	fmt.Println("\nUsage:")
-	fmt.Println("  gohan <command>/<flags>")
+	fmt.Println("  gohan <command> [args/flags]")
 	fmt.Println("\nAvailable Commands:")
-	fmt.Println("  init			Generate standard Gohan Framework")
-	fmt.Println("  key:generate		Generate a new application encryption key")
-	fmt.Println("  make:controller	Generate a new controller file")
-	fmt.Println("  make:migration	Generate a new migration file")
-	fmt.Println("  make:seeder		Generate a new seeder file")
+	fmt.Println("  init [folder_name] Generate standard Gohan Framework (e.g. gohan init test)")
+	fmt.Println("  key:generate        Generate a new application encryption key")
+	fmt.Println("  make:controller     Generate a new controller file")
+	fmt.Println("  make:migration      Generate a new migration file")
+	fmt.Println("  make:seeder         Generate a new seeder file")
 	fmt.Println("\nFlags:")
-	fmt.Println("  -v, --version		Show the CLI version")
-	fmt.Println("  -h, --help		Display the CLI usage instructions")
+	fmt.Println("  -v, --version       Show the CLI version")
+	fmt.Println("  -h, --help          Display the CLI usage instructions")
 }
