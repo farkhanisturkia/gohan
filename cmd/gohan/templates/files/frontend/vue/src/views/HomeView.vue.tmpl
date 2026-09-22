@@ -7,7 +7,7 @@
         <div class="space-y-4">
           <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-50 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800/50 text-purple-700 dark:text-purple-300 text-xs font-mono font-medium">
             <span class="w-2 h-2 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse"></span>
-            {{ "{{" }} gohanVersion {{ "}}" }}
+            {{ "{{ gohanVersion }}" }}
           </div>
           
           <h2 class="text-3xl md:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight">
@@ -76,7 +76,7 @@
                 </span>
               </div>
 
-              <pre class="bg-slate-100 text-slate-800 border-slate-200 dark:bg-slate-900 dark:text-emerald-400 dark:border-slate-800 p-3 rounded-xl text-[11px] font-mono border overflow-x-auto max-h-36 leading-relaxed transition-colors duration-300">{{ "{{" }} pingDisplay {{ "}}" }}</pre>
+              <pre class="bg-slate-100 text-slate-800 border-slate-200 dark:bg-slate-900 dark:text-emerald-400 dark:border-slate-800 p-3 rounded-xl text-[11px] font-mono border overflow-x-auto max-h-36 leading-relaxed transition-colors duration-300">{{ "{{ pingDisplay }}" }}</pre>
             </div>
 
             <!-- Endpoint /check-public -->
@@ -98,7 +98,7 @@
                 </span>
               </div>
 
-              <pre class="bg-slate-100 text-slate-800 border-slate-200 dark:bg-slate-900 dark:text-emerald-400 dark:border-slate-800 p-3 rounded-xl text-[11px] font-mono border overflow-x-auto max-h-36 leading-relaxed transition-colors duration-300">{{ "{{" }} publicDisplay {{ "}}" }}</pre>
+              <pre class="bg-slate-100 text-slate-800 border-slate-200 dark:bg-slate-900 dark:text-emerald-400 dark:border-slate-800 p-3 rounded-xl text-[11px] font-mono border overflow-x-auto max-h-36 leading-relaxed transition-colors duration-300">{{ "{{ publicDisplay }}" }}</pre>
             </div>
 
           </div>
@@ -120,7 +120,7 @@
         <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">
           Auth state is set up with 
           <span class="px-2 py-0.5 bg-purple-100 dark:bg-purple-800/80 text-purple-700 dark:text-purple-200 border border-purple-200 dark:border-none rounded text-[11px] font-mono font-bold uppercase mx-1">
-            {{ "{{" }} authStrategy {{ "}}" }}
+            {{ "{{ authStrategy }}" }}
           </span> 
           token strategy and <code class="text-purple-700 dark:text-purple-300 font-mono font-semibold">js-cookie</code>.
         </p>

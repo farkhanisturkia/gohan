@@ -23,7 +23,7 @@
       
       <p class="text-purple-900/70 dark:text-slate-400 text-sm mb-6 leading-relaxed">
 {{- if .UseAuth }}
-        Welcome back, <strong class="text-purple-950 dark:text-purple-100 font-bold">{{ "{{" }} userDisplayName {{ "}}" }}</strong>! You have successfully authenticated using the 
+        Welcome back, <strong class="text-purple-950 dark:text-purple-100 font-bold">{{ "{{ userDisplayName }}" }}</strong>! You have successfully authenticated using the 
         <code class="text-purple-800 dark:text-purple-300 bg-purple-100/60 dark:bg-slate-950 px-2.5 py-1 rounded-full font-mono text-xs border border-purple-200 dark:border-slate-800 font-bold uppercase tracking-wider">PAT</code> strategy.
 {{- else }}
         Welcome to your Gohan Framework application panel!
@@ -44,7 +44,7 @@
               </svg>
             </div>
           </div>
-          <div class="text-xl font-bold font-mono text-purple-950 dark:text-purple-100">{{ "{{" }} userIdDisplay {{ "}}" }}</div>
+          <div class="text-xl font-bold font-mono text-purple-950 dark:text-purple-100">{{ "{{ userIdDisplay }}" }}</div>
         </div>
 
         <!-- Card Email -->
@@ -58,7 +58,7 @@
               </svg>
             </div>
           </div>
-          <div class="text-xl font-bold font-mono text-purple-950 dark:text-purple-100 truncate" :title="userEmailDisplay">{{ "{{" }} userEmailDisplay {{ "}}" }}</div>
+          <div class="text-xl font-bold font-mono text-purple-950 dark:text-purple-100 truncate" :title="userEmailDisplay">{{ "{{ userEmailDisplay }}" }}</div>
         </div>
 
 {{- if .UseRole }}
@@ -72,7 +72,7 @@
               </svg>
             </div>
           </div>
-          <div class="text-xl font-bold font-mono text-purple-800 dark:text-purple-300 uppercase tracking-wider">{{ "{{" }} userRoleDisplay {{ "}}" }}</div>
+          <div class="text-xl font-bold font-mono text-purple-800 dark:text-purple-300 uppercase tracking-wider">{{ "{{ userRoleDisplay }}" }}</div>
         </div>
 {{- end }}
 

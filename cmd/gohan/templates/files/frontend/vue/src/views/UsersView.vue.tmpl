@@ -43,15 +43,15 @@
           >
             <div class="min-w-0 flex-1 space-y-1">
               <div class="flex items-center gap-2">
-                <span class="font-mono text-[10px] text-purple-400 dark:text-slate-500">#{{ "{{" }} u.id {{ "}}" }}</span>
-                <h3 class="font-bold text-sm text-purple-950 dark:text-purple-100 truncate">{{ "{{" }} u.name {{ "}}" }}</h3>
+                <span class="font-mono text-[10px] text-purple-400 dark:text-slate-500">#{{ "{{ u.id }}" }}</span>
+                <h3 class="font-bold text-sm text-purple-950 dark:text-purple-100 truncate">{{ "{{ u.name }}" }}</h3>
 {{- if .UseRole }}
                 <span class="px-2 py-0.5 bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800/50 rounded-full text-[9px] font-mono font-bold uppercase tracking-wider shrink-0">
-                  {{ "{{" }} getRoleName(u.role) {{ "}}" }}
+                  {{ "{{ getRoleName(u.role) }}" }}
                 </span>
 {{ end }}
               </div>
-              <p class="font-mono text-xs text-purple-900/70 dark:text-slate-400 truncate">{{ "{{" }} u.email {{ "}}" }}</p>
+              <p class="font-mono text-xs text-purple-900/70 dark:text-slate-400 truncate">{{ "{{ u.email }}" }}</p>
             </div>
 
             <div class="relative shrink-0">
@@ -104,13 +104,13 @@
             </thead>
             <tbody class="divide-y divide-purple-100/60 dark:divide-slate-800/80">
               <tr v-for="u in users" :key="u.id" class="hover:bg-purple-50/40 dark:hover:bg-slate-800/40 transition-colors">
-                <td class="p-4 pl-6 font-mono text-xs text-purple-400 dark:text-slate-500">#{{ "{{" }} u.id {{ "}}" }}</td>
-                <td class="p-4 font-bold text-purple-950 dark:text-purple-100">{{ "{{" }} u.name {{ "}}" }}</td>
-                <td class="p-4 font-mono text-xs text-purple-900/70 dark:text-slate-400">{{ "{{" }} u.email {{ "}}" }}</td>
+                <td class="p-4 pl-6 font-mono text-xs text-purple-400 dark:text-slate-500">#{{ "{{ u.id }}" }}</td>
+                <td class="p-4 font-bold text-purple-950 dark:text-purple-100">{{ "{{ u.name }}" }}</td>
+                <td class="p-4 font-mono text-xs text-purple-900/70 dark:text-slate-400">{{ "{{ u.email }}" }}</td>
 {{- if .UseRole }}
                 <td class="p-4">
                   <span class="px-3 py-1 bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800/50 rounded-full text-[11px] font-mono font-bold uppercase tracking-wider">
-                    {{ "{{" }} getRoleName(u.role) {{ "}}" }}
+                    {{ "{{ getRoleName(u.role) }}" }}
                   </span>
                 </td>
 {{-  end }}
@@ -151,7 +151,7 @@
         
         <div class="flex items-center justify-between mb-6">
           <h3 class="text-xl font-bold text-purple-950 dark:text-purple-100">
-            {{ "{{" }} isEditing ? 'Edit User' : 'Add New User' {{ "}}" }}
+            {{ "{{ isEditing ? 'Edit User' : 'Add New User' }}" }}
           </h3>
           <button @click="closeModal" class="text-purple-400 hover:text-purple-900 dark:hover:text-purple-200 transition-colors">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
@@ -203,7 +203,7 @@
             >
               <option :value="0" disabled>Select Role</option>
               <option v-for="r in roles" :key="r.id" :value="r.id">
-                {{ "{{" }} r.name {{ "}}" }}
+                {{ "{{ r.name }}" }}
               </option>
             </select>
           </div>
@@ -221,7 +221,7 @@
               :disabled="isSubmitting" 
               class="px-5 py-2.5 bg-purple-800 hover:bg-purple-900 dark:bg-purple-700 dark:hover:bg-purple-600 text-white font-bold rounded-full text-xs transition-all shadow-md uppercase tracking-wider cursor-pointer"
             >
-              {{ "{{" }} submitBtnText {{ "}}" }}
+              {{ "{{ submitBtnText }}" }}
             </button>
           </div>
         </form>
