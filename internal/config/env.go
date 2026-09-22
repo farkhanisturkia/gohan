@@ -13,6 +13,7 @@ type Env struct {
 	AppEnv     		string
 	AppKey     		string
 	AppPort    		string
+	AllowedOrigins  string
 	JWTSecret       string
     JWTExpiration   string
 	DBDriver   		string
@@ -45,15 +46,17 @@ APP_NAME=GohanApp
 APP_ENV=local
 APP_KEY=
 APP_PORT=8080
+APP_CORS_ALLOWED_ORIGINS=http://localhost:3000
     
 # Choose DB_DRIVER: mysql | postgres | sqlite
 DB_DRIVER=sqlite
 
-# MySQL / Postgres Configuration
+# MySQL (Host: 127.0.0.1, Port: 3306, User: root)
+# Postgres (Host: 127.0.0.1, Port: 5432, User: postgres)
 DB_HOST=127.0.0.1
-DB_PORT=3306        // set (5432) for postgres
-DB_USER=root        // set (postgres) for postgres
-DB_PASSWORD=        // set (postgres) for postgres
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=
 DB_NAME=gohan_db
 
 # SQLite Configuration
@@ -98,12 +101,11 @@ func GetEnv() *Env {
 	}
 
 	return &Env{
-		AppPort:    	 getEnvVal("APP_PORT", "8080"),
 		AppName:		 getEnvVal("APP_NAME", "GohanApp"),
 		AppEnv:			 getEnvVal("APP_ENV", "local"),
 		AppKey:			 getEnvVal("APP_KEY", ""),
-		JWTSecret:       getEnvVal("JWT_SECRET", ""),
-        JWTExpiration:   getEnvVal("JWT_EXPIRATION", "24h"),
+		AppPort:    	 getEnvVal("APP_PORT", "8080"),
+		AllowedOrigins:  getEnvVal("APP_CORS_ALLOWED_ORIGINS", "http://localhost:3000"),
 		DBDriver:   	 getEnvVal("DB_DRIVER", "sqlite"),
 		DBHost:     	 getEnvVal("DB_HOST", "127.0.0.1"),
 		DBPort:     	 getEnvVal("DB_PORT", "3306"),
@@ -111,13 +113,15 @@ func GetEnv() *Env {
 		DBPassword: 	 getEnvVal("DB_PASSWORD", ""),
 		DBName:     	 getEnvVal("DB_NAME", "gohan_db"),
 		DBFile:     	 getEnvVal("DB_FILE", "gohan.db"),
-		MailDriver:      getEnvVal("MAIL_DRIVER", "smtp"),
-		MailHost:        getEnvVal("MAIL_HOST", "smtp.mailjet.com"),
+		JWTSecret:       getEnvVal("JWT_SECRET", ""),
+        JWTExpiration:   getEnvVal("JWT_EXPIRATION", "24h"),
+		MailDriver:      getEnvVal("MAIL_DRIVER", "log"),
+		MailHost:        getEnvVal("MAIL_HOST", "in-v3.mailjet.com"),
 		MailPort:        getEnvVal("MAIL_PORT", "587"),
 		MailUsername:    getEnvVal("MAIL_USERNAME", ""),
 		MailPassword:    getEnvVal("MAIL_PASSWORD", ""),
 		MailEncryption:  getEnvVal("MAIL_ENCRYPTION", "tls"),
-		MailFromAddress: getEnvVal("MAIL_FROM_ADDRESS", "noreply@example.com"),
+		MailFromAddress: getEnvVal("MAIL_FROM_ADDRESS", "noreply.gohan@msroot.my.id"),
 		MailFromName:    getEnvVal("MAIL_FROM_NAME", "GohanApp"),
 		RedisHost: 		 getEnvVal("REDIS_HOST", "127.0.0.1"),
 		RedisPort:		 getEnvVal("REDIS_PORT", "6379"),
