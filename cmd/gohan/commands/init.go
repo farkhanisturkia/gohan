@@ -369,7 +369,8 @@ func shouldSkipFile(path string, cfg InitConfig) bool {
 			if match("00000000000004_create_role_table.go") ||
 				match("role_controller.go") ||
 				match("role_seeder.go") ||
-				match("role_middleware.go") {
+				match("role_middleware.go") ||
+				match("RolesView.vue") {
 				return true
 			}
 		}
