@@ -18,7 +18,13 @@ func main() {
 
 	switch arg {
 	case "init":
-		commands.InitBoilerplate(os.Args[2:])
+        if len(os.Args) < 3 {
+            fmt.Println("[error] Target directory is required.")
+            fmt.Println("Usage  : gohan init <directory>")
+            fmt.Println("Example: gohan init test  OR  gohan init .")
+            os.Exit(1)
+        }
+        commands.InitBoilerplate(os.Args[2:])
 
 	case "key:generate":
         commands.GenerateAppKey()
