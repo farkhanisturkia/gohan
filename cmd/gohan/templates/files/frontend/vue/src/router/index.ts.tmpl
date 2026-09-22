@@ -35,6 +35,17 @@ const routes: Array<RouteRecordRaw> = [
 {{- end }}
         },
       },
+{{- if .UseRole }}
+      { 
+        path: 'roles', 
+        name: 'Roles', 
+        component: () => import('@/views/RolesView.vue'),
+        meta: { 
+          requiresAuth: true,
+          roles: ['admin']
+        },
+      },
+{{- end }}
 {{- end }}
     ]
   },
