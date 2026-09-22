@@ -77,20 +77,18 @@ func SetupRoutes(db *gohan.DB) {
     }))
 
     // User Resource Routes (Protected)
+    gohan.Get("/api/users", middleware.Authenticate(db, {{ if .UseRole }}middleware.RequireRole([]string{"admin"}, {{ end }}controllers.UserIndex(db){{ if .UseRole }}){{ end }}))
+    gohan.Post("/api/users", middleware.Authenticate(db, {{ if .UseRole }}middleware.RequireRole([]string{"admin"}, {{ end }}controllers.UserStore(db){{ if .UseRole }}){{ end }}))
+    gohan.Get("/api/users/{id}", middleware.Authenticate(db, {{ if .UseRole }}middleware.RequireRole([]string{"admin"}, {{ end }}controllers.UserShow(db){{ if .UseRole }}){{ end }}))
+    gohan.Put("/api/users/{id}", middleware.Authenticate(db, {{ if .UseRole }}middleware.RequireRole([]string{"admin"}, {{ end }}controllers.UserUpdate(db){{ if .UseRole }}){{ end }}))
+    gohan.Delete("/api/users/{id}", middleware.Authenticate(db, {{ if .UseRole }}middleware.RequireRole([]string{"admin"}, {{ end }}controllers.UserDestroy(db){{ if .UseRole }}){{ end }}))
 {{- if .UseRole }}
-    gohan.Get("/api/users", middleware.Authenticate(db, middleware.RequireRole([]string{"admin"}, controllers.UserIndex(db))))
-    gohan.Post("/api/users", middleware.Authenticate(db, middleware.RequireRole([]string{"admin"}, controllers.UserStore(db))))
-    gohan.Get("/api/users/{id}", middleware.Authenticate(db, middleware.RequireRole([]string{"admin"}, controllers.UserShow(db))))
-    gohan.Put("/api/users/{id}", middleware.Authenticate(db, middleware.RequireRole([]string{"admin"}, controllers.UserUpdate(db))))
-    gohan.Delete("/api/users/{id}", middleware.Authenticate(db, middleware.RequireRole([]string{"admin"}, controllers.UserDestroy(db))))
 
     gohan.Get("/api/roles", middleware.Authenticate(db, middleware.RequireRole([]string{"admin"}, controllers.RoleIndex(db))))
-{{- else }}
-    gohan.Get("/api/users", middleware.Authenticate(db, controllers.UserIndex(db)))
-    gohan.Post("/api/users", middleware.Authenticate(db, controllers.UserStore(db)))
-    gohan.Get("/api/users/{id}", middleware.Authenticate(db, controllers.UserShow(db)))
-    gohan.Put("/api/users/{id}", middleware.Authenticate(db, controllers.UserUpdate(db)))
-    gohan.Delete("/api/users/{id}", middleware.Authenticate(db, controllers.UserDestroy(db)))
+    gohan.Post("/api/roles", middleware.Authenticate(db, middleware.RequireRole([]string{"admin"}, controllers.RoleStore(db))))
+    gohan.Get("/api/roles/{id}", middleware.Authenticate(db, middleware.RequireRole([]string{"admin"}, controllers.RoleShow(db))))
+    gohan.Put("/api/roles/{id}", middleware.Authenticate(db, middleware.RequireRole([]string{"admin"}, controllers.RoleUpdate(db))))
+    gohan.Delete("/api/roles/{id}", middleware.Authenticate(db, middleware.RequireRole([]string{"admin"}, controllers.RoleDestroy(db))))
 {{- end }}
 {{- end }}
 }
