@@ -121,25 +121,26 @@ func GetBoilerplateTemplates(
 	return result, nil
 }
 
-func RenderMakeTemplate(filename string, data MakeData) (string, error) {
-	path := "makes/" + filename
+func RenderMakeTemplate(subPath string, data MakeData) (string, error) {
+	path := "makes/" + strings.TrimPrefix(subPath, "/")
 	content, err := MakeFS.ReadFile(path)
 	if err != nil {
-		return "", fmt.Errorf("failed to read make template %s: %w", filename, err)
+		return "", fmt.Errorf("failed to read make template %s: %w", path, err)
 	}
 
 	funcMap := template.FuncMap{
 		"toLower": strings.ToLower,
 	}
 
+	filename := filepath.Base(path)
 	tmpl, err := template.New(filename).Funcs(funcMap).Parse(string(content))
 	if err != nil {
-		return "", fmt.Errorf("failed to parse make template %s: %w", filename, err)
+		return "", fmt.Errorf("failed to parse make template %s: %w", path, err)
 	}
 
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, data); err != nil {
-		return "", fmt.Errorf("failed to execute make template %s: %w", filename, err)
+		return "", fmt.Errorf("failed to execute make template %s: %w", path, err)
 	}
 
 	return buf.String(), nil

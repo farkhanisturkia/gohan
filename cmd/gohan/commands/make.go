@@ -28,10 +28,10 @@ type GohanSpecs struct {
 	Redis        bool   `json:"redis"`
 }
 
-func getGohanConfig() (*GohanConfig, error) {
+func getGohanConfig() (*GohanConfig, string, error) {
 	currDir, err := os.Getwd()
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	for {
@@ -39,13 +39,13 @@ func getGohanConfig() (*GohanConfig, error) {
 		if _, err := os.Stat(configPath); err == nil {
 			content, err := os.ReadFile(configPath)
 			if err != nil {
-				return nil, err
+				return nil, "", err
 			}
 			var cfg GohanConfig
 			if err := json.Unmarshal(content, &cfg); err != nil {
-				return nil, err
+				return nil, "", err
 			}
-			return &cfg, nil
+			return &cfg, currDir, nil
 		}
 
 		parentDir := filepath.Dir(currDir)
@@ -55,28 +55,14 @@ func getGohanConfig() (*GohanConfig, error) {
 		currDir = parentDir
 	}
 
-	return nil, fmt.Errorf("gohan.json not found")
+	return nil, "", fmt.Errorf("gohan.json not found. Please run 'gohan init' or execute this command inside a Gohan project")
 }
 
-func resolveBasePath(subPath string) string {
-	cfg, err := getGohanConfig()
-	if err == nil {
-		currDir, _ := os.Getwd()
-		for {
-			configPath := filepath.Join(currDir, "gohan.json")
-			if _, err := os.Stat(configPath); err == nil {
-				if strings.ToLower(cfg.AppType) == "fullstack" {
-					return filepath.Join(currDir, "backend", subPath)
-				}
-				return filepath.Join(currDir, subPath)
-			}
-			currDir = filepath.Dir(currDir)
-		}
+func resolveBasePath(projectRoot string, appType string, subPath string) string {
+	if strings.ToLower(appType) == "fullstack" {
+		return filepath.Join(projectRoot, "backend", subPath)
 	}
-
-	fmt.Println("[error] Gohan app is not detected. Please run 'gohan init' or execute this command inside a Gohan project.")
-	os.Exit(1)
-	return ""
+	return filepath.Join(projectRoot, subPath)
 }
 
 func toPascalCase(s string) string {
@@ -137,35 +123,54 @@ func generateFromTemplate(tmplFileName, targetPath string, data templates.MakeDa
 }
 
 func MakeController(name string) {
+	cfg, projectRoot, err := getGohanConfig()
+	if err != nil {
+		fmt.Printf("[error] %v\n", err)
+		return
+	}
+
+	backendType := "rest"
+	if cfg.AppSpecs.BackendType != "" {
+		backendType = strings.ToLower(cfg.AppSpecs.BackendType)
+	}
+
 	cleanName := strings.TrimSuffix(name, ".go")
 	prefix := toPascalCase(cleanName)
 
-	targetPath := filepath.Join(resolveBasePath("controllers"), cleanName+".go")
+	baseDir := resolveBasePath(projectRoot, cfg.AppType, "controllers")
+	targetPath := filepath.Join(baseDir, cleanName+".go")
 	moduleName := utils.GetModuleName()
-
-	useRedis := false
-	cfg, err := getGohanConfig()
-	if err == nil {
-		useRedis = cfg.AppSpecs.Redis
-	}
 
 	data := templates.MakeData{
 		ModuleName: moduleName,
 		Prefix:     prefix,
-		UseRedis:   useRedis,
+		UseRedis:   cfg.AppSpecs.Redis,
 	}
 
-	generateFromTemplate("controller.go.tmpl", targetPath, data)
+	tmplPath := fmt.Sprintf("backend/%s/controller.go.tmpl", backendType)
+	generateFromTemplate(tmplPath, targetPath, data)
 }
 
 func MakeMigration(name string) {
+	cfg, projectRoot, err := getGohanConfig()
+	if err != nil {
+		fmt.Printf("[error] %v\n", err)
+		return
+	}
+
+	backendType := "rest"
+	if cfg.AppSpecs.BackendType != "" {
+		backendType = strings.ToLower(cfg.AppSpecs.BackendType)
+	}
+
 	cleanName := strings.TrimSuffix(name, ".go")
 	prefix := toPascalCase(cleanName)
 	timestamp := time.Now().Format("20060102150405")
 
 	fileName := fmt.Sprintf("%s_%s.go", timestamp, cleanName)
 
-	targetPath := filepath.Join(resolveBasePath("database/migrations"), fileName)
+	baseDir := resolveBasePath(projectRoot, cfg.AppType, "database/migrations")
+	targetPath := filepath.Join(baseDir, fileName)
 	moduleName := utils.GetModuleName()
 
 	data := templates.MakeData{
@@ -173,16 +178,29 @@ func MakeMigration(name string) {
 		Prefix:     prefix,
 	}
 
-	generateFromTemplate("migration.go.tmpl", targetPath, data)
+	tmplPath := fmt.Sprintf("backend/%s/migration.go.tmpl", backendType)
+	generateFromTemplate(tmplPath, targetPath, data)
 
-	appendMigrationToDefault(prefix)
+	appendMigrationToDefault(baseDir, prefix)
 }
 
 func MakeSeeder(name string) {
+	cfg, projectRoot, err := getGohanConfig()
+	if err != nil {
+		fmt.Printf("[error] %v\n", err)
+		return
+	}
+
+	backendType := "rest"
+	if cfg.AppSpecs.BackendType != "" {
+		backendType = strings.ToLower(cfg.AppSpecs.BackendType)
+	}
+
 	cleanName := strings.TrimSuffix(name, ".go")
 	prefix := toPascalCase(cleanName)
 
-	targetPath := filepath.Join(resolveBasePath("database/seeders"), cleanName+".go")
+	baseDir := resolveBasePath(projectRoot, cfg.AppType, "database/seeders")
+	targetPath := filepath.Join(baseDir, cleanName+".go")
 	moduleName := utils.GetModuleName()
 
 	data := templates.MakeData{
@@ -190,13 +208,14 @@ func MakeSeeder(name string) {
 		Prefix:     prefix,
 	}
 
-	generateFromTemplate("seeder.go.tmpl", targetPath, data)
+	tmplPath := fmt.Sprintf("backend/%s/seeder.go.tmpl", backendType)
+	generateFromTemplate(tmplPath, targetPath, data)
 
-	appendSeederToDefault(prefix)
+	appendSeederToDefault(baseDir, prefix)
 }
 
-func appendMigrationToDefault(prefix string) {
-	defaultPath := filepath.Join(resolveBasePath("database/migrations"), "default.go")
+func appendMigrationToDefault(baseDir, prefix string) {
+	defaultPath := filepath.Join(baseDir, "default.go")
 	content, err := os.ReadFile(defaultPath)
 	if err != nil {
 		return
@@ -220,8 +239,8 @@ func appendMigrationToDefault(prefix string) {
 	}
 }
 
-func appendSeederToDefault(prefix string) {
-	defaultPath := filepath.Join(resolveBasePath("database/seeders"), "default.go")
+func appendSeederToDefault(baseDir, prefix string) {
+	defaultPath := filepath.Join(baseDir, "default.go")
 	content, err := os.ReadFile(defaultPath)
 	if err != nil {
 		return
