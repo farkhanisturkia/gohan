@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
 	"go/format"
@@ -27,27 +26,24 @@ type GohanSpecs struct {
 	Redis    bool   `json:"redis"`
 }
 
-func resolveBasePath(subPath string) string {
+func getGohanConfig() (*GohanConfig, error) {
 	currDir, err := os.Getwd()
 	if err != nil {
-		fmt.Printf("[error] Failed to get current working directory: %v\n", err)
-		os.Exit(1)
+		return nil, err
 	}
 
 	for {
 		configPath := filepath.Join(currDir, "gohan.json")
 		if _, err := os.Stat(configPath); err == nil {
 			content, err := os.ReadFile(configPath)
-			if err == nil {
-				var cfg GohanConfig
-				if err := json.Unmarshal(content, &cfg); err == nil {
-					if strings.ToLower(cfg.AppType) == "fullstack" {
-						return filepath.Join(currDir, "backend", subPath)
-					}
-					return filepath.Join(currDir, subPath)
-				}
+			if err != nil {
+				return nil, err
 			}
-			return filepath.Join(currDir, subPath)
+			var cfg GohanConfig
+			if err := json.Unmarshal(content, &cfg); err != nil {
+				return nil, err
+			}
+			return &cfg, nil
 		}
 
 		parentDir := filepath.Dir(currDir)
@@ -55,6 +51,25 @@ func resolveBasePath(subPath string) string {
 			break
 		}
 		currDir = parentDir
+	}
+
+	return nil, fmt.Errorf("gohan.json not found")
+}
+
+func resolveBasePath(subPath string) string {
+	cfg, err := getGohanConfig()
+	if err == nil {
+		currDir, _ := os.Getwd()
+		for {
+			configPath := filepath.Join(currDir, "gohan.json")
+			if _, err := os.Stat(configPath); err == nil {
+				if strings.ToLower(cfg.AppType) == "fullstack" {
+					return filepath.Join(currDir, "backend", subPath)
+				}
+				return filepath.Join(currDir, subPath)
+			}
+			currDir = filepath.Dir(currDir)
+		}
 	}
 
 	fmt.Println("[error] Gohan app is not detected. Please run 'gohan init' or execute this command inside a Gohan project.")
@@ -126,12 +141,11 @@ func MakeController(name string) {
 	targetPath := filepath.Join(resolveBasePath("controllers"), cleanName+".go")
 	moduleName := utils.GetModuleName()
 
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Print("Do you want to include Redis Caching in this controller? [y/N]: ")
-	input, _ := reader.ReadString('\n')
-	input = strings.TrimSpace(strings.ToLower(input))
-
-	useRedis := input == "y" || input == "yes"
+	useRedis := false
+	cfg, err := getGohanConfig()
+	if err == nil {
+		useRedis = cfg.AppSpecs.Redis
+	}
 
 	data := templates.MakeData{
 		ModuleName: moduleName,
