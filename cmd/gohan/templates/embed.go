@@ -18,13 +18,14 @@ var MakeFS embed.FS
 
 type TemplateData struct {
 	ModuleName        string
-	UseRedis		  bool
+	UseRedis          bool
 	UseAuth           bool
 	AuthType          string
 	UseRegister       bool
 	UseForgotPassword bool
 	UseRole           bool
 	AppType           string
+	BackendType       string
 	FrontendType      string
 }
 
@@ -49,6 +50,10 @@ func GetBoilerplateTemplates(
 			return nil
 		}
 
+		if d.Name() == "empty" {
+			return nil
+		}
+
 		relPath, err := filepath.Rel("files", path)
 		if err != nil {
 			return err
@@ -69,6 +74,17 @@ func GetBoilerplateTemplates(
 			relFrontendPath := strings.TrimPrefix(slashPath, targetFrontendPrefix)
 			slashPath = "frontend/" + relFrontendPath
 		}
+
+		if strings.HasPrefix(slashPath, "backend/") {
+			targetBackendPrefix := "backend/" + data.BackendType + "/"
+			if !strings.HasPrefix(slashPath, targetBackendPrefix) {
+				return nil
+			}
+
+			slashPath = strings.TrimPrefix(slashPath, targetBackendPrefix)
+		}
+
+		slashPath = strings.TrimPrefix(slashPath, "common/")
 
 		if shouldSkipFunc != nil && shouldSkipFunc(slashPath) {
 			return nil

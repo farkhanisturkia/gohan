@@ -2,6 +2,8 @@
   "app_name": "{{ .ModuleName }}",
   "app_type": "{{ .AppType }}",
   "app_specs": {
+    "backend_type": "{{ .BackendType }}",
+    "frontend_type": "{{ .FrontendType }}",
     "auth": {{ .UseAuth }},
     "auth_type": "{{ .AuthType }}",
     "rbac": {{ .UseRole }},

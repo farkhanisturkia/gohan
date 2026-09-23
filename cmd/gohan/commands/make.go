@@ -20,10 +20,12 @@ type GohanConfig struct {
 }
 
 type GohanSpecs struct {
-	Auth     bool   `json:"auth"`
-	AuthType string `json:"auth_type"`
-	RBAC     bool   `json:"rbac"`
-	Redis    bool   `json:"redis"`
+	BackendType  string `json:"backend_type"`
+	FrontendType string `json:"frontend_type"`
+	Auth         bool   `json:"auth"`
+	AuthType     string `json:"auth_type"`
+	RBAC         bool   `json:"rbac"`
+	Redis        bool   `json:"redis"`
 }
 
 func getGohanConfig() (*GohanConfig, error) {

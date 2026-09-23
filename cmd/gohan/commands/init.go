@@ -263,6 +263,7 @@ func InitBoilerplate(args []string) {
 		UseForgotPassword: config.UseForgotPassword,
 		UseRole:           config.UseRole,
 		AppType:           config.AppType,
+		BackendType:       config.BackendType,
 		FrontendType:      config.FrontendType,
 	}
 
