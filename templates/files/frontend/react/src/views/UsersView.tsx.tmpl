@@ -68,7 +68,7 @@ export default function UsersView() {
     queryKey: ['roles'],
     queryFn: async () => {
       const res = await api.get('/api/roles')
-      return res.data.data
+      return res.data.data.data
     },
   })
 
