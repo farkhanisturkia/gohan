@@ -1,0 +1,38 @@
+package main
+
+import (
+    "log"
+    "time"
+
+    "github.com/farkhanisturkia/gohan/pkg"
+    "{{ .ModuleName }}/database/migrations"
+    "{{ .ModuleName }}/database/seeders"
+)
+
+func main() {
+    env := gohan.GetEnv()
+
+    db, err := gohan.GetConn(env)
+    if err != nil {
+        log.Fatalf("[error] Failed to open database connection: %v", err)
+    }
+    defer db.Close()
+
+    migrations.SetMigrations(db)
+    seeders.SetSeeders(db)
+
+    gohan.Use(gohan.CORSMiddleware(env.AllowedOrigins))
+    gohan.Use(gohan.TimeoutMiddleware(10 * time.Second))
+
+    gohan.InitMailWorker(5)
+
+{{- if .UseRedis }}
+    gohan.InitRedis(env.RedisHost, env.RedisPort, env.RedisPass)
+
+{{- end }}
+    SetupRoutes(db)
+
+    if err := gohan.Serve(&env.AppPort); err != nil {
+        log.Fatalf("[error] Server error: %v", err)
+    }
+}

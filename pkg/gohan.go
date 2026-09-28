@@ -1,0 +1,85 @@
+package gohan
+
+import (
+	"github.com/farkhanisturkia/gohan/pkg/internal/config"
+	"github.com/farkhanisturkia/gohan/pkg/internal/database"
+	gohanHttp "github.com/farkhanisturkia/gohan/pkg/internal/http"
+	"github.com/farkhanisturkia/gohan/pkg/internal/security"
+	"github.com/farkhanisturkia/gohan/pkg/utils"
+	"github.com/farkhanisturkia/gohan/pkg/internal/mail"
+
+	"github.com/redis/go-redis/v9"
+)
+
+// Framework Meta
+const Version = "v1.9.9"
+
+// Config
+type Env = config.Env
+
+var InitEnv = config.InitEnv
+var GetEnv = config.GetEnv
+
+// Database
+type DB = database.DB
+type Tx = database.Tx
+type RawQuery = database.RawQuery
+type Pagination = database.Pagination
+
+var GetConn = database.GetConn
+
+// Redis
+var Redis *redis.Client
+
+func InitRedis(host, port, password string) {
+    database.InitRedis(host, port, password)
+    Redis = database.Redis
+}
+
+// HTTP Request & Response
+var BindJSON = gohanHttp.BindJSON
+var JSON = gohanHttp.JSON
+var Marshal = gohanHttp.Marshal
+var Unmarshal = gohanHttp.Unmarshal
+var Error = gohanHttp.Error
+var Param = gohanHttp.Param
+
+// HTTP Client (External API Requests)
+type HTTPClient = gohanHttp.HTTPClient
+
+var NewHTTPClient = gohanHttp.NewHTTPClient
+var FetchJSON = gohanHttp.FetchJSON
+var PostJSON = gohanHttp.PostJSON
+
+// HTTP Router & Server
+type Router = gohanHttp.Router
+
+var CORSMiddleware = gohanHttp.CORSMiddleware
+var SetRoute = gohanHttp.SetRoute
+var Get = gohanHttp.Get
+var Post = gohanHttp.Post
+var Put = gohanHttp.Put
+var Patch = gohanHttp.Patch
+var Delete = gohanHttp.Delete
+var Serve = gohanHttp.Serve
+var Use = gohanHttp.Use
+var TimeoutMiddleware = gohanHttp.TimeoutMiddleware
+
+// Security
+type JWTClaims = security.JWTClaims
+
+var HashPassword = security.HashPassword
+var CheckPasswordHash = security.CheckPasswordHash
+var GenerateRandomToken = security.GenerateRandomToken
+var HashToken = security.HashToken
+var GenerateJWT = security.GenerateJWT
+var ValidateJWT = security.ValidateJWT
+
+// Utils
+var GetClientIP = utils.GetClientIP
+var ParseTokenName = utils.ParseTokenName
+
+// Mail Export
+var SendEmail = mail.SendEmail
+var InitMailWorker = mail.InitMailWorker
+var QueueEmail = mail.QueueEmail

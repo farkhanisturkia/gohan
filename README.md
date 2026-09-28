@@ -5,7 +5,7 @@
     <img src="https://img.shields.io/badge/npm-v11.6.2-red" alt="Npm">
     <img src="https://img.shields.io/github/go-mod/go-version/farkhanisturkia/gohan" alt="Commit">
     <img src="https://img.shields.io/github/license/farkhanisturkia/gohan" alt="License">
-    <img src="https://pkg.go.dev/badge/github.com/farkhanisturkia/gohan" alt="Go Reference">
+    <img src="https://pkg.go.dev/badge/github.com/farkhanisturkia/gohan/pkg" alt="Go Reference">
 </p>
 
 ## About Gohan
@@ -33,7 +33,7 @@ Follow the official installation guide on the <a href="https://nodejs.org/en/dow
 
 Install the latest LTS release:
 ```bash
-go install github.com/farkhanisturkia/gohan/cmd/gohan@v1.9.9
+go install github.com/farkhanisturkia/gohan@v1.9.9
 ```
 A command-line tool `gohan` will be built into `$GOPATH/bin/`.
 

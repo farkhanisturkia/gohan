@@ -1,0 +1,94 @@
+package main
+
+import (
+    "net/http"
+    // "time"
+
+    "github.com/farkhanisturkia/gohan/pkg"
+    "{{ .ModuleName }}/controllers"
+{{- if .UseAuth }}
+    "{{ .ModuleName }}/middleware"
+{{- end }}
+)
+
+func SetupRoutes(db *gohan.DB) {
+    // Public Application Routes
+	gohan.Get("/version", controllers.GetVersion())
+
+    // Public Health Check Route
+    gohan.Get("/ping", func(w http.ResponseWriter, r *http.Request) {
+        gohan.JSON(w, http.StatusOK, map[string]string{
+            "message": "pong",
+        })
+    })
+
+    // Get API public
+    gohan.Get("/check-public", func(w http.ResponseWriter, r *http.Request) {
+        var textResult string
+
+        err := gohan.FetchJSON("https://api.github.com/zen", &textResult)
+        if err != nil {
+            gohan.JSON(w, http.StatusBadGateway, map[string]string{
+                "message": "Failed to connect to the Public API",
+                "error":   err.Error(),
+            })
+            return
+        }
+
+        gohan.JSON(w, http.StatusOK, map[string]string{
+            "result": textResult,
+        })
+    })
+{{- if .UseAuth }}
+
+    // Authentication Routes
+    gohan.Post("/api/login", controllers.LoginAuth(db))
+    gohan.Post("/api/logout", middleware.Authenticate(db, controllers.LogoutAuth(db)))
+{{- if .UseRegister }}
+    gohan.Post("/api/register", controllers.RegisterAuth(db))
+{{- end }}
+
+{{- if .UseForgotPassword }}
+    // Password Reset Routes
+    gohan.Post("/api/forgot-password", controllers.ForgotPassword(db))
+    gohan.Post("/api/reset-password", controllers.ResetPassword(db))
+{{- end }}
+
+    gohan.Get("/api/me", middleware.Authenticate(db, func(w http.ResponseWriter, r *http.Request) {
+        user, ok := middleware.GetAuthUser(r)
+        if !ok {
+            gohan.JSON(w, http.StatusInternalServerError, map[string]string{
+                "message": "Failed to get user context",
+            })
+            return
+        }
+
+        gohan.JSON(w, http.StatusOK, map[string]interface{}{
+            "message": "User profile retrieved successfully",
+            "data": map[string]interface{}{
+                "id":    user.ID,
+                "name":  user.Name,
+                "email": user.Email,
+{{- if .UseRole }}
+                "role":  user.Role.Name,
+{{- end }}
+            },
+        })
+    }))
+
+    // User Resource Routes (Protected)
+    gohan.Get("/api/users", middleware.Authenticate(db, {{ if .UseRole }}middleware.RequireRole([]string{"admin"}, {{ end }}controllers.UserIndex(db){{ if .UseRole }}){{ end }}))
+    gohan.Post("/api/users", middleware.Authenticate(db, {{ if .UseRole }}middleware.RequireRole([]string{"admin"}, {{ end }}controllers.UserStore(db){{ if .UseRole }}){{ end }}))
+    gohan.Get("/api/users/{id}", middleware.Authenticate(db, {{ if .UseRole }}middleware.RequireRole([]string{"admin"}, {{ end }}controllers.UserShow(db){{ if .UseRole }}){{ end }}))
+    gohan.Put("/api/users/{id}", middleware.Authenticate(db, {{ if .UseRole }}middleware.RequireRole([]string{"admin"}, {{ end }}controllers.UserUpdate(db){{ if .UseRole }}){{ end }}))
+    gohan.Delete("/api/users/{id}", middleware.Authenticate(db, {{ if .UseRole }}middleware.RequireRole([]string{"admin"}, {{ end }}controllers.UserDestroy(db){{ if .UseRole }}){{ end }}))
+{{- if .UseRole }}
+
+    gohan.Get("/api/roles", middleware.Authenticate(db, middleware.RequireRole([]string{"admin"}, controllers.RoleIndex(db))))
+    gohan.Post("/api/roles", middleware.Authenticate(db, middleware.RequireRole([]string{"admin"}, controllers.RoleStore(db))))
+    gohan.Get("/api/roles/{id}", middleware.Authenticate(db, middleware.RequireRole([]string{"admin"}, controllers.RoleShow(db))))
+    gohan.Put("/api/roles/{id}", middleware.Authenticate(db, middleware.RequireRole([]string{"admin"}, controllers.RoleUpdate(db))))
+    gohan.Delete("/api/roles/{id}", middleware.Authenticate(db, middleware.RequireRole([]string{"admin"}, controllers.RoleDestroy(db))))
+{{- end }}
+{{- end }}
+}

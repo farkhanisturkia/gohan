@@ -1,0 +1,110 @@
+package middleware
+
+import (
+    "context"
+    "net/http"
+    "strings"
+{{- if ne .AuthType "jwt" }}
+    "time"
+{{- end }}
+
+    "github.com/farkhanisturkia/gohan/pkg"
+    "{{ .ModuleName }}/database/migrations"
+)
+
+type contextKey string
+
+const UserContextKey contextKey = "authenticated_user"
+
+func Authenticate(db *gohan.DB, next http.HandlerFunc) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        authHeader := r.Header.Get("Authorization")
+        if authHeader == "" {
+            gohan.JSON(w, http.StatusUnauthorized, map[string]string{
+                "message": "Authorization header is required",
+            })
+            return
+        }
+
+        parts := strings.SplitN(authHeader, " ", 2)
+        if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
+            gohan.JSON(w, http.StatusUnauthorized, map[string]string{
+                "message": "Invalid authorization format. Expected 'Bearer <token>'",
+            })
+            return
+        }
+
+        tokenString := parts[1]
+
+{{- if eq .AuthType "jwt" }}
+        env := gohan.GetEnv()
+        claims, err := gohan.ValidateJWT(tokenString, env.JWTSecret)
+        if err != nil {
+            gohan.JSON(w, http.StatusUnauthorized, map[string]string{
+                "message": "Invalid or expired JWT token",
+            })
+            return
+        }
+
+        var user migrations.User
+        err = db.FindOne(&user, "id = ?", claims.UserID)
+        if err != nil {
+            gohan.JSON(w, http.StatusUnauthorized, map[string]string{
+                "message": "User associated with this token not found",
+            })
+            return
+        }
+
+{{- else }}
+        hashedToken, err := gohan.HashToken(tokenString)
+        if err != nil {
+            gohan.JSON(w, http.StatusInternalServerError, map[string]string{
+                "message": err.Error(),
+            })
+            return
+        }
+
+        var tokenData migrations.PersonalAccessToken
+        err = db.FindOne(&tokenData, "token = ?", hashedToken)
+        if err != nil {
+            gohan.JSON(w, http.StatusUnauthorized, map[string]string{
+                "message": "Invalid or expired token",
+            })
+            return
+        }
+
+        if time.Now().After(tokenData.ExpiresAt) {
+            _ = db.Delete(&migrations.PersonalAccessToken{}, tokenData.ID)
+            
+            gohan.JSON(w, http.StatusUnauthorized, map[string]string{
+                "message": "Token has expired",
+            })
+            return
+        }
+
+        var user migrations.User
+        err = db.FindOne(&user, "id = ?", tokenData.UserID)
+        if err != nil {
+            gohan.JSON(w, http.StatusUnauthorized, map[string]string{
+                "message": "User associated with this token not found",
+            })
+            return
+        }
+
+{{- end }}
+{{- if .UseRole }}
+        var role migrations.Role
+        if err := db.FindOne(&role, "id = ?", user.RoleID); err == nil {
+            user.Role = role
+        }
+
+{{- end }}
+        ctx := context.WithValue(r.Context(), UserContextKey, user)
+        next(w, r.WithContext(ctx))
+    }
+}
+
+func GetAuthUser(r *http.Request) (migrations.User, bool) {
+    user, ok := r.Context().Value(UserContextKey).(migrations.User)
+    return user, ok
+}
