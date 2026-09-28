@@ -1,0 +1,205 @@
+import { useState } from 'react'
+import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
+{{- if .UseAuth }}
+import Cookies from 'js-cookie'
+import { useAuth } from '@/hooks/useAuth'
+{{- end }}
+
+export default function AuthLayout() {
+{{- if .UseAuth }}
+  const { user, logout } = useAuth()
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const navigate = useNavigate()
+
+{{- if .UseRole }}
+  const userRole = (() => {
+    if (!user) return null
+    const rawRole = user.role
+    return typeof rawRole === 'object' && rawRole !== null ? rawRole.name : rawRole
+  })()
+{{- end }}
+
+  const handleLogout = async () => {
+    setIsMobileMenuOpen(false)
+    if (typeof logout === 'function') {
+      await logout()
+    } else {
+      Cookies.remove('token')
+    }
+    navigate('/login')
+  }
+
+  const desktopLinkClass = ({ isActive }: { isActive: boolean }) =>
+    `px-4 py-1.5 rounded-full text-xs transition-all duration-200 ${
+      isActive
+        ? '!text-purple-700 !bg-white dark:!text-purple-300 dark:!bg-purple-950/80 dark:border dark:border-purple-800/50 shadow-sm font-bold'
+        : 'font-semibold text-slate-600 dark:text-slate-400 hover:text-purple-700 dark:hover:text-white hover:bg-white dark:hover:bg-slate-800/80'
+    }`
+
+  const mobileLinkClass = ({ isActive }: { isActive: boolean }) =>
+    `px-4 py-2.5 rounded-xl text-xs transition-all ${
+      isActive
+        ? '!text-purple-700 !bg-purple-50 dark:!text-purple-300 dark:!bg-purple-950/80 dark:border dark:border-purple-800/50 font-bold'
+        : 'font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-900'
+    }`
+{{- end }}
+
+  return (
+    <div className="min-h-screen bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100 flex flex-col font-sans transition-colors duration-300">
+      {/* Header Global */}
+      <header className="w-full border-b border-slate-200 bg-white/80 dark:border-slate-800/80 dark:bg-slate-950/80 backdrop-blur-md sticky top-0 z-40 shadow-sm transition-colors duration-300">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3 md:w-1/4">
+{{- if .UseAuth }}
+            {/* Hamburger */}
+            {user && (
+              <button
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                type="button"
+                className="md:hidden p-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-600 hover:text-slate-900 dark:bg-slate-900 dark:border-slate-800 dark:text-slate-300 dark:hover:text-white transition-colors"
+                aria-label="Toggle Navigation Menu"
+              >
+                {isMobileMenuOpen ? (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                )}
+              </button>
+            )}
+{{- end }}
+
+            {/* Logo & Brand GF */}
+            <Link
+              to="/"
+{{- if .UseAuth }}
+              className={user ? 'flex items-center gap-2.5 group hidden md:flex' : 'flex items-center gap-2.5 group'}
+{{- else }}
+              className="flex items-center gap-2.5 group"
+{{- end }}
+            >
+              <div className="w-10 h-10 rounded-2xl bg-purple-700 flex items-center justify-center font-black text-white text-sm shadow-md shadow-purple-200 dark:shadow-purple-900/30 group-hover:bg-purple-600 transition-colors shrink-0">
+                GF
+              </div>
+
+              <div className="flex flex-col justify-center">
+                <h1 className="text-base font-bold tracking-tight text-slate-900 dark:text-white leading-none whitespace-nowrap">
+                  Gohan Framework
+                </h1>
+                <span className="text-[10px] uppercase tracking-widest text-purple-600 dark:text-purple-400 font-semibold mt-0.5">
+                  Fullstack Edition
+                </span>
+              </div>
+            </Link>
+          </div>
+
+{{- if .UseAuth }}
+          {/* Navigation Menu Desktop */}
+          <div className="hidden md:flex flex-1 items-center justify-center">
+            {user && (
+              <nav className="flex items-center gap-2 p-1 bg-slate-100 border border-slate-200 dark:bg-slate-900/60 dark:border-slate-800/80 rounded-full">
+                <NavLink to="/dashboard" className={desktopLinkClass}>
+                  Dashboard
+                </NavLink>
+
+{{- if .UseRole }}
+                {userRole === 'admin' && (
+                  <NavLink to="/users" className={desktopLinkClass}>
+                    Users
+                  </NavLink>
+                )}
+
+                {userRole === 'admin' && (
+                  <NavLink to="/roles" className={desktopLinkClass}>
+                    Roles
+                  </NavLink>
+                )}
+{{- else }}
+                <NavLink to="/users" className={desktopLinkClass}>
+                  Users
+                </NavLink>
+{{- end }}
+              </nav>
+            )}
+          </div>
+{{- else }}
+
+          <div className="hidden md:flex flex-1"></div>
+{{- end }}
+
+          {/* Logout / Login Button */}
+          <div className="flex items-center justify-end md:w-1/4">
+{{- if .UseAuth }}
+            {user ? (
+              <button
+                onClick={handleLogout}
+                className="px-4 py-1.5 sm:px-5 sm:py-2 rounded-full text-[11px] sm:text-xs font-bold bg-purple-700 hover:bg-purple-800 dark:bg-purple-800 dark:hover:bg-purple-700 text-white shadow-md shadow-purple-200 dark:shadow-purple-900/30 transition-all cursor-pointer"
+              >
+                LOGOUT
+              </button>
+            ) : (
+              <Link
+                to="/login"
+                className="px-4 py-1.5 sm:px-5 sm:py-2 rounded-full text-[11px] sm:text-xs font-bold bg-purple-700 hover:bg-purple-800 dark:bg-purple-800 dark:hover:bg-purple-700 text-white shadow-md shadow-purple-200 dark:shadow-purple-900/30 transition-all cursor-pointer inline-flex items-center justify-center"
+              >
+                LOGIN
+              </Link>
+            )}
+{{- end }}
+          </div>
+        </div>
+
+{{- if .UseAuth }}
+        {/* MOBILE DROPDOWN MENU */}
+        <div
+          className={`md:hidden border-t border-slate-200 dark:border-slate-800/80 bg-white/95 dark:bg-slate-950/95 px-4 py-4 space-y-3 transition-all duration-200 ease-out ${
+            isMobileMenuOpen && user ? 'opacity-100 translate-y-0' : 'hidden opacity-0 -translate-y-2'
+          }`}
+        >
+          <div className="flex items-center gap-2.5 pb-3 border-b border-slate-200 dark:border-slate-800/80 px-1">
+            <div className="w-8 h-8 rounded-xl bg-purple-700 flex items-center justify-center font-black text-white text-xs shadow-md shadow-purple-200 dark:shadow-purple-900/30 shrink-0">
+              GF
+            </div>
+            <div>
+              <h2 className="text-xs font-bold text-slate-900 dark:text-white leading-none">Gohan Framework</h2>
+              <span className="text-[9px] uppercase tracking-widest text-purple-600 dark:text-purple-400 font-medium block mt-0.5">Fullstack Edition</span>
+            </div>
+          </div>
+
+          <nav className="flex flex-col gap-1.5">
+            <NavLink to="/dashboard" onClick={() => setIsMobileMenuOpen(false)} className={mobileLinkClass}>
+              Dashboard
+            </NavLink>
+
+{{- if .UseRole }}
+            {userRole === 'admin' && (
+              <NavLink to="/users" onClick={() => setIsMobileMenuOpen(false)} className={mobileLinkClass}>
+                Users
+              </NavLink>
+            )}
+
+            {userRole === 'admin' && (
+              <NavLink to="/roles" onClick={() => setIsMobileMenuOpen(false)} className={mobileLinkClass}>
+                Roles
+              </NavLink>
+            )}
+{{- else }}
+            <NavLink to="/users" onClick={() => setIsMobileMenuOpen(false)} className={mobileLinkClass}>
+              Users
+            </NavLink>
+{{- end }}
+          </nav>
+        </div>
+{{- end }}
+      </header>
+
+      {/* Main Content */}
+      <main className="w-full max-w-7xl mx-auto flex-1 p-4 sm:p-6 md:p-8 space-y-6">
+        <Outlet />
+      </main>
+    </div>
+  )
+}

@@ -98,7 +98,7 @@ func InitBoilerplate(args []string) {
 			"Select Frontend Framework",
 			[]string{
 				"Vue 3 (Default)",
-				"React (*Coming soon)",
+				"React",
 			},
 		)
 		if err != nil {
@@ -107,11 +107,10 @@ func InitBoilerplate(args []string) {
 		}
 
 		if strings.Contains(feChoice, "React") {
-			fmt.Println("\n[info] React frontend Framework is currently ON GOING / COMING SOON!")
-			fmt.Println("[info] Initialization aborted.")
-			return
+			config.FrontendType = "react"
+		} else {
+			config.FrontendType = "vue"
 		}
-		config.FrontendType = "vue"
 	}
 
 	// 4. Redis Integration Option
@@ -250,7 +249,8 @@ func InitBoilerplate(args []string) {
 		fmt.Println("       - Forgot Pass    : NO")
 		fmt.Println("       - Role Middleware: NO")
 	}
-	fmt.Println("--------------------------------------------------\n")
+	fmt.Println("--------------------------------------------------")
+	fmt.Println()
 
 	moduleName := utils.GetModuleName()
 
@@ -321,57 +321,59 @@ func InitBoilerplate(args []string) {
 
 func shouldSkipFile(path string, cfg InitConfig) bool {
 	filename := filepath.Base(path)
+	filename = strings.TrimSuffix(filename, ".tmpl")
+	stem := strings.TrimSuffix(filename, filepath.Ext(filename))
 
 	match := func(target string) bool {
-		return filename == target || filename == target+".tmpl"
+		return stem == target
 	}
 
 	if !cfg.UseAuth {
-		if match("auth_controller.go") ||
-			match("password_reset_controller.go") ||
-			match("role_controller.go") ||
-			match("00000000000002_create_personal_access_token_table.go") ||
-			match("00000000000003_create_password_reset_table.go") ||
-			match("00000000000004_create_role_table.go") ||
-			match("role_seeder.go") ||
-			match("auth_middleware.go") ||
-			match("role_middleware.go") ||
-			match("useAuth.ts") ||
-			match("GuestLayout.vue") ||
-			match("LoginView.vue") ||
-			match("RegisterView.vue") ||
-			match("ForgotPasswordView.vue") ||
-			match("DashboardView.vue") ||
-			match("UsersView.vue") {
+		if match("auth_controller") ||
+			match("password_reset_controller") ||
+			match("role_controller") ||
+			match("00000000000002_create_personal_access_token_table") ||
+			match("00000000000003_create_password_reset_table") ||
+			match("00000000000004_create_role_table") ||
+			match("role_seeder") ||
+			match("auth_middleware") ||
+			match("role_middleware") ||
+			match("useAuth") ||
+			match("GuestLayout") ||
+			match("LoginView") ||
+			match("RegisterView") ||
+			match("ForgotPasswordView") ||
+			match("DashboardView") ||
+			match("UsersView") {
 			return true
 		}
 	} else {
 		if cfg.AuthType == "jwt" {
-			if match("00000000000002_create_personal_access_token_table.go") {
+			if match("00000000000002_create_personal_access_token_table") {
 				return true
 			}
 		}
 
 		if !cfg.UseRegister {
-			if match("RegisterView.vue") {
+			if match("RegisterView") {
 				return true
 			}
 		}
 
 		if !cfg.UseForgotPassword {
-			if match("password_reset_controller.go") ||
-				match("00000000000003_create_password_reset_table.go") ||
-				match("ForgotPasswordView.vue") {
+			if match("password_reset_controller") ||
+				match("00000000000003_create_password_reset_table") ||
+				match("ForgotPasswordView") {
 				return true
 			}
 		}
 
 		if !cfg.UseRole {
-			if match("00000000000004_create_role_table.go") ||
-				match("role_controller.go") ||
-				match("role_seeder.go") ||
-				match("role_middleware.go") ||
-				match("RolesView.vue") {
+			if match("00000000000004_create_role_table") ||
+				match("role_controller") ||
+				match("role_seeder") ||
+				match("role_middleware") ||
+				match("RolesView") {
 				return true
 			}
 		}

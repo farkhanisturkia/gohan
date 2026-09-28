@@ -1,0 +1,146 @@
+import type { ReactElement } from 'react'
+import { Navigate, Route, Routes } from 'react-router-dom'
+import AuthLayout from '@/layouts/AuthLayout'
+import HomeView from '@/views/HomeView'
+{{- if .UseAuth }}
+import Cookies from 'js-cookie'
+import { useAuth } from '@/hooks/useAuth'
+import GuestLayout from '@/layouts/GuestLayout'
+import DashboardView from '@/views/DashboardView'
+import UsersView from '@/views/UsersView'
+import LoginView from '@/views/LoginView'
+{{- if .UseRegister }}
+import RegisterView from '@/views/RegisterView'
+{{- end }}
+{{- if .UseForgotPassword }}
+import ForgotPasswordView from '@/views/ForgotPasswordView'
+{{- end }}
+{{- if .UseRole }}
+import RolesView from '@/views/RolesView'
+{{- end }}
+{{- end }}
+
+{{- if .UseAuth }}
+
+function RequireAuth({ children, roles }: { children: ReactElement; roles?: string[] }) {
+  const { user, isLoading, fetchUser } = useAuth()
+  const hasToken = !!Cookies.get('token')
+
+  // Trigger fetchUser sekali saat ada token tapi user belum dimuat
+  // (paritas dengan `await fetchUser()` pada guard vue-router)
+  if (hasToken && !user && !isLoading) {
+    void fetchUser()
+  }
+
+  // Tunggu proses fetchUser selesai sebelum memutuskan redirect
+  if (hasToken && isLoading) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center">
+        <svg className="w-6 h-6 animate-spin text-purple-700 dark:text-purple-400" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+        </svg>
+      </div>
+    )
+  }
+
+  if (!hasToken) {
+    return <Navigate to="/login" replace />
+  }
+
+{{- if .UseRole }}
+  const allowedRoles = roles
+  if (allowedRoles && allowedRoles.length > 0) {
+    const rawRole = user?.role
+    const userRole = typeof rawRole === 'object' && rawRole !== null ? rawRole.name : rawRole
+
+    if (!userRole || !allowedRoles.includes(userRole)) {
+      return <Navigate to="/dashboard" replace />
+    }
+  }
+{{- end }}
+
+  return children
+}
+
+function GuestOnly({ children }: { children: ReactElement }) {
+  if (Cookies.get('token')) {
+    return <Navigate to="/dashboard" replace />
+  }
+
+  return children
+}
+{{- end }}
+
+export default function App() {
+  return (
+    <Routes>
+      <Route element={<AuthLayout />}>
+        <Route path="/" element={<HomeView />} />
+{{- if .UseAuth }}
+        <Route
+          path="/dashboard"
+          element={
+            <RequireAuth>
+              <DashboardView />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/users"
+          element={
+            <RequireAuth{{ if .UseRole }} roles={['admin']}{{ end }}>
+              <UsersView />
+            </RequireAuth>
+          }
+        />
+{{- if .UseRole }}
+        <Route
+          path="/roles"
+          element={
+            <RequireAuth roles={['admin']}>
+              <RolesView />
+            </RequireAuth>
+          }
+        />
+{{- end }}
+{{- end }}
+      </Route>
+
+{{- if .UseAuth }}
+      <Route element={<GuestLayout />}>
+        <Route
+          path="/login"
+          element={
+            <GuestOnly>
+              <LoginView />
+            </GuestOnly>
+          }
+        />
+{{- if .UseRegister }}
+        <Route
+          path="/register"
+          element={
+            <GuestOnly>
+              <RegisterView />
+            </GuestOnly>
+          }
+        />
+{{- end }}
+{{- if .UseForgotPassword }}
+        <Route
+          path="/forgot-password"
+          element={
+            <GuestOnly>
+              <ForgotPasswordView />
+            </GuestOnly>
+          }
+        />
+{{- end }}
+      </Route>
+{{- end }}
+
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  )
+}
