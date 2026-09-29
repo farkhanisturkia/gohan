@@ -50,6 +50,13 @@ func main() {
 		}
 		commands.MakeSeeder(os.Args[2])
 
+	case "make:resource":
+		if len(os.Args) < 3 {
+			fmt.Println("[error] Resource name is required. Example: gohan make:resource product_item")
+			os.Exit(1)
+		}
+		commands.MakeResource(os.Args[2])
+
 	case "-v", "--version":
 		printVersion()
 
@@ -77,6 +84,7 @@ func printHelp() {
 	fmt.Println("  make:controller     Generate a new controller file")
 	fmt.Println("  make:migration      Generate a new migration file")
 	fmt.Println("  make:seeder         Generate a new seeder file")
+	fmt.Println("  make:resource       Generate a full CRUD resource (controller, migration, seeder, routes, view, menu) for fullstack apps")
 	fmt.Println("\nFlags:")
 	fmt.Println("  -v, --version       Show the CLI version")
 	fmt.Println("  -h, --help          Display the CLI usage instructions")

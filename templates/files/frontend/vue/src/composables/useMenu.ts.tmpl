@@ -1,0 +1,66 @@
+import { computed } from 'vue'
+{{- if .UseRole }}
+import { useAuth } from '@/composables/useAuth'
+{{- end }}
+
+export interface MenuItem {
+  path: string
+  label: string
+{{- if .UseRole }}
+  roles?: string[]
+{{- end }}
+}
+
+const menuItems: MenuItem[] = [
+  {
+    path: '/dashboard',
+    label: 'Dashboard',
+  },
+  {
+    path: '/users',
+    label: 'Users',
+{{- if .UseRole }}
+    roles: ['admin'],
+{{- end }}
+  },
+{{- if .UseRole }}
+  {
+    path: '/roles',
+    label: 'Roles',
+    roles: ['admin'],
+  },
+{{- end }}
+]
+
+{{- if .UseRole }}
+
+const getRoleName = (role?: string | { name: string }): string | null => {
+  if (!role) return null
+  return typeof role === 'object' ? role.name : role
+}
+{{- end }}
+
+export function useMenu() {
+{{- if .UseRole }}
+  const { user } = useAuth()
+
+  const userRole = computed(() => getRoleName(user.value?.role))
+
+  const visibleMenus = computed<MenuItem[]>(() => {
+    return menuItems.filter((item) => {
+      if (!item.roles || item.roles.length === 0) return true
+      return !!userRole.value && item.roles.includes(userRole.value)
+    })
+  })
+{{- else }}
+  const visibleMenus = computed<MenuItem[]>(() => menuItems)
+{{- end }}
+
+  return {
+    menuItems,
+    visibleMenus,
+{{- if .UseRole }}
+    userRole,
+{{- end }}
+  }
+}

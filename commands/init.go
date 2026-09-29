@@ -339,6 +339,7 @@ func shouldSkipFile(path string, cfg InitConfig) bool {
 			match("auth_middleware") ||
 			match("role_middleware") ||
 			match("useAuth") ||
+			match("useMenu") ||
 			match("GuestLayout") ||
 			match("LoginView") ||
 			match("RegisterView") ||

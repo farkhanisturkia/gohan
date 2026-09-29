@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"text/template"
+
+	"github.com/farkhanisturkia/gohan/utils"
 )
 
 //go:embed files
@@ -31,8 +33,11 @@ type TemplateData struct {
 
 type MakeData struct {
 	Prefix     string
+	Resource   string
 	ModuleName string
 	UseRedis   bool
+	UseAuth    bool
+	UseRole    bool
 }
 
 func GetBoilerplateTemplates(
@@ -130,6 +135,9 @@ func RenderMakeTemplate(subPath string, data MakeData) (string, error) {
 
 	funcMap := template.FuncMap{
 		"toLower": strings.ToLower,
+		"toKebab": utils.ToKebabCase,
+		"toCamel": utils.ToCamelCase,
+		"toSnake": utils.ToSnakeCase,
 	}
 
 	filename := filepath.Base(path)
