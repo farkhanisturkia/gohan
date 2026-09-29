@@ -348,7 +348,7 @@ func MakeResource(name string) {
 		fmt.Printf("[error] 'make:resource' is not supported for the '%s' backend architecture yet.\n", backendType)
 		return
 	}
-	if frontendType != "vue" {
+	if frontendType != "vue" && frontendType != "react" {
 		fmt.Printf("[error] 'make:resource' is not supported for the '%s' frontend yet.\n", frontendType)
 		return
 	}
@@ -410,14 +410,30 @@ func MakeResource(name string) {
 	// ---------- Frontend ----------
 	frontendBase := filepath.Join(projectRoot, "frontend", "src")
 
+	var viewTemplateFile, viewFileExt string
+	switch frontendType {
+	case "react":
+		viewTemplateFile = "frontend/react/view.tsx.tmpl"
+		viewFileExt = "tsx"
+	default:
+		viewTemplateFile = "frontend/vue/view.vue.tmpl"
+		viewFileExt = "vue"
+	}
+
 	generateFromTemplate(
-		fmt.Sprintf("frontend/%s/view.vue.tmpl", frontendType),
-		filepath.Join(frontendBase, "views", prefix+"View.vue"),
+		viewTemplateFile,
+		filepath.Join(frontendBase, "views", prefix+"View."+viewFileExt),
 		data,
 	)
 
-	registerResourceRoute(filepath.Join(frontendBase, "router", "index.ts"), prefix, kebab, guard)
-	registerResourceMenuItem(filepath.Join(frontendBase, "composables", "useMenu.ts"), prefix, kebab, guard)
+	switch frontendType {
+	case "react":
+		registerReactResourceRoute(filepath.Join(frontendBase, "App.tsx"), prefix, kebab, guard)
+		registerReactResourceMenuItem(filepath.Join(frontendBase, "layouts", "AuthLayout.tsx"), prefix, kebab, guard)
+	default: // vue
+		registerResourceRoute(filepath.Join(frontendBase, "router", "index.ts"), prefix, kebab, guard)
+		registerResourceMenuItem(filepath.Join(frontendBase, "composables", "useMenu.ts"), prefix, kebab, guard)
+	}
 
 	fmt.Println("\n✅ Resource generated successfully!")
 	fmt.Printf("   Next: run 'make dev' (migrations & seeders run automatically), then check /%s on the frontend.\n", kebab)
@@ -608,6 +624,123 @@ func registerResourceMenuItemString(content, prefix, kebab string, guard *Resour
 	}
 
 	return updated, regInserted
+}
+
+func registerReactResourceRoute(appPath, prefix, kebab string, guard *ResourceGuard) {
+	content, err := readTextFile(appPath)
+	if err != nil {
+		fmt.Printf("[warn] Skipped route registration: cannot read %s\n", appPath)
+		return
+	}
+
+	if strings.Contains(content, fmt.Sprintf("path=\"/%s\"", kebab)) {
+		fmt.Printf("[info] Route for %s already registered in App.tsx\n", prefix)
+		return
+	}
+
+	importBlock := fmt.Sprintf("\nimport %sView from '@/views/%sView'", prefix, prefix)
+	importMarker := "\n\nfunction RequireAuth"
+	if !strings.Contains(content, importMarker) {
+		importMarker = "\n\nexport default function App"
+	}
+
+	updated, ok := appendBeforeFirstMarker(content, importMarker, importBlock)
+	if !ok {
+		fmt.Printf("[warn] Could not add the view import automatically. Add it manually to App.tsx.\n")
+	} else {
+		content = updated
+	}
+
+	updated, ok = appendBeforeFirstMarker(content, "\n      </Route>", reactResourceRouteBlock(prefix, kebab, guard))
+	if !ok {
+		fmt.Printf("[warn] Skipped route registration: unexpected structure in %s\n", appPath)
+		return
+	}
+
+	if err := os.WriteFile(appPath, []byte(updated), 0644); err != nil {
+		fmt.Printf("[error] Failed to update %s: %v\n", appPath, err)
+		return
+	}
+	fmt.Printf("[info] Updated: %s\n", appPath)
+}
+
+func reactResourceRouteBlock(prefix, kebab string, guard *ResourceGuard) string {
+	if guard != nil && guard.Auth {
+		roles := ""
+		if len(guard.Roles) > 0 {
+			roles = fmt.Sprintf(" roles={[%s]}", formatRolesTS(guard.Roles))
+		}
+
+		return fmt.Sprintf(`
+        <Route
+          path="/%s"
+          element={
+            <RequireAuth%s>
+              <%sView />
+            </RequireAuth>
+          }
+        />`, kebab, roles, prefix)
+	}
+
+	return fmt.Sprintf("\n        <Route path=\"/%s\" element={<%sView />} />", kebab, prefix)
+}
+
+func registerReactResourceMenuItem(layoutPath, prefix, kebab string, guard *ResourceGuard) {
+	content, err := readTextFile(layoutPath)
+	if err != nil {
+		fmt.Printf("[warn] Skipped menu registration: cannot read %s\n", layoutPath)
+		return
+	}
+
+	if strings.Contains(content, fmt.Sprintf("to=\"/%s\"", kebab)) {
+		fmt.Printf("[info] Menu item for %s already registered in AuthLayout.tsx\n", prefix)
+		return
+	}
+
+	hasUserRole := strings.Contains(content, "userRole")
+
+	updated, ok := appendBeforeFirstMarker(content, "\n              </nav>", reactResourceMenuBlock(prefix, kebab, guard, true, hasUserRole))
+	if !ok {
+		fmt.Printf("[warn] Skipped menu registration: unexpected structure in %s\n", layoutPath)
+		return
+	}
+
+	updated, ok = appendBeforeFirstMarker(updated, "\n          </nav>", reactResourceMenuBlock(prefix, kebab, guard, false, hasUserRole))
+	if !ok {
+		fmt.Printf("[warn] Skipped mobile menu registration: unexpected structure in %s\n", layoutPath)
+		return
+	}
+
+	if err := os.WriteFile(layoutPath, []byte(updated), 0644); err != nil {
+		fmt.Printf("[error] Failed to update %s: %v\n", layoutPath, err)
+		return
+	}
+	fmt.Printf("[info] Updated: %s\n", layoutPath)
+}
+
+func reactResourceMenuBlock(prefix, kebab string, guard *ResourceGuard, desktop, hasUserRole bool) string {
+	className := "mobileLinkClass"
+	onClick := " onClick={() => setIsMobileMenuOpen(false)}"
+	indent := "            "
+
+	if desktop {
+		className = "desktopLinkClass"
+		onClick = ""
+		indent = "                "
+	}
+
+	inner := fmt.Sprintf("<NavLink to=\"/%s\"%s className={%s}>\n%s  %s\n%s</NavLink>", kebab, onClick, className, indent, prefix, indent)
+
+	if guard != nil && len(guard.Roles) > 0 {
+		if !hasUserRole {
+			fmt.Printf("[warn] RBAC is disabled in gohan.json, menu item '%s' is registered without role restriction.\n", prefix)
+			return fmt.Sprintf("\n%s%s", indent, inner)
+		}
+
+		return fmt.Sprintf("\n%s{[%s].includes(userRole ?? '') && (\n%s  %s\n%s)}", indent, formatRolesTS(guard.Roles), indent, inner, indent)
+	}
+
+	return fmt.Sprintf("\n%s%s", indent, inner)
 }
 
 func appendMigrationToDefault(baseDir, prefix string) {
