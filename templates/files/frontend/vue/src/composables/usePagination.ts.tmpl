@@ -1,0 +1,64 @@
+import { ref, computed, watch } from 'vue'
+
+export function usePagination(options?: { defaultPage?: number; defaultPerPage?: number }) {
+  const currentPage = ref(options?.defaultPage ?? 1)
+  const perPage = ref(options?.defaultPerPage ?? 10)
+  const totalItems = ref(0)
+  const lastPage = ref(1)
+  const perPageOptions = [10, 25, 50, 100]
+
+  const changePage = (p: number) => {
+    if (p < 1 || p > lastPage.value || p === currentPage.value) return
+    currentPage.value = p
+  }
+
+  watch(perPage, () => {
+    currentPage.value = 1
+  })
+
+  const paginationPages = computed<(number | string)[]>(() => {
+    const total = lastPage.value
+    const current = currentPage.value
+    if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+
+    const pages: (number | string)[] = [1]
+    const start = Math.max(2, current - 1)
+    const end = Math.min(total - 1, current + 1)
+
+    if (start > 2) pages.push('...')
+    for (let i = start; i <= end; i++) pages.push(i)
+    if (end < total - 1) pages.push('...')
+
+    pages.push(total)
+    return pages
+  })
+
+  const queryParams = computed(() => ({
+    page: currentPage.value,
+    per_page: perPage.value,
+  }))
+
+  const applyResponse = (payload: any): any[] => {
+    if (Array.isArray(payload)) {
+      totalItems.value = payload.length
+      lastPage.value = 1
+      return payload
+    }
+
+    totalItems.value = payload?.total ?? 0
+    lastPage.value = payload?.last_page ?? 1
+    return payload?.data ?? []
+  }
+
+  return {
+    currentPage,
+    perPage,
+    totalItems,
+    lastPage,
+    perPageOptions,
+    paginationPages,
+    changePage,
+    queryParams,
+    applyResponse,
+  }
+}

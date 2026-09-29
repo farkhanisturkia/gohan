@@ -7,7 +7,7 @@
         <h2 class="text-2xl md:text-3xl font-bold text-purple-950 dark:text-purple-100 tracking-tight">
           Users Management
         </h2>
-        <p class="text-xs text-purple-400 dark:text-purple-400 mt-0.5 font-medium">Manage user accounts {{ if .UseRole }}and role {{ end }} permissions</p>
+        <p class="text-xs text-purple-400 dark:text-purple-400 mt-0.5 font-medium">Manage your user data</p>
       </div>
 
       <button 
@@ -143,6 +143,57 @@
         </div>
       </template>
 
+        <!-- Pagination -->
+        <div v-if="pagination.totalItems > 0" class="border-t border-purple-100 dark:border-slate-800 px-4 py-4 bg-purple-50/30 dark:bg-slate-950/40">
+          <div class="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 flex-wrap">
+            <span class="text-xs text-purple-900/60 dark:text-slate-500 font-medium">
+              Showing {{ "{{ users?.length ?? 0 }}" }} of {{ "{{ pagination.totalItems }}" }} users
+            </span>
+
+            <div class="flex items-center gap-1.5">
+              <button
+                @click="pagination.changePage(pagination.currentPage - 1)"
+                :disabled="pagination.currentPage <= 1"
+                class="px-3 py-1.5 text-xs font-bold rounded-full border border-purple-200 dark:border-slate-700 text-purple-800 dark:text-purple-300 bg-white dark:bg-slate-900 hover:bg-purple-100 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+              >
+                Prev
+              </button>
+
+              <template v-for="(p, idx) in pagination.paginationPages" :key="`${p}-${idx}`">
+                <span v-if="p === '...'" class="px-1 text-xs text-purple-400 dark:text-slate-600 font-bold">…</span>
+                <button
+                  v-else
+                  @click="pagination.changePage(Number(p))"
+                  :class="p === pagination.currentPage
+                    ? 'bg-purple-800 dark:bg-purple-700 text-white border-purple-800 dark:border-purple-700 shadow-md'
+                    : 'bg-white dark:bg-slate-900 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-slate-700 hover:bg-purple-100 dark:hover:bg-slate-800'"
+                  class="min-w-[2rem] px-2 py-1.5 text-xs font-bold rounded-full border transition-all cursor-pointer"
+                >
+                  {{ "{{ p }}" }}
+                </button>
+              </template>
+
+              <button
+                @click="pagination.changePage(pagination.currentPage + 1)"
+                :disabled="pagination.currentPage >= pagination.lastPage"
+                class="px-3 py-1.5 text-xs font-bold rounded-full border border-purple-200 dark:border-slate-700 text-purple-800 dark:text-purple-300 bg-white dark:bg-slate-900 hover:bg-purple-100 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+              >
+                Next
+              </button>
+            </div>
+
+            <label class="flex items-center gap-2 text-xs text-purple-900/60 dark:text-slate-500 font-medium">
+              Per page
+              <select
+                v-model.number="setPerPage"
+                class="px-2 py-1.5 bg-white dark:bg-slate-900 border border-purple-200 dark:border-slate-700 rounded-full text-xs font-bold text-purple-800 dark:text-purple-300 focus:outline-none focus:border-purple-600 dark:focus:border-purple-500 cursor-pointer"
+              >
+                <option v-for="opt in pagination.perPageOptions" :key="opt" :value="opt">{{ "{{ opt }}" }}</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
     </div>
 
     <!-- Create / Edit User Modal -->
@@ -232,8 +283,9 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/vue-query'
 import api from '@/lib/axios'
+import { usePagination } from '@/composables/usePagination'
 
 {{- if .UseRole }}
 interface Role {
@@ -267,7 +319,8 @@ const form = ref({
 {{- end }}
 })
 
-// Toggle Dropdown Menu pada Mobile
+const { setPerPage, ...pagination } = usePagination()
+
 const toggleActionMenu = (id: number) => {
   activeMenuId.value = activeMenuId.value === id ? null : id
 }
@@ -286,7 +339,6 @@ const handleDeleteFromMenu = (id: number) => {
   deleteUser(id)
 }
 
-// Global click listener untuk menutup dropdown saat klik luar
 onMounted(() => {
   window.addEventListener('click', closeAllMenus)
 })
@@ -300,17 +352,17 @@ onUnmounted(() => {
 const { data: roles } = useQuery<Role[]>({
   queryKey: ['roles'],
   queryFn: async () => {
-    const res = await api.get('/api/roles')
-    return res.data.data.data
+    const res = await api.get('/api/roles', {
+      params: { page: 1, per_page: 100 },
+    })
+    return res.data.data.data ?? res.data.data
   },
 })
 
-// Type Guard untuk mengecek apakah role berupa Object
 const isRoleObject = (role?: Role | string): role is Role => {
   return typeof role === 'object' && role !== null && 'name' in role
 }
 
-// Extract role name safely
 const getRoleName = (role?: Role | string): string => {
   if (!role) return 'user'
   if (isRoleObject(role)) {
@@ -319,7 +371,6 @@ const getRoleName = (role?: Role | string): string => {
   return String(role)
 }
 
-// Extract role ID safely
 const getRoleId = (user: User): number => {
   if (user.role_id) return user.role_id
   
@@ -373,11 +424,12 @@ const closeModal = () => {
 
 // Fetch Users
 const { data: users, isLoading, isError } = useQuery<User[]>({
-  queryKey: ['users'],
+  queryKey: ['users', pagination.currentPage, pagination.perPage],
   queryFn: async () => {
-    const res = await api.get('/api/users')
-    return res.data.data.data
+    const res = await api.get('/api/users', { params: pagination.queryParams.value })
+    return pagination.applyResponse(res.data.data)
   },
+  placeholderData: keepPreviousData,
 })
 
 // Create User Mutation
