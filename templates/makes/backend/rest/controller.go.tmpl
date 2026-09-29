@@ -35,7 +35,7 @@ func {{.Prefix}}Index(db *gohan.DB) http.HandlerFunc {
         var items []migrations.{{.Prefix}}
 {{- if .UseRedis }}
 		var paginationData gohan.Pagination
-        cacheKey := fmt.Sprintf("%s:all:page:%d:limit:%d", "{{ .Prefix | lower }}", page, perPage)
+        cacheKey := fmt.Sprintf("%s:all:page:%d:limit:%d", "{{ .Prefix | toLower }}", page, perPage)
 
 		if cachedData, err := gohan.Redis.Get(r.Context(), cacheKey).Result(); err == nil && cachedData != "" {
 			if err := gohan.Unmarshal([]byte(cachedData), &paginationData); err == nil {
