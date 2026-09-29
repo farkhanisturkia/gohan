@@ -52,7 +52,7 @@ func main() {
 
 	case "make:resource":
 		if len(os.Args) < 3 {
-			fmt.Println("[error] Resource name is required. Example: gohan make:resource product_item")
+			fmt.Println("[error] Resource name is required. Example: gohan make:resource product")
 			os.Exit(1)
 		}
 		commands.MakeResource(os.Args[2])

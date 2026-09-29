@@ -194,7 +194,6 @@ const form = ref({
   name: '',
 })
 
-// Toggle Dropdown Menu pada Mobile
 const toggleActionMenu = (id: number) => {
   activeMenuId.value = activeMenuId.value === id ? null : id
 }
@@ -213,7 +212,6 @@ const handleDeleteFromMenu = (id: number) => {
   deleteItem(id)
 }
 
-// Global click listener untuk menutup dropdown saat klik luar
 onMounted(() => {
   window.addEventListener('click', closeAllMenus)
 })
@@ -222,7 +220,6 @@ onUnmounted(() => {
   window.removeEventListener('click', closeAllMenus)
 })
 
-// Open modal for Create
 const openCreateModal = () => {
   isEditing.value = false
   editingItemId.value = null
@@ -232,7 +229,6 @@ const openCreateModal = () => {
   showModal.value = true
 }
 
-// Open modal for Edit
 const openEditModal = (item: {{ .Resource }}) => {
   isEditing.value = true
   editingItemId.value = item.id

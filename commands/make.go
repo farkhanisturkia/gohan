@@ -355,7 +355,7 @@ func MakeResource(name string) {
 
 	name = strings.TrimSpace(strings.TrimSuffix(name, ".go"))
 	if name == "" {
-		fmt.Println("[error] Resource name is required. Example: gohan make:resource product_item")
+		fmt.Println("[error] Resource name is required. Example: gohan make:resource product")
 		return
 	}
 
@@ -393,7 +393,7 @@ func MakeResource(name string) {
 	timestamp := time.Now().Format("20060102150405")
 	generateFromTemplate(
 		fmt.Sprintf("backend/%s/migration.go.tmpl", backendType),
-		filepath.Join(backendBase, "database", "migrations", fmt.Sprintf("%s_%s.go", timestamp, snake)),
+		filepath.Join(backendBase, "database", "migrations", fmt.Sprintf("%s_create_%s_table.go", timestamp, snake)),
 		data,
 	)
 	appendMigrationToDefault(filepath.Join(backendBase, "database", "migrations"), prefix)
@@ -459,7 +459,6 @@ func registerResourceRoutes(routesPath, prefix, kebab string, guard *ResourceGua
 		return
 	}
 
-	// Ensure the middleware import exists when routes are protected.
 	if guard.Auth && strings.Contains(block, "middleware.") {
 		if !strings.Contains(updated, "/middleware\"") {
 			imp := fmt.Sprintf("    \"%s/middleware\"\n", utils.GetModuleName())
@@ -541,11 +540,11 @@ func registerResourceRoute(routerPath, prefix, kebab string, guard *ResourceGuar
 func resourceRouteBlock(prefix, kebab string, guard *ResourceGuard) string {
 	var meta string
 	if guard != nil && guard.Auth {
-		meta = "meta: { requiresAuth: true"
+		meta = "        meta: { \n          requiresAuth: true,\n"
 		if len(guard.Roles) > 0 {
-			meta += fmt.Sprintf(", roles: [%s]", formatRolesTS(guard.Roles))
+			meta += fmt.Sprintf("          roles: [%s]\n", formatRolesTS(guard.Roles))
 		}
-		meta += " },\n"
+		meta += "        },\n"
 	}
 
 	return fmt.Sprintf("      { \n        path: '%s', \n        name: '%s', \n        component: () => import('@/views/%sView.vue'),\n%s      },\n",
@@ -595,7 +594,7 @@ func resourceMenuBlock(prefix, kebab string, guard *ResourceGuard) string {
 		roles = fmt.Sprintf("    roles: [%s],\n", formatRolesTS(guard.Roles))
 	}
 
-	return fmt.Sprintf("  {\n    path: '/%s',\n    label: '%s',\n%s  },\n", kebab, prefix, roles)
+	return fmt.Sprintf("\n  {    path: '/%s',\n    label: '%s',\n%s  },\n", kebab, prefix, roles)
 }
 
 func registerResourceMenuItemString(content, prefix, kebab string, guard *ResourceGuard) (string, registrationStatus) {

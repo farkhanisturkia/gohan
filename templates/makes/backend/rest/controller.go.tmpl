@@ -6,6 +6,7 @@ import (
     "time"
 {{- end }}
     "net/http"
+	"strconv"
 
     "github.com/farkhanisturkia/gohan/pkg"
     "{{ .ModuleName }}/database/migrations"
@@ -21,27 +22,39 @@ type Update{{.Prefix}}Request struct {
 
 func {{.Prefix}}Index(db *gohan.DB) http.HandlerFunc {
     return func(w http.ResponseWriter, r *http.Request) {
-        var items []migrations.{{.Prefix}}
+		page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+		if page <= 0 {
+			page = 1
+		}
 
+		perPage, _ := strconv.Atoi(r.URL.Query().Get("per_page"))
+		if perPage <= 0 {
+			perPage = 10
+		}
+
+        var items []migrations.{{.Prefix}}
 {{- if .UseRedis }}
-        cacheKey := "{{.Prefix | toLower}}:all"
-        if cachedData, err := gohan.Redis.Get(r.Context(), cacheKey).Result(); err == nil && cachedData != "" {
-            if err := gohan.Unmarshal([]byte(cachedData), &items); err == nil {
-                gohan.JSON(w, http.StatusOK, map[string]interface{}{
-                    "message": "Fetch {{.Prefix}} list successful (cached)",
-                    "data":    items,
-                })
-                return
-            }
-        }
+		var paginationData gohan.Pagination
+        cacheKey := fmt.Sprintf("%s:all:page:%d:limit:%d", "{{ .Prefix | lower }}", page, perPage)
+
+		if cachedData, err := gohan.Redis.Get(r.Context(), cacheKey).Result(); err == nil && cachedData != "" {
+			if err := gohan.Unmarshal([]byte(cachedData), &paginationData); err == nil {
+				gohan.JSON(w, http.StatusOK, map[string]interface{}{
+					"message": "Fetch Role list successful (cached)",
+					"data":    paginationData,
+				})
+				return
+			}
+		}
 {{- end }}
 
-        if err := db.FindAll(&items); err != nil {
-            gohan.JSON(w, http.StatusInternalServerError, map[string]string{
-                "message": "Failed to fetch {{.Prefix}} data",
-            })
-            return
-        }
+		res, err := db.Paginate(page, perPage).Find(&items)
+		if err != nil {
+			gohan.JSON(w, http.StatusInternalServerError, map[string]string{
+				"message": "Failed to fetch {{.Prefix}} data: " + err.Error(),
+			})
+			return
+		}
 
 {{- if .UseRedis }}
         if jsonBytes, err := gohan.Marshal(items); err == nil {
@@ -51,7 +64,7 @@ func {{.Prefix}}Index(db *gohan.DB) http.HandlerFunc {
 
         gohan.JSON(w, http.StatusOK, map[string]interface{}{
             "message": "Fetch {{.Prefix}} list successful",
-            "data":    items,
+            "data":    res,
         })
     }
 }
