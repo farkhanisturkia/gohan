@@ -1,0 +1,66 @@
+import { useMemo } from 'react'
+{{- if .UseRole }}
+import { useAuth } from '@/hooks/useAuth'
+{{- end }}
+
+export interface MenuItem {
+  path: string
+  label: string
+{{- if .UseRole }}
+  roles?: string[]
+{{- end }}
+}
+
+const menuItems: MenuItem[] = [
+  {
+    path: '/dashboard',
+    label: 'Dashboard',
+  },
+  {
+    path: '/users',
+    label: 'Users',
+{{- if .UseRole }}
+    roles: ['admin'],
+{{- end }}
+  },
+{{- if .UseRole }}
+  {
+    path: '/roles',
+    label: 'Roles',
+    roles: ['admin'],
+  },
+{{- end }}
+]
+
+{{- if .UseRole }}
+
+const getRoleName = (role?: string | { name: string }): string | null => {
+  if (!role) return null
+  return typeof role === 'object' ? role.name : role
+}
+{{- end }}
+
+export function useMenu() {
+{{- if .UseRole }}
+  const { user } = useAuth()
+
+  const userRole = useMemo(() => getRoleName(user?.role), [user])
+
+  const visibleMenus = useMemo<MenuItem[]>(() => {
+    return menuItems.filter((item) => {
+      if (!item.roles || item.roles.length === 0) return true
+      return !!userRole && item.roles.includes(userRole)
+    })
+  }, [userRole])
+{{- else }}
+  const visibleMenus = useMemo<MenuItem[]>(() => menuItems, [])
+{{- end }}
+
+  return {
+    menuItems,
+    visibleMenus,
+{{- if .UseRole }}
+    userRole,
+{{- end }}
+  }
+}
