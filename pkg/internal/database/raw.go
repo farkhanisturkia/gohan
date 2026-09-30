@@ -41,7 +41,7 @@ func (r *RawQuery) Scan(dest interface{}) error {
 			if err := rows.Err(); err != nil {
 				return err
 			}
-			return fmt.Errorf("[warning] Data not found")
+			return ErrRecordNotFound
 		}
 		return scanStruct(rows, elem)
 	}
@@ -50,7 +50,7 @@ func (r *RawQuery) Scan(dest interface{}) error {
 		return rows.Scan(dest)
 	}
 
-	return fmt.Errorf("[warning] Data not found")
+	return ErrRecordNotFound
 }
 
 func scanStruct(rows *sql.Rows, structVal reflect.Value) error {

@@ -1,6 +1,7 @@
 package gohan
 
 import (
+	"github.com/farkhanisturkia/gohan/pkg/internal/cache"
 	"github.com/farkhanisturkia/gohan/pkg/internal/config"
 	"github.com/farkhanisturkia/gohan/pkg/internal/database"
 	gohanHttp "github.com/farkhanisturkia/gohan/pkg/internal/http"
@@ -27,6 +28,12 @@ type RawQuery = database.RawQuery
 type Pagination = database.Pagination
 
 var GetConn = database.GetConn
+
+var ErrRecordNotFound = database.ErrRecordNotFound
+
+var CachedData = cache.CachedData
+var CacheForget = cache.CacheForget
+var IsNotFound = cache.IsNotFound
 
 // Redis
 var Redis *redis.Client

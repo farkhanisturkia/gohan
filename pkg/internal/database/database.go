@@ -2,6 +2,7 @@ package database
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"reflect"
@@ -19,6 +20,8 @@ type DB struct {
 	*sql.DB
 	Driver string
 }
+
+var ErrRecordNotFound = errors.New("record not found")
 
 type Execer interface {
 	Exec(query string, args ...interface{}) (sql.Result, error)

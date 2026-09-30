@@ -172,7 +172,7 @@ func findOne(c Commander, dest interface{}, condition string, args ...interface{
 		if err := rows.Err(); err != nil {
 			return err
 		}
-		return fmt.Errorf("[warning] Data not found")
+		return ErrRecordNotFound
 	}
 
 	cols, err := rows.Columns()
@@ -490,7 +490,7 @@ func deleteModel(c Commander, model interface{}, id interface{}) error {
 
 	rowsAffected, _ := res.RowsAffected()
 	if rowsAffected == 0 {
-		return fmt.Errorf("[warning] Data not found")
+		return ErrRecordNotFound
 	}
 
 	// log.Printf("[info] The data in the '%s' table with ID %v was successfully deleted\n", tableName, id)

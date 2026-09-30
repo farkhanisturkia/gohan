@@ -12,6 +12,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.49
 	github.com/redis/go-redis/v9 v9.22.0
 	golang.org/x/crypto v0.54.0
+	golang.org/x/sync v0.22.0
 )
 
 require (

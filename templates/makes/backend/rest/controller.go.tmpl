@@ -2,6 +2,7 @@ package controllers
 
 import (
 {{- if .UseRedis }}
+    "context"
     "fmt"
     "time"
 {{- end }}
@@ -32,22 +33,36 @@ func {{.Prefix}}Index(db *gohan.DB) http.HandlerFunc {
 			perPage = 10
 		}
 
-        var items []migrations.{{.Prefix}}
 {{- if .UseRedis }}
 		var paginationData gohan.Pagination
         cacheKey := fmt.Sprintf("%s:all:page:%d:limit:%d", "{{ .Prefix | toLower }}", page, perPage)
 
-		if cachedData, err := gohan.Redis.Get(r.Context(), cacheKey).Result(); err == nil && cachedData != "" {
-			if err := gohan.Unmarshal([]byte(cachedData), &paginationData); err == nil {
-				gohan.JSON(w, http.StatusOK, map[string]interface{}{
-					"message": "Fetch Role list successful (cached)",
-					"data":    paginationData,
-				})
-				return
-			}
+		entry, cached, err := gohan.CachedData(r.Context(), gohan.Redis, cacheKey, 10*time.Minute, &paginationData, func() (interface{}, error) {
+		    var items []migrations.{{.Prefix}}
+		    res, err := db.Paginate(page, perPage).Find(&items)
+		    if err != nil {
+		        return nil, err
+		    }
+		    return res, nil
+		})
+		if err != nil {
+			gohan.JSON(w, http.StatusInternalServerError, map[string]string{
+				"message": "Failed to fetch {{.Prefix}} data: " + err.Error(),
+			})
+			return
 		}
-{{- end }}
 
+        message := "Fetch {{.Prefix}} list successful"
+        if cached {
+            message = "Fetch {{.Prefix}} list successful (cached)"
+        }
+
+        gohan.JSON(w, http.StatusOK, map[string]interface{}{
+            "message": message,
+            "data":    entry,
+        })
+{{- else }}
+        var items []migrations.{{.Prefix}}
 		res, err := db.Paginate(page, perPage).Find(&items)
 		if err != nil {
 			gohan.JSON(w, http.StatusInternalServerError, map[string]string{
@@ -56,16 +71,11 @@ func {{.Prefix}}Index(db *gohan.DB) http.HandlerFunc {
 			return
 		}
 
-{{- if .UseRedis }}
-        if jsonBytes, err := gohan.Marshal(items); err == nil {
-            _ = gohan.Redis.Set(r.Context(), cacheKey, string(jsonBytes), 10*time.Minute).Err()
-        }
-{{- end }}
-
         gohan.JSON(w, http.StatusOK, map[string]interface{}{
             "message": "Fetch {{.Prefix}} list successful",
             "data":    res,
         })
+{{- end }}
     }
 }
 
@@ -103,7 +113,7 @@ func {{.Prefix}}Store(db *gohan.DB) http.HandlerFunc {
         }
 
 {{- if .UseRedis }}
-        _ = gohan.Redis.Del(r.Context(), "{{.Prefix | toLower}}:all").Err()
+        clear{{.Prefix}}Cache(r.Context())
 {{- end }}
 
         gohan.JSON(w, http.StatusCreated, map[string]interface{}{
@@ -116,38 +126,60 @@ func {{.Prefix}}Store(db *gohan.DB) http.HandlerFunc {
 func {{.Prefix}}Show(db *gohan.DB) http.HandlerFunc {
     return func(w http.ResponseWriter, r *http.Request) {
         id := gohan.Param(r, "id")
-        var item migrations.{{.Prefix}}
 
 {{- if .UseRedis }}
+        var item migrations.{{.Prefix}}
         cacheKey := fmt.Sprintf("{{.Prefix | toLower}}:%s", id)
-        if cachedData, err := gohan.Redis.Get(r.Context(), cacheKey).Result(); err == nil && cachedData != "" {
-            if err := gohan.Unmarshal([]byte(cachedData), &item); err == nil {
-                gohan.JSON(w, http.StatusOK, map[string]interface{}{
-                    "message": "Fetch {{.Prefix}} detail successful (cached)",
-                    "data":    item,
+
+		entry, cached, err := gohan.CachedData(r.Context(), gohan.Redis, cacheKey, 10*time.Minute, &item, func() (interface{}, error) {
+		    var row migrations.{{.Prefix}}
+		    if err := db.FindOne(&row, "id = ?", id); err != nil {
+		        return nil, err
+		    }
+		    return &row, nil
+		})
+		if err != nil {
+		    if gohan.IsNotFound(err) {
+		        gohan.JSON(w, http.StatusNotFound, map[string]string{
+		            "message": "{{.Prefix}} not found",
+		        })
+		        return
+		    }
+		    gohan.JSON(w, http.StatusInternalServerError, map[string]string{
+		        "message": "Failed to fetch {{.Prefix}} detail: " + err.Error(),
+		    })
+		    return
+		}
+
+        message := "Fetch {{.Prefix}} detail successful"
+        if cached {
+            message = "Fetch {{.Prefix}} detail successful (cached)"
+        }
+
+        gohan.JSON(w, http.StatusOK, map[string]interface{}{
+            "message": message,
+            "data":    entry,
+        })
+{{- else }}
+        var item migrations.{{.Prefix}}
+        if err := db.FindOne(&item, "id = ?", id); err != nil {
+            if gohan.IsNotFound(err) {
+                gohan.JSON(w, http.StatusNotFound, map[string]string{
+                    "message": "{{.Prefix}} not found",
                 })
                 return
             }
-        }
-{{- end }}
-
-        if err := db.FindOne(&item, "id = ?", id); err != nil {
-            gohan.JSON(w, http.StatusNotFound, map[string]string{
-                "message": "{{.Prefix}} not found",
+            gohan.JSON(w, http.StatusInternalServerError, map[string]string{
+                "message": "Failed to fetch {{.Prefix}} detail: " + err.Error(),
             })
             return
         }
-
-{{- if .UseRedis }}
-        if jsonBytes, err := gohan.Marshal(item); err == nil {
-            _ = gohan.Redis.Set(r.Context(), cacheKey, string(jsonBytes), 10*time.Minute).Err()
-        }
-{{- end }}
 
         gohan.JSON(w, http.StatusOK, map[string]interface{}{
             "message": "Fetch {{.Prefix}} detail successful",
             "data":    item,
         })
+{{- end }}
     }
 }
 
@@ -204,8 +236,7 @@ func {{.Prefix}}Update(db *gohan.DB) http.HandlerFunc {
         }
 
 {{- if .UseRedis }}
-        _ = gohan.Redis.Del(r.Context(), fmt.Sprintf("{{.Prefix | toLower}}:%s", id)).Err()
-        _ = gohan.Redis.Del(r.Context(), "{{.Prefix | toLower}}:all").Err()
+        clear{{.Prefix}}Cache(r.Context(), fmt.Sprintf("{{.Prefix | toLower}}:%s", id))
 {{- end }}
 
         gohan.JSON(w, http.StatusOK, map[string]interface{}{
@@ -239,8 +270,7 @@ func {{.Prefix}}Destroy(db *gohan.DB) http.HandlerFunc {
         }
 
 {{- if .UseRedis }}
-        _ = gohan.Redis.Del(r.Context(), fmt.Sprintf("{{.Prefix | toLower}}:%s", id)).Err()
-        _ = gohan.Redis.Del(r.Context(), "{{.Prefix | toLower}}:all").Err()
+        clear{{.Prefix}}Cache(r.Context(), fmt.Sprintf("{{.Prefix | toLower}}:%s", id))
 {{- end }}
 
         gohan.JSON(w, http.StatusOK, map[string]string{
@@ -248,3 +278,16 @@ func {{.Prefix}}Destroy(db *gohan.DB) http.HandlerFunc {
         })
     }
 }
+{{- if .UseRedis }}
+
+func clear{{.Prefix}}Cache(ctx context.Context, extraKeys ...string) {
+    for _, key := range extraKeys {
+        gohan.CacheForget(ctx, gohan.Redis, key)
+    }
+
+    iter := gohan.Redis.Scan(ctx, 0, "{{.Prefix | toLower}}:all*", 0).Iterator()
+    for iter.Next(ctx) {
+        gohan.CacheForget(ctx, gohan.Redis, iter.Val())
+    }
+}
+{{- end }}
