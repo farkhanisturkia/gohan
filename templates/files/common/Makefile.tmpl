@@ -41,7 +41,7 @@ dev-backend: ## 🛠 Start backend only (auto migrations & seeders on boot)
 
 {{- if eq .AppType "fullstack" }}
 dev-frontend: ## 🎨 Start frontend dev server
-	@cd frontend && npm run dev
+	@cd frontend && NG_CLI_ANALYTICS=false CI=true npm run dev
 
 {{- end }}
 build: ## 🏗 Build everything for production
@@ -61,7 +61,7 @@ build-backend: ## 🏗 Build backend binary into bin/
 
 {{- if eq .AppType "fullstack" }}
 build-frontend: ## 🏗 Build frontend bundle (vite / ng / astro build)
-	@cd frontend && npm run build
+	@cd frontend && NG_CLI_ANALYTICS=false CI=true npm run build
 
 {{- end }}
 test: ## ✅ Run backend tests
