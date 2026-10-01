@@ -1,6 +1,10 @@
-.PHONY: setup dev dev-backend{{ if eq .AppType "fullstack" }} dev-frontend{{ end }}{{ if .UseRedis }} clear-cache{{ end }}
+.DEFAULT_GOAL := help
+.PHONY: help setup dev dev-backend{{ if eq .AppType "fullstack" }} dev-frontend{{ end }} build build-backend{{ if eq .AppType "fullstack" }} build-frontend{{ end }} test{{ if .UseRedis }} clear-cache{{ end }}
 
-setup:
+help: ## 📖 Show available commands
+	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*## / { printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+
+setup: ## 📦 Install all dependencies & generate app key
 	@echo "📦 Setting up all dependencies..."
 {{- if eq .AppType "fullstack" }}
 	@cd backend && (test -f go.mod || go mod init {{ .ModuleName }}) && go mod tidy && gohan key:generate
@@ -11,12 +15,12 @@ setup:
 	@echo "✅ Setup completed!"
 
 {{- if .UseRedis }}
-clear-cache:
+clear-cache: ## 🧹 Flush Redis cache (list & detail keys auto-invalidate on writes)
 	@echo "🧹 Clearing Redis cache..."
 	@-redis-cli flushdb > /dev/null 2>&1 || echo "⚠️  Redis-cli not available or service unreachable, skipping..."
 
 {{- end }}
-dev:
+dev: ## 🚀 Start development server(s)
 {{- if eq .AppType "fullstack" }}
 	@echo "🚀 Starting Backend and Frontend..."
 	@make -j2 dev-backend dev-frontend
@@ -25,9 +29,9 @@ dev:
 {{- end }}
 
 {{- if .UseRedis }}
-dev-backend: clear-cache
+dev-backend: clear-cache ## 🛠 Start backend only (auto migrations & seeders on boot)
 {{- else }}
-dev-backend:
+dev-backend: ## 🛠 Start backend only (auto migrations & seeders on boot)
 {{- end }}
 {{- if eq .AppType "fullstack" }}
 	@cd backend && go run .
@@ -36,6 +40,33 @@ dev-backend:
 {{- end }}
 
 {{- if eq .AppType "fullstack" }}
-dev-frontend:
+dev-frontend: ## 🎨 Start frontend dev server
 	@cd frontend && npm run dev
+
+{{- end }}
+build: ## 🏗 Build everything for production
+{{- if eq .AppType "fullstack" }}
+	@make build-backend build-frontend
+{{- else }}
+	@make build-backend
+{{- end }}
+
+build-backend: ## 🏗 Build backend binary into bin/
+	@mkdir -p bin
+{{- if eq .AppType "fullstack" }}
+	@cd backend && go build -o ../bin/backend .
+{{- else }}
+	@go build -o bin/backend .
+{{- end }}
+
+{{- if eq .AppType "fullstack" }}
+build-frontend: ## 🏗 Build frontend bundle (vite / ng / astro build)
+	@cd frontend && npm run build
+
+{{- end }}
+test: ## ✅ Run backend tests
+{{- if eq .AppType "fullstack" }}
+	@cd backend && go test ./...
+{{- else }}
+	@go test ./...
 {{- end }}
