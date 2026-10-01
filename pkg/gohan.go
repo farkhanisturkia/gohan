@@ -13,7 +13,7 @@ import (
 )
 
 // Framework Meta
-const Version = "v1.10.9"
+const Version = "v1.11.0"
 
 // Config
 type Env = config.Env
