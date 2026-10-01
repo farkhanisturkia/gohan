@@ -26,11 +26,12 @@ export default function LoginView() {
       const res = await api.post('/api/login', {
         email: email.trim(),
         password: password,
+        remember_me: rememberMe,
       })
 
       const token = res.data.token || res.data.data?.token
       if (token) {
-        const expires = rememberMe ? 7 : 1
+        const expires = rememberMe ? 31 : 2
         Cookies.set('token', token, {
           expires,
           sameSite: 'lax',
@@ -122,7 +123,7 @@ export default function LoginView() {
               type="checkbox"
               className="w-4 h-4 rounded border-slate-300 dark:border-slate-700 text-purple-700 dark:text-purple-500 focus:ring-purple-500 bg-transparent"
             />
-            <span>Remember</span>
+            <span>Remember me</span>
           </label>
 {{- if .UseForgotPassword }}
 
