@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 {{- if .UseAuth }}
 import Cookies from 'js-cookie'
 import { useAuth } from '@/hooks/useAuth'
@@ -69,7 +70,9 @@ function GuestOnly({ children }: { children: ReactNode }) {
 }
 {{- end }}
 
-export default function App() {
+const queryClient = new QueryClient()
+
+function AppRoutes() {
   return (
     <Routes>
       <Route element={<AuthShell />}>
@@ -137,5 +140,15 @@ export default function App() {
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+  )
+}
+
+export default function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <AppRoutes />
+      </BrowserRouter>
+    </QueryClientProvider>
   )
 }
