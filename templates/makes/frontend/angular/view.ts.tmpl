@@ -129,7 +129,7 @@ const emptyForm = { name: '' }
                       <span class="px-1 text-xs text-purple-400 dark:text-slate-600 font-bold">…</span>
                     } @else {
                       <button
-                        (click)="pagination.changePage(Number(p))"
+                        (click)="pagination.changePage(toNum(p))"
                         [ngClass]="p === pagination.currentPage() ? 'bg-purple-800 dark:bg-purple-700 text-white border-purple-800 dark:border-purple-700 shadow-md' : 'bg-white dark:bg-slate-900 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-slate-700 hover:bg-purple-100 dark:hover:bg-slate-800'"
                         class="min-w-[2rem] px-2 py-1.5 text-xs font-bold rounded-full border transition-all cursor-pointer"
                       >
@@ -150,7 +150,7 @@ const emptyForm = { name: '' }
                 <label class="flex items-center gap-2 text-xs text-purple-900/60 dark:text-slate-500 font-medium">
                   Per page
                   <select
-                    (change)="pagination.setPerPage(Number($any($event.target).value))"
+                    (change)="pagination.setPerPage(toNum($any($event.target).value))"
                     class="px-2 py-1.5 bg-white dark:bg-slate-900 border border-purple-200 dark:border-slate-700 rounded-full text-xs font-bold text-purple-800 dark:text-purple-300 focus:outline-none focus:border-purple-600 dark:focus:border-purple-500 cursor-pointer"
                   >
                     @for (opt of pagination.perPageOptions; track opt) {
@@ -220,6 +220,10 @@ export class {{ .Resource }}View {
   }))
 
   readonly items = computed<{{ .Resource }}[]>(() => (this.query.data() as {{ .Resource }}[]) ?? [])
+
+  toNum(value: string | number): number {
+    return Number(value)
+  }
 
   private readonly createMutation = injectMutation(() => ({
     mutationFn: async (newItem: typeof emptyForm) => {

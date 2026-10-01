@@ -373,6 +373,13 @@ func MakeResource(name string) {
 		return
 	}
 
+	if !cfg.AppSpecs.Auth {
+		guard.Auth = false
+		guard.Roles = nil
+	} else if !cfg.AppSpecs.RBAC {
+		guard.Roles = nil
+	}
+
 	data := templates.MakeData{
 		ModuleName: moduleName,
 		Prefix:     prefix,
