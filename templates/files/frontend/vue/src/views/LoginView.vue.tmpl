@@ -24,11 +24,12 @@ const handleLogin = async () => {
     const res = await api.post('/api/login', {
       email: email.value,
       password: password.value,
+      remember_me: rememberMe.value,
     })
 
     const token = res.data.token || res.data.data?.token
     if (token) {
-      const expires = rememberMe.value ? 7 : 1
+      const expires = rememberMe.value ? 31 : 2
       Cookies.set('token', token, { 
         expires, 
         sameSite: 'lax', 

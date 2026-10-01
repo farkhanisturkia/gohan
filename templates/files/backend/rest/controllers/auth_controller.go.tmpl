@@ -12,8 +12,9 @@ import (
 )
 
 type LoginRequest struct {
-    Email    string `json:"email"`
-    Password string `json:"password"`
+    Email      string `json:"email"`
+    Password   string `json:"password"`
+    RememberMe bool   `json:"remember_me"`
 }
 {{- if .UseRegister }}
 
@@ -57,6 +58,10 @@ func LoginAuth(db *gohan.DB) http.HandlerFunc {
             duration = 24 * time.Hour
         }
 
+        if req.RememberMe {
+            duration *= 30
+        }
+
         tokenStr, err := gohan.GenerateJWT(user.ID, user.Email, env.JWTSecret, duration)
         if err != nil {
             gohan.JSON(w, http.StatusInternalServerError, map[string]string{"message": "Failed to generate JWT token"})
@@ -81,13 +86,18 @@ func LoginAuth(db *gohan.DB) http.HandlerFunc {
         userAgent := r.UserAgent()
         tokenName := gohan.ParseTokenName(userAgent)
 
+        tokenDuration := 7 * 24 * time.Hour
+        if req.RememberMe {
+            tokenDuration = 30 * 24 * time.Hour
+        }
+
         pat := migrations.PersonalAccessToken{
             UserID:    user.ID,
             Name:      tokenName,
             Token:     hashedToken,
             IPAddress: ipAddress,
             UserAgent: userAgent,
-            ExpiresAt: time.Now().Add(7 * 24 * time.Hour),
+            ExpiresAt: time.Now().Add(tokenDuration),
         }
 
         if err := db.Create(&pat); err != nil {
