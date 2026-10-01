@@ -99,6 +99,8 @@ func InitBoilerplate(args []string) {
 			[]string{
 				"Vue 3 (Default)",
 				"React",
+				"Angular",
+				"Astro",
 			},
 		)
 		if err != nil {
@@ -106,9 +108,14 @@ func InitBoilerplate(args []string) {
 			return
 		}
 
-		if strings.Contains(feChoice, "React") {
+		switch {
+		case strings.Contains(feChoice, "React"):
 			config.FrontendType = "react"
-		} else {
+		case strings.Contains(feChoice, "Angular"):
+			config.FrontendType = "angular"
+		case strings.Contains(feChoice, "Astro"):
+			config.FrontendType = "astro"
+		default:
 			config.FrontendType = "vue"
 		}
 	}

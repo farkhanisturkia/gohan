@@ -1,0 +1,19 @@
+import { defineConfig } from 'astro/config'
+import react from '@astrojs/react'
+import tailwindcss from '@tailwindcss/vite'
+import { fileURLToPath, URL } from 'node:url'
+
+// SPA mode (astro-spa): fallback 404 -> index.html agar client-side router bekerja.
+export default defineConfig({
+  output: 'static',
+  site: 'http://localhost:3000',
+  integrations: [react()],
+  vite: {
+    plugins: [tailwindcss()],
+    resolve: {
+      alias: {
+        '@': fileURLToPath(new URL('./src', import.meta.url)),
+      },
+    },
+  },
+})

@@ -1,0 +1,402 @@
+import { Component, computed, inject, signal } from '@angular/core'
+import { NgClass } from '@angular/common'
+import { injectQuery, injectMutation, keepPreviousData, injectQueryClient } from '@tanstack/angular-query-experimental'
+import { api, formatError, getRoleName, type User } from '../services/api'
+import { createPaginationState } from '../services/pagination.service'
+
+interface Role {
+  id: number
+  name: string
+}
+
+const emptyForm = {
+  name: '',
+  email: '',
+  password: '',
+{{- if .UseRole }}
+  role_id: 0,
+{{- end }}
+}
+
+@Component({
+  selector: 'app-users',
+  standalone: true,
+  imports: [NgClass],
+  template: `
+    <div class="space-y-6 font-sans" (document:click)="closeMenu()">
+      <!-- Top Bar & Title -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-2xl md:text-3xl font-bold text-purple-950 dark:text-purple-100 tracking-tight">Users Management</h2>
+          <p class="text-xs text-purple-400 dark:text-purple-400 mt-0.5 font-medium">Manage user accounts{{ if .UseRole }} and role{{ end }} permissions</p>
+        </div>
+
+        <button
+          (click)="openCreateModal(); $event.stopPropagation()"
+          class="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-purple-800 hover:bg-purple-900 dark:bg-purple-700 dark:hover:bg-purple-600 text-white font-bold rounded-full text-xs transition-all shadow-md hover:shadow-purple-900/20 uppercase tracking-wider cursor-pointer self-start sm:self-auto"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+          Add User
+        </button>
+      </div>
+
+      <!-- Users Container Card -->
+      <div class="bg-white dark:bg-slate-900 border border-purple-100 dark:border-slate-800 rounded-3xl shadow-2xl overflow-hidden transition-colors duration-300">
+        @if (query.isLoading()) {
+          <div class="p-8 text-center text-purple-400 dark:text-slate-500 font-medium">Loading users...</div>
+        } @else if (query.isError()) {
+          <div class="p-8 text-center text-rose-500 font-medium">Failed to load users list.</div>
+        } @else {
+          <!-- MOBILE -->
+          <div class="block md:hidden divide-y divide-purple-100/60 dark:divide-slate-800/80">
+            @for (u of items(); track u.id) {
+              <div class="p-4 flex items-center justify-between gap-3 hover:bg-purple-50/30 dark:hover:bg-slate-800/30 transition-colors">
+                <div class="min-w-0 flex-1 space-y-1">
+                  <div class="flex items-center gap-2">
+                    <span class="font-mono text-[10px] text-purple-400 dark:text-slate-500">#{{ "{{" }} u.id }}</span>
+                    <h3 class="font-bold text-sm text-purple-950 dark:text-purple-100 truncate">{{ "{{" }} u.name }}</h3>
+{{- if .UseRole }}
+                    <span class="px-2 py-0.5 bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800/50 rounded-full text-[9px] font-mono font-bold uppercase tracking-wider shrink-0">
+                      {{ "{{" }} getRoleName(u.role) }}
+                    </span>
+{{- end }}
+                  </div>
+                  <p class="font-mono text-xs text-purple-900/70 dark:text-slate-400 truncate">{{ "{{" }} u.email }}</p>
+                </div>
+
+                <div class="relative shrink-0" (click)="$event.stopPropagation()">
+                  <button
+                    (click)="toggleMenu(u.id)"
+                    class="p-2 text-slate-400 hover:text-purple-900 dark:hover:text-purple-200 rounded-full hover:bg-purple-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                  >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01"></path>
+                    </svg>
+                  </button>
+
+                  @if (activeMenuId() === u.id) {
+                    <div class="absolute right-0 mt-1 w-32 bg-white dark:bg-slate-800 border border-purple-100 dark:border-slate-700 rounded-2xl shadow-xl z-20 py-1.5 transition-all overflow-hidden">
+                      <button (click)="openEditModal(u)" class="w-full px-4 py-2 text-left text-xs font-bold text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 flex items-center gap-2 cursor-pointer">Edit</button>
+                      <button (click)="askDelete(u.id)" class="w-full px-4 py-2 text-left text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2 cursor-pointer">Delete</button>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+
+          <!-- DESKTOP -->
+          <div class="hidden md:block overflow-x-auto">
+            <table class="w-full text-left text-sm text-purple-900/80 dark:text-slate-300">
+              <thead class="bg-purple-50/70 dark:bg-slate-950/80 border-b border-purple-100 dark:border-slate-800 text-purple-950 dark:text-purple-300 uppercase text-[11px] font-bold tracking-wider">
+                <tr>
+                  <th class="p-4 pl-6">ID</th>
+                  <th class="p-4">Name</th>
+                  <th class="p-4">Email</th>
+{{- if .UseRole }}
+                  <th class="p-4">Role</th>
+{{- end }}
+                  <th class="p-4 pr-6 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-purple-100/60 dark:divide-slate-800/80">
+                @for (u of items(); track u.id) {
+                  <tr class="hover:bg-purple-50/40 dark:hover:bg-slate-800/40 transition-colors">
+                    <td class="p-4 pl-6 font-mono text-xs text-purple-400 dark:text-slate-500">#{{ "{{" }} u.id }}</td>
+                    <td class="p-4 font-bold text-purple-950 dark:text-purple-100">{{ "{{" }} u.name }}</td>
+                    <td class="p-4 font-mono text-xs text-purple-900/70 dark:text-slate-400">{{ "{{" }} u.email }}</td>
+{{- if .UseRole }}
+                    <td class="p-4">
+                      <span class="px-3 py-1 bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800/50 rounded-full text-[11px] font-mono font-bold uppercase tracking-wider">
+                        {{ "{{" }} getRoleName(u.role) }}
+                      </span>
+                    </td>
+{{- end }}
+                    <td class="p-4 pr-6 text-right">
+                      <div class="flex items-center justify-end gap-1.5">
+                        <button (click)="openEditModal(u)" title="Edit User" class="p-2 text-amber-600 dark:text-amber-400 hover:bg-amber-100/80 dark:hover:bg-amber-950/50 rounded-xl transition-all cursor-pointer">
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                          </svg>
+                        </button>
+                        <button (click)="askDelete(u.id)" title="Delete User" class="p-2 text-rose-600 dark:text-rose-400 hover:bg-rose-100/80 dark:hover:bg-rose-950/50 rounded-xl transition-all cursor-pointer">
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                          </svg>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Pagination (center) -->
+          @if (pagination.totalItems() > 0) {
+            <div class="border-t border-purple-100 dark:border-slate-800 px-4 py-4 bg-purple-50/30 dark:bg-slate-950/40">
+              <div class="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 flex-wrap">
+                <span class="text-xs text-purple-900/60 dark:text-slate-500 font-medium">
+                  Showing {{ "{{" }} items().length }} of {{ "{{" }} pagination.totalItems() }} users
+                </span>
+
+                <div class="flex items-center gap-1.5">
+                  <button
+                    (click)="pagination.changePage(pagination.currentPage() - 1)"
+                    [disabled]="pagination.currentPage() <= 1"
+                    class="px-3 py-1.5 text-xs font-bold rounded-full border border-purple-200 dark:border-slate-700 text-purple-800 dark:text-purple-300 bg-white dark:bg-slate-900 hover:bg-purple-100 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+                  >
+                    Prev
+                  </button>
+
+                  @for (p of pagination.paginationPages(); track $index) {
+                    @if (p === '...') {
+                      <span class="px-1 text-xs text-purple-400 dark:text-slate-600 font-bold">…</span>
+                    } @else {
+                      <button
+                        (click)="pagination.changePage(Number(p))"
+                        [ngClass]="p === pagination.currentPage() ? 'bg-purple-800 dark:bg-purple-700 text-white border-purple-800 dark:border-purple-700 shadow-md' : 'bg-white dark:bg-slate-900 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-slate-700 hover:bg-purple-100 dark:hover:bg-slate-800'"
+                        class="min-w-[2rem] px-2 py-1.5 text-xs font-bold rounded-full border transition-all cursor-pointer"
+                      >
+                        {{ "{{" }} p }}
+                      </button>
+                    }
+                  }
+
+                  <button
+                    (click)="pagination.changePage(pagination.currentPage() + 1)"
+                    [disabled]="pagination.currentPage() >= pagination.lastPage()"
+                    class="px-3 py-1.5 text-xs font-bold rounded-full border border-purple-200 dark:border-slate-700 text-purple-800 dark:text-purple-300 bg-white dark:bg-slate-900 hover:bg-purple-100 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+                  >
+                    Next
+                  </button>
+                </div>
+
+                <label class="flex items-center gap-2 text-xs text-purple-900/60 dark:text-slate-500 font-medium">
+                  Per page
+                  <select
+                    (change)="pagination.setPerPage(Number($any($event.target).value))"
+                    class="px-2 py-1.5 bg-white dark:bg-slate-900 border border-purple-200 dark:border-slate-700 rounded-full text-xs font-bold text-purple-800 dark:text-purple-300 focus:outline-none focus:border-purple-600 dark:focus:border-purple-500 cursor-pointer"
+                  >
+                    @for (opt of pagination.perPageOptions; track opt) {
+                      <option [value]="opt" [selected]="pagination.perPage() === opt">{{ "{{" }} opt }}</option>
+                    }
+                  </select>
+                </label>
+              </div>
+            </div>
+          }
+        }
+      </div>
+
+      <!-- Create / Edit User Modal -->
+      @if (showModal()) {
+        <div class="fixed inset-0 bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4 z-50">
+          <div class="bg-white dark:bg-slate-900 border border-purple-100 dark:border-slate-800 rounded-3xl p-6 md:p-8 w-full max-w-md shadow-2xl relative overflow-hidden transition-colors duration-300">
+            <div class="flex items-center justify-between mb-6">
+              <h3 class="text-xl font-bold text-purple-950 dark:text-purple-100">
+                {{ "{{" }} isEditing() ? 'Edit User' : 'Add New User' }}
+              </h3>
+              <button (click)="closeModal()" class="text-purple-400 hover:text-purple-900 dark:hover:text-purple-200 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+              </button>
+            </div>
+
+            <form (submit)="handleSubmit($event)" class="space-y-4">
+              <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-purple-900/70 dark:text-slate-400 mb-1.5">Name</label>
+                <input [value]="form().name" (input)="updateForm('name', $any($event.target).value.trim())" type="text" required placeholder="Full Name"
+                  class="w-full px-4 py-2.5 bg-purple-50/50 dark:bg-slate-950 border border-purple-100 dark:border-slate-800 rounded-xl text-purple-950 dark:text-white placeholder-purple-300 dark:placeholder-slate-600 focus:outline-none focus:border-purple-600 dark:focus:border-purple-500 text-sm transition-all" />
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-purple-900/70 dark:text-slate-400 mb-1.5">Email</label>
+                <input [value]="form().email" (input)="updateForm('email', $any($event.target).value.trim())" type="email" required placeholder="name@example.com"
+                  class="w-full px-4 py-2.5 bg-purple-50/50 dark:bg-slate-950 border border-purple-100 dark:border-slate-800 rounded-xl text-purple-950 dark:text-white placeholder-purple-300 dark:placeholder-slate-600 focus:outline-none focus:border-purple-600 dark:focus:border-purple-500 text-sm transition-all" />
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-purple-900/70 dark:text-slate-400 mb-1.5">
+                  Password @if (isEditing()) { <span class="text-[10px] lowercase text-purple-400 font-normal">(leave blank to keep current)</span> }
+                </label>
+                <input [value]="form().password" (input)="updateForm('password', $any($event.target).value)" type="password" [required]="!isEditing()" placeholder="••••••••"
+                  class="w-full px-4 py-2.5 bg-purple-50/50 dark:bg-slate-950 border border-purple-100 dark:border-slate-800 rounded-xl text-purple-950 dark:text-white placeholder-purple-300 dark:placeholder-slate-600 focus:outline-none focus:border-purple-600 dark:focus:border-purple-500 text-sm transition-all" />
+              </div>
+
+{{- if .UseRole }}
+              <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-purple-900/70 dark:text-slate-400 mb-1.5">Role</label>
+                <select
+                  (change)="updateForm('role_id', Number($any($event.target).value))"
+                  required
+                  class="w-full px-4 py-2.5 bg-purple-50/50 dark:bg-slate-950 border border-purple-100 dark:border-slate-800 rounded-xl text-purple-950 dark:text-white focus:outline-none focus:border-purple-600 dark:focus:border-purple-500 text-sm capitalize transition-all"
+                >
+                  <option [value]="0" [selected]="!form().role_id" disabled>Select Role</option>
+                  @for (r of roles(); track r.id) {
+                    <option [value]="r.id" [selected]="form().role_id === r.id">{{ "{{" }} r.name }}</option>
+                  }
+                </select>
+              </div>
+{{- end }}
+
+              <div class="flex items-center justify-end space-x-3 pt-4">
+                <button type="button" (click)="closeModal()" class="px-5 py-2.5 bg-purple-50 dark:bg-slate-800 hover:bg-purple-100 dark:hover:bg-slate-700 text-purple-900 dark:text-slate-300 font-bold rounded-full text-xs transition-all cursor-pointer">
+                  Cancel
+                </button>
+                <button type="submit" [disabled]="isSubmitting()" class="px-5 py-2.5 bg-purple-800 hover:bg-purple-900 dark:bg-purple-700 dark:hover:bg-purple-600 text-white font-bold rounded-full text-xs transition-all shadow-md uppercase tracking-wider cursor-pointer">
+                  {{ "{{" }} isSubmitting() ? \'Saving...\' : (isEditing() ? \'Update User\' : \'Save User\') }}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      }
+    </div>
+  `,
+})
+export class UsersView {
+  readonly pagination = createPaginationState()
+
+  readonly queryClient = injectQueryClient()
+
+  readonly activeMenuId = signal<number | null>(null)
+  readonly showModal = signal(false)
+  readonly isEditing = signal(false)
+  readonly editingUserId = signal<number | null>(null)
+  readonly form = signal({ ...emptyForm })
+
+  readonly query = injectQuery(() => ({
+    queryKey: ['users', this.pagination.currentPage(), this.pagination.perPage()],
+    queryFn: async () => {
+      const res = await api.get('/api/users', { params: this.pagination.queryParams() })
+      return this.pagination.applyResponse(res.data.data)
+    },
+    placeholderData: keepPreviousData,
+  }))
+
+  readonly items = computed<User[]>(() => (this.query.data() as User[]) ?? [])
+
+{{- if .UseRole }}
+  readonly rolesQuery = injectQuery(() => ({
+    queryKey: ['roles'],
+    queryFn: async () => {
+      const res = await api.get('/api/roles', { params: { page: 1, per_page: 100 } })
+      return (res.data.data.data ?? res.data.data) as Role[]
+    },
+  }))
+
+  readonly roles = computed<Role[]>(() => this.rolesQuery.data() ?? [])
+{{- end }}
+
+  private readonly createMutation = injectMutation(() => ({
+    mutationFn: async (newUser: typeof emptyForm) => {
+      await api.post('/api/users', newUser)
+    },
+    onSuccess: () => {
+      this.queryClient.invalidateQueries({ queryKey: ['users'] })
+      this.closeModal()
+    },
+  }))
+
+  private readonly updateMutation = injectMutation(() => ({
+    mutationFn: async ({ id, data }: { id: number; data: typeof emptyForm }) => {
+      const payload: Record<string, unknown> = {
+        name: data.name,
+        email: data.email,
+{{- if .UseRole }}
+        role_id: data.role_id,
+{{- end }}
+      }
+      if (data.password) {
+        payload.password = data.password
+      }
+      await api.put(`/api/users/${id}`, payload)
+    },
+    onSuccess: () => {
+      this.queryClient.invalidateQueries({ queryKey: ['users'] })
+      this.closeModal()
+    },
+  }))
+
+  private readonly deleteMutation = injectMutation(() => ({
+    mutationFn: async (id: number) => {
+      await api.delete(`/api/users/${id}`)
+    },
+    onSuccess: () => {
+      this.queryClient.invalidateQueries({ queryKey: ['users'] })
+    },
+  }))
+
+  readonly isSubmitting = computed(() => this.createMutation.isPending() || this.updateMutation.isPending())
+
+  protected readonly getRoleName = getRoleName
+  protected readonly formatError = formatError
+
+  toggleMenu(id: number) {
+    this.activeMenuId.update((v) => (v === id ? null : id))
+  }
+
+  closeMenu() {
+    this.activeMenuId.set(null)
+  }
+
+  openCreateModal() {
+    this.isEditing.set(false)
+    this.editingUserId.set(null)
+    this.form.set({ ...emptyForm })
+    this.showModal.set(true)
+  }
+
+  openEditModal(user: User) {
+    this.closeMenu()
+    this.isEditing.set(true)
+    this.editingUserId.set(user.id)
+    this.form.set({
+      ...emptyForm,
+      name: user.name,
+      email: user.email,
+      password: '',
+{{- if .UseRole }}
+      role_id: this.resolveRoleId(user),
+{{- end }}
+    })
+    this.showModal.set(true)
+  }
+
+  closeModal() {
+    this.showModal.set(false)
+  }
+
+  updateForm(key: keyof typeof emptyForm, value: string | number) {
+    this.form.update((f) => ({ ...f, [key]: value }))
+  }
+
+  askDelete(id: number) {
+    this.closeMenu()
+    if (confirm('Are you sure you want to delete this user?')) {
+      this.deleteMutation.mutate(id)
+    }
+  }
+
+  handleSubmit(event: Event) {
+    event.preventDefault()
+    const editingId = this.editingUserId()
+    if (this.isEditing() && editingId) {
+      this.updateMutation.mutate({ id: editingId, data: this.form() })
+    } else {
+      this.createMutation.mutate(this.form())
+    }
+  }
+
+{{- if .UseRole }}
+  private resolveRoleId(user: User): number {
+    if (user.role_id) return user.role_id
+    if (typeof user.role === 'object' && user.role !== null) return user.role.id || 0
+    if (typeof user.role === 'string') {
+      const found = this.roles().find((r) => r.name.toLowerCase() === user.role?.toLowerCase())
+      if (found) return found.id
+    }
+    return 0
+  }
+{{- end }}
+}

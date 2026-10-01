@@ -1,0 +1,65 @@
+import { signal } from '@angular/core'
+
+export function createPaginationState({ defaultPage = 1, defaultPerPage = 10 } = {}) {
+  const currentPage = signal(defaultPage)
+  const perPage = signal(defaultPerPage)
+  const totalItems = signal(0)
+  const lastPage = signal(1)
+
+  const perPageOptions = [10, 25, 50, 100]
+
+  const changePage = (p: number) => {
+    const last = lastPage()
+    if (p < 1 || p > last || p === currentPage()) return
+    currentPage.set(p)
+  }
+
+  const setPerPage = (value: number) => {
+    perPage.set(value)
+    currentPage.set(1)
+  }
+
+  const paginationPages = (): (number | string)[] => {
+    const total = lastPage()
+    const current = currentPage()
+    if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+
+    const pages: (number | string)[] = [1]
+    const start = Math.max(2, current - 1)
+    const end = Math.min(total - 1, current + 1)
+
+    if (start > 2) pages.push('...')
+    for (let i = start; i <= end; i++) pages.push(i)
+    if (end < total - 1) pages.push('...')
+
+    pages.push(total)
+    return pages
+  }
+
+  const queryParams = () => ({ page: currentPage(), per_page: perPage() })
+
+  const applyResponse = (payload: any): any[] => {
+    if (Array.isArray(payload)) {
+      totalItems.set(payload.length)
+      lastPage.set(1)
+      return payload
+    }
+
+    totalItems.set(payload?.total ?? 0)
+    lastPage.set(payload?.last_page ?? 1)
+    return payload?.data ?? []
+  }
+
+  return {
+    currentPage,
+    perPage,
+    totalItems,
+    lastPage,
+    perPageOptions,
+    paginationPages,
+    changePage,
+    setPerPage,
+    queryParams,
+    applyResponse,
+  }
+}

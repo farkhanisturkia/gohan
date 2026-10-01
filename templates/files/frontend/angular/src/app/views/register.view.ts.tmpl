@@ -1,0 +1,171 @@
+import { Component, inject, signal } from '@angular/core'
+import { Router, RouterLink } from '@angular/router'
+import axios from 'axios'
+import { api } from '../services/api'
+
+@Component({
+  selector: 'app-register',
+  standalone: true,
+  imports: [RouterLink],
+  template: `
+    <div>
+      <div class="text-center mb-6">
+        <h2 class="text-xl font-black tracking-wide text-purple-950 dark:text-purple-300 uppercase">CREATE ACCOUNT</h2>
+        <p class="text-xs text-purple-600/80 dark:text-slate-400 mt-1 font-medium">Join gohan framework today</p>
+      </div>
+
+      <form (submit)="handleRegister($event)" class="space-y-3.5 max-w-sm mx-auto w-full">
+        <!-- Full Name -->
+        <div class="relative">
+          <span class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-purple-400 dark:text-slate-500">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
+            </svg>
+          </span>
+          <input
+            [value]="name()"
+            (input)="name.set($any($event.target).value.trim())"
+            type="text"
+            placeholder="Full Name"
+            required
+            autocomplete="name"
+            class="w-full pl-10 pr-4 py-2.5 rounded-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 placeholder-purple-300 dark:placeholder-slate-500 border border-slate-200 dark:border-slate-800 text-xs focus:outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-500/20 transition-all"
+          />
+        </div>
+
+        <!-- Email -->
+        <div class="relative">
+          <span class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-purple-400 dark:text-slate-500">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+              <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+            </svg>
+          </span>
+          <input
+            [value]="email()"
+            (input)="email.set($any($event.target).value.trim())"
+            type="email"
+            placeholder="Email Address"
+            required
+            autocomplete="email"
+            class="w-full pl-10 pr-4 py-2.5 rounded-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 placeholder-purple-300 dark:placeholder-slate-500 border border-slate-200 dark:border-slate-800 text-xs focus:outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-500/20 transition-all"
+          />
+        </div>
+
+        <!-- Password -->
+        <div class="relative">
+          <span class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-purple-400 dark:text-slate-500">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd" />
+            </svg>
+          </span>
+          <input
+            [value]="password()"
+            (input)="password.set($any($event.target).value)"
+            [type]="showPassword() ? 'text' : 'password'"
+            placeholder="Password"
+            required
+            autocomplete="new-password"
+            class="w-full pl-10 pr-10 py-2.5 rounded-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 placeholder-purple-300 dark:placeholder-slate-500 border border-slate-200 dark:border-slate-800 text-xs focus:outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-500/20 transition-all"
+          />
+          <button
+            type="button"
+            (click)="showPassword.set(!showPassword())"
+            class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-purple-400 dark:text-slate-500 hover:text-purple-600 dark:hover:text-slate-300"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Confirm Password -->
+        <div class="relative">
+          <span class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-purple-400 dark:text-slate-500">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M2.166 11.388a.75.75 0 011.06.026L7 15.11 16.774 4.316a.75.75 0 011.102 1.018l-10.35 11.5a.75.75 0 01-1.078.012l-4.308-4.4a.75.75 0 01.026-1.058z" clip-rule="evenodd" />
+            </svg>
+          </span>
+          <input
+            [value]="confirmPassword()"
+            (input)="confirmPassword.set($any($event.target).value)"
+            [type]="showPassword() ? 'text' : 'password'"
+            placeholder="Confirm Password"
+            required
+            autocomplete="new-password"
+            class="w-full pl-10 pr-4 py-2.5 rounded-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 placeholder-purple-300 dark:placeholder-slate-500 border border-slate-200 dark:border-slate-800 text-xs focus:outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-500/20 transition-all"
+          />
+        </div>
+
+        @if (errorMessage()) {
+          <div class="text-rose-500 dark:text-rose-400 text-xs text-center font-medium pt-1">{{ "{{" }} errorMessage() }}</div>
+        }
+
+        @if (successMessage()) {
+          <div class="text-emerald-500 dark:text-emerald-400 text-xs text-center font-medium pt-1">{{ "{{" }} successMessage() }}</div>
+        }
+
+        <button
+          type="submit"
+          [disabled]="loading()"
+          class="w-full py-3 bg-purple-700 hover:bg-purple-800 active:bg-purple-900 dark:bg-purple-800 dark:hover:bg-purple-700 text-white font-bold tracking-wider rounded-2xl transition-all text-xs uppercase disabled:opacity-50 shadow-md shadow-purple-600/20 dark:shadow-purple-900/30 cursor-pointer mt-2"
+        >
+          {{ "{{" }} loading() ? 'REGISTERING...' : 'REGISTER' }}
+        </button>
+
+        <div class="text-center pt-2">
+          <span class="text-xs text-slate-500 dark:text-slate-400">Already have an account? </span>
+          <a routerLink="/login" class="text-xs text-purple-700 dark:text-purple-400 font-bold hover:underline">Sign In</a>
+        </div>
+      </form>
+    </div>
+  `,
+})
+export class RegisterView {
+  private readonly router = inject(Router)
+
+  readonly name = signal('')
+  readonly email = signal('')
+  readonly password = signal('')
+  readonly confirmPassword = signal('')
+  readonly showPassword = signal(false)
+  readonly loading = signal(false)
+  readonly errorMessage = signal('')
+  readonly successMessage = signal('')
+
+  async handleRegister(event: Event) {
+    event.preventDefault()
+    this.errorMessage.set('')
+    this.successMessage.set('')
+
+    if (this.password() !== this.confirmPassword()) {
+      this.errorMessage.set('Password and confirmation do not match.')
+      return
+    }
+
+    this.loading.set(true)
+
+    try {
+      const res = await api.post('/api/register', {
+        name: this.name(),
+        email: this.email(),
+        password: this.password(),
+      })
+
+      this.successMessage.set(res.data?.message || 'Account created successfully! Redirecting...')
+
+      setTimeout(() => {
+        this.router.navigate(['/login'])
+      }, 1500)
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        this.errorMessage.set(err.response?.data?.message || 'Registration failed. Please try again.')
+      } else {
+        this.errorMessage.set('An unexpected error occurred.')
+      }
+    } finally {
+      this.loading.set(false)
+    }
+  }
+}

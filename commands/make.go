@@ -348,7 +348,10 @@ func MakeResource(name string) {
 		fmt.Printf("[error] 'make:resource' is not supported for the '%s' backend architecture yet.\n", backendType)
 		return
 	}
-	if frontendType != "vue" && frontendType != "react" {
+	switch frontendType {
+	case "vue", "react", "angular", "astro":
+		// supported
+	default:
 		fmt.Printf("[error] 'make:resource' is not supported for the '%s' frontend yet.\n", frontendType)
 		return
 	}
@@ -410,25 +413,45 @@ func MakeResource(name string) {
 	// ---------- Frontend ----------
 	frontendBase := filepath.Join(projectRoot, "frontend", "src")
 
-	var viewTemplateFile, viewFileExt string
+	var viewTemplateFile, viewFileExt, viewFileName string
+	viewDir := filepath.Join(frontendBase, "views")
 	switch frontendType {
 	case "react":
 		viewTemplateFile = "frontend/react/view.tsx.tmpl"
 		viewFileExt = "tsx"
-	default:
+	case "astro":
+		viewTemplateFile = "frontend/astro/view.tsx.tmpl"
+		viewFileExt = "tsx"
+	case "angular":
+		viewTemplateFile = "frontend/angular/view.ts.tmpl"
+		viewFileExt = "ts"
+		viewDir = filepath.Join(frontendBase, "app", "views")
+		viewFileName = kebab + ".view." + viewFileExt
+	default: // vue
 		viewTemplateFile = "frontend/vue/view.vue.tmpl"
 		viewFileExt = "vue"
 	}
 
+	if viewFileName == "" {
+		viewFileName = prefix + "View." + viewFileExt
+	}
+
 	generateFromTemplate(
 		viewTemplateFile,
-		filepath.Join(frontendBase, "views", prefix+"View."+viewFileExt),
+		filepath.Join(viewDir, viewFileName),
 		data,
 	)
 
 	switch frontendType {
 	case "react":
 		registerReactResourceRoute(filepath.Join(frontendBase, "App.tsx"), prefix, kebab, guard)
+		registerResourceMenuItem(filepath.Join(frontendBase, "hooks", "useMenu.ts"), prefix, kebab, guard)
+	case "angular":
+		registerAngularResourceRoute(filepath.Join(frontendBase, "app", "app.routes.ts"), prefix, kebab, guard)
+		registerResourceMenuItem(filepath.Join(frontendBase, "app", "services", "menu.service.ts"), prefix, kebab, guard)
+	case "astro":
+		registerReactResourceRoute(filepath.Join(frontendBase, "App.tsx"), prefix, kebab, guard)
+		registerAstroResourcePage(frontendBase, kebab)
 		registerResourceMenuItem(filepath.Join(frontendBase, "hooks", "useMenu.ts"), prefix, kebab, guard)
 	default: // vue
 		registerResourceRoute(filepath.Join(frontendBase, "router", "index.ts"), prefix, kebab, guard)
@@ -708,6 +731,66 @@ func appendMigrationToDefault(baseDir, prefix string) {
 	if err == nil {
 		_ = os.WriteFile(defaultPath, formatted, 0644)
 	}
+}
+
+func registerAngularResourceRoute(routesPath, prefix, kebab string, guard *ResourceGuard) {
+	content, err := readTextFile(routesPath)
+	if err != nil {
+		fmt.Printf("[warn] Skipped route registration: cannot read %s\n", routesPath)
+		return
+	}
+
+	if strings.Contains(content, fmt.Sprintf("path: '%s'", kebab)) {
+		fmt.Printf("[info] Route for %s already registered in app.routes.ts\n", prefix)
+		return
+	}
+
+	importBlock := fmt.Sprintf("\nimport { %sView } from './views/%s.view'", prefix, kebab)
+	updated, ok := appendBeforeFirstMarker(content, "\n\nexport const routes", importBlock)
+	if !ok {
+		fmt.Printf("[warn] Could not add the view import automatically. Add it manually to app.routes.ts.\n")
+	} else {
+		content = updated
+	}
+
+	updated, ok = appendBeforeFirstMarker(content, "\n    ],", angularResourceRouteBlock(prefix, kebab, guard))
+	if !ok {
+		fmt.Printf("[warn] Skipped route registration: unexpected structure in %s\n", routesPath)
+		return
+	}
+
+	if err := os.WriteFile(routesPath, []byte(updated), 0644); err != nil {
+		fmt.Printf("[error] Failed to update %s: %v\n", routesPath, err)
+		return
+	}
+	fmt.Printf("[info] Updated: %s\n", routesPath)
+}
+
+func angularResourceRouteBlock(prefix, kebab string, guard *ResourceGuard) string {
+	var meta string
+	if guard != nil && guard.Auth {
+		meta = "        canActivate: [AuthGuard],\n"
+		if len(guard.Roles) > 0 {
+			meta += fmt.Sprintf("        data: { roles: [%s] },\n", formatRolesTS(guard.Roles))
+		}
+	}
+
+	return fmt.Sprintf("\n      {\n        path: '%s',\n        component: %sView,\n%s      },", kebab, prefix, meta)
+}
+
+func registerAstroResourcePage(frontendBase, kebab string) {
+	pagePath := filepath.Join(frontendBase, "pages", kebab+".astro")
+	if _, err := os.Stat(pagePath); err == nil {
+		fmt.Printf("[info] Page for %s already exists in src/pages\n", kebab)
+		return
+	}
+
+	page := fmt.Sprintf("---\n// Entry SPA: routing ditangani App (react-router) di sisi client.\nimport Layout from '@/layouts/Layout.astro'\n---\n\n<Layout />\n")
+	if err := os.WriteFile(pagePath, []byte(page), 0644); err != nil {
+		fmt.Printf("[error] Failed to create file %s: %v\n", pagePath, err)
+		return
+	}
+	fmt.Printf("[info] Created: %s\n", pagePath)
 }
 
 func appendSeederToDefault(baseDir, prefix string) {

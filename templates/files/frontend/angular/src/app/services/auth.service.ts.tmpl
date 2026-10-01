@@ -1,0 +1,49 @@
+import { Injectable, signal, computed } from '@angular/core'
+import Cookies from 'js-cookie'
+import { api, getRoleName, type User } from './api'
+
+@Injectable({ providedIn: 'root' })
+export class AuthService {
+  private readonly _user = signal<User | null>(null)
+  private readonly _loading = signal(false)
+
+  readonly user = this._user.asReadonly()
+  readonly isLoading = this._loading.asReadonly()
+  readonly isAuthenticated = computed(() => !!this._user() || !!Cookies.get('token'))
+{{- if .UseRole }}
+  readonly userRole = computed(() => getRoleName(this._user()?.role))
+{{- end }}
+
+  async fetchUser(): Promise<User | null> {
+    if (!Cookies.get('token')) {
+      this._user.set(null)
+      return null
+    }
+
+    this._loading.set(true)
+    try {
+      const res = await api.get('/api/me')
+      const fetched: User = res.data.data ?? res.data
+      this._user.set(fetched)
+      return fetched
+    } catch {
+      this._user.set(null)
+      Cookies.remove('token')
+      return null
+    } finally {
+      this._loading.set(false)
+    }
+  }
+
+  async logout(): Promise<void> {
+    try {
+      await api.post('/api/logout')
+    } catch (e) {
+      console.error(e)
+    } finally {
+      Cookies.remove('token')
+      this._user.set(null)
+      window.location.href = '/login'
+    }
+  }
+}

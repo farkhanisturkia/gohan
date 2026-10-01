@@ -1,0 +1,166 @@
+import { Component, inject, signal } from '@angular/core'
+import { Router, RouterLink } from '@angular/router'
+import axios from 'axios'
+import Cookies from 'js-cookie'
+import { api } from '../services/api'
+import { AuthService } from '../services/auth.service'
+
+@Component({
+  selector: 'app-login',
+  standalone: true,
+  imports: [RouterLink],
+  template: `
+    <div>
+      <div class="text-center mb-6">
+        <h2 class="text-xl font-black tracking-wide text-purple-950 dark:text-purple-300 uppercase">USER LOGIN</h2>
+        <p class="text-xs text-purple-600/80 dark:text-slate-400 mt-1 font-medium">Welcome to gohan</p>
+      </div>
+
+      <form (submit)="handleLogin($event)" class="space-y-4 max-w-sm mx-auto w-full">
+        <div class="relative">
+          <span class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-purple-400 dark:text-slate-500">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
+            </svg>
+          </span>
+          <input
+            [value]="email()"
+            (input)="onEmailInput($event)"
+            type="text"
+            placeholder="Username / Email"
+            required
+            autocomplete="username"
+            class="w-full pl-10 pr-4 py-2.5 rounded-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 placeholder-purple-300 dark:placeholder-slate-500 border border-slate-200 dark:border-slate-800 text-xs focus:outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-500/20 transition-all"
+          />
+        </div>
+
+        <div class="relative">
+          <span class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-purple-400 dark:text-slate-500">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd" />
+            </svg>
+          </span>
+          <input
+            [value]="password()"
+            (input)="onPasswordInput($event)"
+            [type]="showPassword() ? 'text' : 'password'"
+            placeholder="Password"
+            required
+            autocomplete="current-password"
+            class="w-full pl-10 pr-10 py-2.5 rounded-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 placeholder-purple-300 dark:placeholder-slate-500 border border-slate-200 dark:border-slate-800 text-xs focus:outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-500/20 transition-all"
+          />
+          <button
+            type="button"
+            (click)="showPassword.set(!showPassword())"
+            class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-purple-400 dark:text-slate-500 hover:text-purple-600 dark:hover:text-slate-300"
+          >
+            @if (!showPassword()) {
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+            } @else {
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3l18 18" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.585 10.587a2 2 0 002.828 2.826M6.534 6.546a9.97 9.97 0 00-4.076 5.454 9.97 9.97 0 019.542 7 9.97 9.97 0 004.46-3.307m2.166-4.862a9.97 9.97 0 00-2.59-3.836" />
+              </svg>
+            }
+          </button>
+        </div>
+
+        <div class="flex items-center justify-between text-xs text-purple-700 dark:text-purple-400 font-medium px-1 pt-1">
+          <label class="flex items-center space-x-2 cursor-pointer select-none">
+            <input
+              [checked]="rememberMe()"
+              (change)="onRememberChange($event)"
+              type="checkbox"
+              class="w-4 h-4 rounded border-slate-300 dark:border-slate-700 text-purple-700 dark:text-purple-500 focus:ring-purple-500 bg-transparent"
+            />
+            <span>Remember</span>
+          </label>
+{{- if .UseForgotPassword }}
+
+          <a routerLink="/forgot-password" class="hover:underline font-semibold">Forgot password ?</a>
+{{- end }}
+        </div>
+
+        @if (errorMessage()) {
+          <div class="text-rose-500 dark:text-rose-400 text-xs text-center font-medium pt-1">
+            {{ "{{" }} errorMessage() }}
+          </div>
+        }
+
+        <button
+          type="submit"
+          [disabled]="loading()"
+          class="w-full py-3 bg-purple-700 hover:bg-purple-800 active:bg-purple-900 dark:bg-purple-800 dark:hover:bg-purple-700 text-white font-bold tracking-wider rounded-2xl transition-all text-xs uppercase disabled:opacity-50 shadow-md shadow-purple-600/20 dark:shadow-purple-900/30 cursor-pointer"
+        >
+          {{ "{{" }} loading() ? 'AUTHENTICATING...' : 'LOGIN' }}
+        </button>
+{{- if .UseRegister }}
+
+        <div class="text-center pt-2">
+          <a routerLink="/register" class="text-xs text-purple-700 dark:text-purple-400 font-bold hover:underline">Create Account</a>
+        </div>
+{{- end }}
+      </form>
+    </div>
+  `,
+})
+export class LoginView {
+  private readonly auth = inject(AuthService)
+  private readonly router = inject(Router)
+
+  readonly email = signal('')
+  readonly password = signal('')
+  readonly showPassword = signal(false)
+  readonly rememberMe = signal(false)
+  readonly loading = signal(false)
+  readonly errorMessage = signal('')
+
+  onEmailInput(e: Event) {
+    this.email.set((e.target as HTMLInputElement).value.trim())
+  }
+
+  onPasswordInput(e: Event) {
+    this.password.set((e.target as HTMLInputElement).value)
+  }
+
+  onRememberChange(e: Event) {
+    this.rememberMe.set((e.target as HTMLInputElement).checked)
+  }
+
+  async handleLogin(event: Event) {
+    event.preventDefault()
+    this.errorMessage.set('')
+    this.loading.set(true)
+
+    try {
+      const res = await api.post('/api/login', {
+        email: this.email(),
+        password: this.password(),
+      })
+
+      const token = res.data.token || res.data.data?.token
+      if (token) {
+        const expires = this.rememberMe() ? 7 : 1
+        Cookies.set('token', token, {
+          expires,
+          sameSite: 'lax',
+          secure: window.location.protocol === 'https:',
+        })
+      }
+
+      await this.auth.fetchUser()
+      await this.router.navigate(['/dashboard'])
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        this.errorMessage.set(err.response?.data?.message || 'Login failed. Invalid credentials.')
+      } else {
+        this.errorMessage.set('An unexpected error occurred.')
+      }
+    } finally {
+      this.loading.set(false)
+    }
+  }
+}

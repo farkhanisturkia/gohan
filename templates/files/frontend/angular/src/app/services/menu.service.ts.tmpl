@@ -1,0 +1,54 @@
+import { Injectable, computed, inject } from '@angular/core'
+{{- if .UseRole }}
+import { AuthService } from './auth.service'
+{{- end }}
+
+export interface MenuItem {
+  path: string
+  label: string
+{{- if .UseRole }}
+  roles?: string[]
+{{- end }}
+}
+
+const menuItems: MenuItem[] = [
+  {
+    path: '/dashboard',
+    label: 'Dashboard',
+  },
+  {
+    path: '/users',
+    label: 'Users',
+{{- if .UseRole }}
+    roles: ['admin'],
+{{- end }}
+  },
+{{- if .UseRole }}
+  {
+    path: '/roles',
+    label: 'Roles',
+    roles: ['admin'],
+  },
+{{- end }}
+]
+
+@Injectable({ providedIn: 'root' })
+export class MenuService {
+{{- if .UseRole }}
+  private readonly auth = inject(AuthService)
+{{- end }}
+
+  readonly menuItems = menuItems
+
+  readonly visibleMenus = computed<MenuItem[]>(() => {
+{{- if .UseRole }}
+    const role = this.auth.userRole()
+    return menuItems.filter((item) => {
+      if (!item.roles || item.roles.length === 0) return true
+      return !!role && item.roles.includes(role)
+    })
+{{- else }}
+    return menuItems
+{{- end }}
+  })
+}

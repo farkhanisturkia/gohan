@@ -1,0 +1,86 @@
+import { useCallback, useSyncExternalStore } from 'react'
+import Cookies from 'js-cookie'
+import api from '@/lib/axios'
+
+interface User {
+  id: number
+  name: string
+  email: string
+{{- if .UseRole }}
+  role?: string | { id: number; name: string }
+{{- end }}
+}
+
+let currentUser: User | null = null
+let authLoading = false
+const listeners = new Set<() => void>()
+
+function setUser(next: User | null) {
+  currentUser = next
+  listeners.forEach((listener) => listener())
+}
+
+function setAuthLoading(loading: boolean) {
+  authLoading = loading
+  listeners.forEach((listener) => listener())
+}
+
+function subscribe(onStoreChange: () => void) {
+  listeners.add(onStoreChange)
+  return () => listeners.delete(onStoreChange)
+}
+
+export function useAuth() {
+  const user = useSyncExternalStore(
+    subscribe,
+    () => currentUser,
+    () => currentUser,
+  )
+  const isLoading = useSyncExternalStore(
+    subscribe,
+    () => authLoading,
+    () => authLoading,
+  )
+
+  const isAuthenticated = !!user || !!Cookies.get('token')
+
+  const fetchUser = useCallback(async () => {
+    if (!Cookies.get('token')) {
+      setUser(null)
+      return null
+    }
+    setAuthLoading(true)
+    try {
+      const res = await api.get('/api/me')
+      const fetched = res.data.data ?? res.data
+      setUser(fetched)
+      return fetched
+    } catch {
+      setUser(null)
+      Cookies.remove('token')
+      return null
+    } finally {
+      setAuthLoading(false)
+    }
+  }, [])
+
+  const logout = useCallback(async () => {
+    try {
+      await api.post('/api/logout')
+    } catch (e) {
+      console.error(e)
+    } finally {
+      Cookies.remove('token')
+      setUser(null)
+      window.location.href = '/login'
+    }
+  }, [])
+
+  return {
+    user,
+    isLoading,
+    isAuthenticated,
+    fetchUser,
+    logout,
+  }
+}

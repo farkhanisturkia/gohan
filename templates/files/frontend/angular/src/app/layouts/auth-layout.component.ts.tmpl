@@ -1,0 +1,155 @@
+import { Component, computed, inject, signal } from '@angular/core'
+import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router'
+{{- if .UseAuth }}
+import { NgClass } from '@angular/common'
+import { AuthService } from '../services/auth.service'
+import { MenuService } from '../services/menu.service'
+{{- end }}
+
+@Component({
+  selector: 'app-auth-layout',
+  standalone: true,
+{{- if .UseAuth }}
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, NgClass],
+{{- else }}
+  imports: [RouterOutlet],
+{{- end }}
+  template: `
+    <div class="min-h-screen bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100 flex flex-col font-sans transition-colors duration-300">
+      <header class="w-full border-b border-slate-200 bg-white/80 dark:border-slate-800/80 dark:bg-slate-950/80 backdrop-blur-md sticky top-0 z-40 shadow-sm transition-colors duration-300">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+          <div class="flex items-center gap-3 md:w-1/4">
+{{- if .UseAuth }}
+            @if (user()) {
+              <button
+                (click)="toggleMobileMenu()"
+                type="button"
+                class="md:hidden p-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-600 hover:text-slate-900 dark:bg-slate-900 dark:border-slate-800 dark:text-slate-300 dark:hover:text-white transition-colors"
+                aria-label="Toggle Navigation Menu"
+              >
+                @if (isMobileMenuOpen()) {
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                } @else {
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                }
+              </button>
+            }
+{{- end }}
+
+            <a routerLink="/" class="flex items-center gap-2.5 group" [ngClass]="user() ? 'hidden md:flex' : ''">
+              <div class="w-10 h-10 rounded-2xl bg-purple-700 flex items-center justify-center font-black text-white text-sm shadow-md shadow-purple-200 dark:shadow-purple-900/30 group-hover:bg-purple-600 transition-colors shrink-0">
+                GF
+              </div>
+              <div class="flex flex-col justify-center">
+                <h1 class="text-base font-bold tracking-tight text-slate-900 dark:text-white leading-none whitespace-nowrap">Gohan Framework</h1>
+                <span class="text-[10px] uppercase tracking-widest text-purple-600 dark:text-purple-400 font-semibold mt-0.5">Fullstack Edition</span>
+              </div>
+            </a>
+          </div>
+
+{{- if .UseAuth }}
+          <div class="hidden md:flex flex-1 items-center justify-center">
+            @if (user()) {
+              <nav class="flex items-center gap-2 p-1 bg-slate-100 border border-slate-200 dark:bg-slate-900/60 dark:border-slate-800/80 rounded-full">
+                @for (menu of visibleMenus(); track menu.path) {
+                  <a
+                    [routerLink]="menu.path"
+                    routerLinkActive="!text-purple-700 !bg-white dark:!text-purple-300 dark:!bg-purple-950/80 dark:border dark:border-purple-800/50 shadow-sm font-bold"
+                    [routerLinkActiveOptions]="{ exact: false }"
+                    class="px-4 py-1.5 rounded-full text-xs transition-all duration-200 font-semibold text-slate-600 dark:text-slate-400 hover:text-purple-700 dark:hover:text-white hover:bg-white dark:hover:bg-slate-800/80"
+                  >
+                    {{ "{{" }} menu.label }}
+                  </a>
+                }
+              </nav>
+            }
+          </div>
+{{- end }}
+
+          <div class="flex items-center justify-end md:w-1/4">
+{{- if .UseAuth }}
+            @if (user()) {
+              <button
+                (click)="handleLogout()"
+                class="px-4 py-1.5 sm:px-5 sm:py-2 rounded-full text-[11px] sm:text-xs font-bold bg-purple-700 hover:bg-purple-800 dark:bg-purple-800 dark:hover:bg-purple-700 text-white shadow-md shadow-purple-200 dark:shadow-purple-900/30 transition-all cursor-pointer"
+              >
+                LOGOUT
+              </button>
+            } @else {
+              <a
+                routerLink="/login"
+                class="px-4 py-1.5 sm:px-5 sm:py-2 rounded-full text-[11px] sm:text-xs font-bold bg-purple-700 hover:bg-purple-800 dark:bg-purple-800 dark:hover:bg-purple-700 text-white shadow-md shadow-purple-200 dark:shadow-purple-900/30 transition-all cursor-pointer inline-flex items-center justify-center"
+              >
+                LOGIN
+              </a>
+            }
+{{- end }}
+          </div>
+        </div>
+
+{{- if .UseAuth }}
+        <div
+          class="md:hidden border-t border-slate-200 dark:border-slate-800/80 bg-white/95 dark:bg-slate-950/95 px-4 py-4 space-y-3 transition-all duration-200 ease-out"
+          [ngClass]="isMobileMenuOpen() && user() ? 'opacity-100 translate-y-0' : 'hidden opacity-0 -translate-y-2'"
+        >
+          <div class="flex items-center gap-2.5 pb-3 border-b border-slate-200 dark:border-slate-800/80 px-1">
+            <div class="w-8 h-8 rounded-xl bg-purple-700 flex items-center justify-center font-black text-white text-xs shadow-md shadow-purple-200 dark:shadow-purple-900/30 shrink-0">
+              GF
+            </div>
+            <div>
+              <h2 class="text-xs font-bold text-slate-900 dark:text-white leading-none">Gohan Framework</h2>
+              <span class="text-[9px] uppercase tracking-widest text-purple-600 dark:text-purple-400 font-medium block mt-0.5">Fullstack Edition</span>
+            </div>
+          </div>
+
+          <nav class="flex flex-col gap-1.5">
+            @for (menu of visibleMenus(); track menu.path) {
+              <a
+                [routerLink]="menu.path"
+                routerLinkActive="!text-purple-700 !bg-purple-50 dark:!text-purple-300 dark:!bg-purple-950/80 dark:border dark:border-purple-800/50 font-bold"
+                [routerLinkActiveOptions]="{ exact: false }"
+                (click)="closeMobileMenu()"
+                class="px-4 py-2.5 rounded-xl text-xs transition-all font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-900"
+              >
+                {{ "{{" }} menu.label }}
+              </a>
+            }
+          </nav>
+        </div>
+{{- end }}
+      </header>
+
+      <main class="w-full max-w-7xl mx-auto flex-1 p-4 sm:p-6 md:p-8 space-y-6">
+        <router-outlet />
+      </main>
+    </div>
+  `,
+})
+export class AuthLayoutComponent {
+{{- if .UseAuth }}
+  private readonly auth = inject(AuthService)
+  private readonly menu = inject(MenuService)
+
+  readonly user = computed(() => this.auth.user())
+  readonly visibleMenus = computed(() => this.menu.visibleMenus())
+
+  readonly isMobileMenuOpen = signal(false)
+
+  toggleMobileMenu() {
+    this.isMobileMenuOpen.update((v) => !v)
+  }
+
+  closeMobileMenu() {
+    this.isMobileMenuOpen.set(false)
+  }
+
+  async handleLogout() {
+    this.closeMobileMenu()
+    await this.auth.logout()
+  }
+{{- end }}
+}

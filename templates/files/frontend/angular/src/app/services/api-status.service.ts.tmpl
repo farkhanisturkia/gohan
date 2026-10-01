@@ -1,0 +1,48 @@
+import { Injectable } from '@angular/core'
+import { signal } from '@angular/core'
+import { api, formatError } from './api'
+
+interface EndpointState {
+  method: string
+  path: string
+  errorLabel: string
+  loading: ReturnType<typeof signal<boolean>>
+  error: ReturnType<typeof signal<boolean>>
+  display: ReturnType<typeof signal<string>>
+}
+
+@Injectable({ providedIn: 'root' })
+export class ApiStatusService {
+  private makeEndpoint(method: string, path: string, errorLabel: string): EndpointState {
+    const loading = signal(true)
+    const error = signal(false)
+    const display = signal('Fetching data...')
+
+    api
+      .get(path)
+      .then((res) => display.set(JSON.stringify(res.data, null, 2)))
+      .catch((err) => {
+        error.set(true)
+        display.set(formatError(err))
+      })
+      .finally(() => loading.set(false))
+
+    return { method, path, errorLabel, loading, error, display }
+  }
+
+  readonly version = signal('')
+
+  readonly versionLabel = () => (this.version() ? `version ${this.version()}` : 'version loading...')
+
+  readonly endpoints = [
+    this.makeEndpoint('GET', '/ping', 'Offline'),
+    this.makeEndpoint('GET', '/check-public', 'Failed'),
+  ]
+
+  constructor() {
+    api
+      .get('/version')
+      .then((res) => this.version.set(res.data?.version ?? ''))
+      .catch(() => this.version.set(''))
+  }
+}

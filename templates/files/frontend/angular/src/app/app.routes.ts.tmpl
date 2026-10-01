@@ -1,0 +1,70 @@
+import type { Routes } from '@angular/router'
+import { AuthLayoutComponent } from './layouts/auth-layout.component'
+import { HomeView } from './views/home.view'
+{{- if .UseAuth }}
+import { AuthGuard, GuestGuard } from './services/auth.guard'
+import { GuestLayoutComponent } from './layouts/guest-layout.component'
+import { DashboardView } from './views/dashboard.view'
+import { UsersView } from './views/users.view'
+import { LoginView } from './views/login.view'
+{{- if .UseRegister }}
+import { RegisterView } from './views/register.view'
+{{- end }}
+{{- if .UseForgotPassword }}
+import { ForgotPasswordView } from './views/forgot-password.view'
+{{- end }}
+{{- if .UseRole }}
+import { RolesView } from './views/roles.view'
+{{- end }}
+{{- end }}
+
+export const routes: Routes = [
+  {
+    path: '',
+    component: AuthLayoutComponent,
+    children: [
+      { path: '', component: HomeView },
+{{- if .UseAuth }}
+      {
+        path: 'dashboard',
+        component: DashboardView,
+        canActivate: [AuthGuard],
+      },
+      {
+        path: 'users',
+        component: UsersView,
+        canActivate: [AuthGuard],
+{{- if .UseRole }}
+        data: { roles: ['admin'] },
+{{- end }}
+      },
+{{- if .UseRole }}
+      {
+        path: 'roles',
+        component: RolesView,
+        canActivate: [AuthGuard],
+        data: { roles: ['admin'] },
+      },
+{{- end }}
+{{- end }}
+    ],
+  },
+
+{{- if .UseAuth }}
+  {
+    path: '',
+    component: GuestLayoutComponent,
+    children: [
+      { path: 'login', component: LoginView, canActivate: [GuestGuard] },
+{{- if .UseRegister }}
+      { path: 'register', component: RegisterView, canActivate: [GuestGuard] },
+{{- end }}
+{{- if .UseForgotPassword }}
+      { path: 'forgot-password', component: ForgotPasswordView, canActivate: [GuestGuard] },
+{{- end }}
+    ],
+  },
+{{- end }}
+
+  { path: '**', redirectTo: '' },
+]

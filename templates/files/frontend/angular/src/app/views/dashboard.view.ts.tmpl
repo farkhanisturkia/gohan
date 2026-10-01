@@ -1,0 +1,84 @@
+import { Component, computed, inject } from '@angular/core'
+{{- if .UseAuth }}
+import { AuthService } from '../services/auth.service'
+{{- end }}
+
+@Component({
+  selector: 'app-dashboard',
+  standalone: true,
+  template: `
+    <div class="space-y-6 font-sans">
+      <!-- Welcome Header / Main Card -->
+      <div class="bg-white dark:bg-slate-900 border border-purple-100 dark:border-slate-800 rounded-3xl p-6 md:p-8 shadow-2xl transition-colors duration-300 relative overflow-hidden">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+          <div>
+            <h2 class="text-2xl md:text-3xl font-bold text-purple-950 dark:text-purple-100 tracking-tight">Dashboard</h2>
+            <p class="text-xs text-purple-400 dark:text-purple-400 mt-0.5 font-medium">Gohan Framework Control Panel</p>
+          </div>
+
+{{- if .UseAuth }}
+          <span class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold bg-emerald-500/10 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/50 self-start sm:self-auto shadow-xs">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            Protected Area
+          </span>
+{{- end }}
+        </div>
+
+        <p class="text-purple-900/70 dark:text-slate-400 text-sm mb-6 leading-relaxed">
+{{- if .UseAuth }}
+          Welcome back, <strong class="text-purple-950 dark:text-purple-100 font-bold">{{ "{{" }} displayName() }}</strong>! You have successfully authenticated using the
+          <code class="text-purple-800 dark:text-purple-300 bg-purple-100/60 dark:bg-slate-950 px-2.5 py-1 rounded-full font-mono text-xs border border-purple-200 dark:border-slate-800 font-bold uppercase tracking-wider ml-1">{{ "{{" }} strategy }}</code> strategy.
+{{- else }}
+          Welcome to your Gohan Framework application panel!
+{{- end }}
+        </p>
+
+{{- if .UseAuth }}
+        <div class="grid grid-cols-1 {{ if .UseRole }}md:grid-cols-3{{ else }}md:grid-cols-2{{ end }} gap-5 mt-6">
+          <!-- Card User ID -->
+          <div class="p-5 bg-purple-50/50 dark:bg-slate-950 border border-purple-100 dark:border-slate-800/80 rounded-2xl shadow-xs transition-all duration-300 hover:border-purple-300 dark:hover:border-purple-800">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-purple-400 dark:text-slate-500 text-xs font-bold uppercase tracking-wider">User ID</span>
+            </div>
+            <div class="text-xl font-bold font-mono text-purple-950 dark:text-purple-100">{{ "{{" }} userId() }}</div>
+          </div>
+
+          <!-- Card Email -->
+          <div class="p-5 bg-purple-50/50 dark:bg-slate-950 border border-purple-100 dark:border-slate-800/80 rounded-2xl shadow-xs transition-all duration-300 hover:border-purple-300 dark:hover:border-purple-800">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-purple-400 dark:text-slate-500 text-xs font-bold uppercase tracking-wider">Email Address</span>
+            </div>
+            <div class="text-xl font-bold font-mono text-purple-950 dark:text-purple-100 truncate" [title]="email()">{{ "{{" }} email() }}</div>
+          </div>
+
+{{- if .UseRole }}
+          <!-- Card Role -->
+          <div class="p-5 bg-purple-50/50 dark:bg-slate-950 border border-purple-100 dark:border-slate-800/80 rounded-2xl shadow-xs transition-all duration-300 hover:border-purple-300 dark:hover:border-purple-800">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-purple-400 dark:text-slate-500 text-xs font-bold uppercase tracking-wider">Role / Access Level</span>
+            </div>
+            <div class="text-xl font-bold font-mono text-purple-800 dark:text-purple-300 uppercase tracking-wider">{{ "{{" }} userRole() }}</div>
+          </div>
+{{- end }}
+
+        </div>
+{{- end }}
+      </div>
+    </div>
+  `,
+})
+export class DashboardView {
+{{- if .UseAuth }}
+  private readonly auth = inject(AuthService)
+
+  private readonly user = this.auth.user
+
+  readonly displayName = computed(() => this.user()?.name ?? 'User')
+  readonly email = computed(() => this.user()?.email ?? '-')
+  readonly userId = computed(() => this.user()?.id ?? '-')
+{{- if .UseRole }}
+  readonly userRole = computed(() => this.auth.userRole() ?? 'user')
+{{- end }}
+  readonly strategy = '{{ if eq .AuthType "jwt" }}JWT{{ else }}PAT{{ end }}'
+{{- end }}
+}

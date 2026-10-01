@@ -1,0 +1,302 @@
+import { Component, computed, inject, signal } from '@angular/core'
+import { NgClass } from '@angular/common'
+import { injectQuery, injectMutation, keepPreviousData, injectQueryClient } from '@tanstack/angular-query-experimental'
+import { api } from '../services/api'
+import { createPaginationState } from '../services/pagination.service'
+
+interface Role {
+  id: number
+  name: string
+}
+
+const emptyForm = { name: '' }
+
+@Component({
+  selector: 'app-roles',
+  standalone: true,
+  imports: [NgClass],
+  template: `
+    <div class="space-y-6 font-sans" (document:click)="closeMenu()">
+      <!-- Top Bar & Title -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-2xl md:text-3xl font-bold text-purple-950 dark:text-purple-100 tracking-tight">Roles Management</h2>
+          <p class="text-xs text-purple-400 dark:text-purple-400 mt-0.5 font-medium">Manage your role data</p>
+        </div>
+
+        <button
+          (click)="openCreateModal(); $event.stopPropagation()"
+          class="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-purple-800 hover:bg-purple-900 dark:bg-purple-700 dark:hover:bg-purple-600 text-white font-bold rounded-full text-xs transition-all shadow-md hover:shadow-purple-900/20 uppercase tracking-wider cursor-pointer self-start sm:self-auto"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+          Add Role
+        </button>
+      </div>
+
+      <!-- Roles Container Card -->
+      <div class="bg-white dark:bg-slate-900 border border-purple-100 dark:border-slate-800 rounded-3xl shadow-2xl overflow-hidden transition-colors duration-300">
+        @if (query.isLoading()) {
+          <div class="p-8 text-center text-purple-400 dark:text-slate-500 font-medium">Loading roles...</div>
+        } @else if (query.isError()) {
+          <div class="p-8 text-center text-rose-500 font-medium">Failed to load roles list.</div>
+        } @else {
+          <!-- MOBILE -->
+          <div class="block md:hidden divide-y divide-purple-100/60 dark:divide-slate-800/80">
+            @for (r of items(); track r.id) {
+              <div class="p-4 flex items-center justify-between gap-3 hover:bg-purple-50/30 dark:hover:bg-slate-800/30 transition-colors">
+                <div class="min-w-0 flex-1 space-y-1">
+                  <div class="flex items-center gap-2">
+                    <span class="font-mono text-[10px] text-purple-400 dark:text-slate-500">#{{ "{{" }} r.id }}</span>
+                    <h3 class="font-bold text-sm text-purple-950 dark:text-purple-100 truncate capitalize">{{ "{{" }} r.name }}</h3>
+                  </div>
+                </div>
+
+                <div class="relative shrink-0" (click)="$event.stopPropagation()">
+                  <button
+                    (click)="toggleMenu(r.id)"
+                    class="p-2 text-slate-400 hover:text-purple-900 dark:hover:text-purple-200 rounded-full hover:bg-purple-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                  >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01"></path>
+                    </svg>
+                  </button>
+
+                  @if (activeMenuId() === r.id) {
+                    <div class="absolute right-0 mt-1 w-32 bg-white dark:bg-slate-800 border border-purple-100 dark:border-slate-700 rounded-2xl shadow-xl z-20 py-1.5 transition-all overflow-hidden">
+                      <button (click)="openEditModal(r)" class="w-full px-4 py-2 text-left text-xs font-bold text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 flex items-center gap-2 cursor-pointer">Edit</button>
+                      <button (click)="askDelete(r.id)" class="w-full px-4 py-2 text-left text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2 cursor-pointer">Delete</button>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+
+          <!-- DESKTOP -->
+          <div class="hidden md:block overflow-x-auto">
+            <table class="w-full text-left text-sm text-purple-900/80 dark:text-slate-300">
+              <thead class="bg-purple-50/70 dark:bg-slate-950/80 border-b border-purple-100 dark:border-slate-800 text-purple-950 dark:text-purple-300 uppercase text-[11px] font-bold tracking-wider">
+                <tr>
+                  <th class="p-4 pl-6 w-24">ID</th>
+                  <th class="p-4">Role Name</th>
+                  <th class="p-4 pr-6 text-right w-36">Actions</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-purple-100/60 dark:divide-slate-800/80">
+                @for (r of items(); track r.id) {
+                  <tr class="hover:bg-purple-50/40 dark:hover:bg-slate-800/40 transition-colors">
+                    <td class="p-4 pl-6 font-mono text-xs text-purple-400 dark:text-slate-500">#{{ "{{" }} r.id }}</td>
+                    <td class="p-4 font-bold text-purple-950 dark:text-purple-100 capitalize">
+                      <span class="px-3 py-1 bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800/50 rounded-full text-xs font-mono font-bold tracking-wider inline-block">
+                        {{ "{{" }} r.name }}
+                      </span>
+                    </td>
+                    <td class="p-4 pr-6 text-right">
+                      <div class="flex items-center justify-end gap-1.5">
+                        <button (click)="openEditModal(r)" title="Edit Role" class="p-2 text-amber-600 dark:text-amber-400 hover:bg-amber-100/80 dark:hover:bg-amber-950/50 rounded-xl transition-all cursor-pointer">
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                          </svg>
+                        </button>
+                        <button (click)="askDelete(r.id)" title="Delete Role" class="p-2 text-rose-600 dark:text-rose-400 hover:bg-rose-100/80 dark:hover:bg-rose-950/50 rounded-xl transition-all cursor-pointer">
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                          </svg>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Pagination (center) -->
+          @if (pagination.totalItems() > 0) {
+            <div class="border-t border-purple-100 dark:border-slate-800 px-4 py-4 bg-purple-50/30 dark:bg-slate-950/40">
+              <div class="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 flex-wrap">
+                <span class="text-xs text-purple-900/60 dark:text-slate-500 font-medium">
+                  Showing {{ "{{" }} items().length }} of {{ "{{" }} pagination.totalItems() }} roles
+                </span>
+
+                <div class="flex items-center gap-1.5">
+                  <button
+                    (click)="pagination.changePage(pagination.currentPage() - 1)"
+                    [disabled]="pagination.currentPage() <= 1"
+                    class="px-3 py-1.5 text-xs font-bold rounded-full border border-purple-200 dark:border-slate-700 text-purple-800 dark:text-purple-300 bg-white dark:bg-slate-900 hover:bg-purple-100 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+                  >
+                    Prev
+                  </button>
+
+                  @for (p of pagination.paginationPages(); track $index) {
+                    @if (p === '...') {
+                      <span class="px-1 text-xs text-purple-400 dark:text-slate-600 font-bold">…</span>
+                    } @else {
+                      <button
+                        (click)="pagination.changePage(Number(p))"
+                        [ngClass]="p === pagination.currentPage() ? 'bg-purple-800 dark:bg-purple-700 text-white border-purple-800 dark:border-purple-700 shadow-md' : 'bg-white dark:bg-slate-900 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-slate-700 hover:bg-purple-100 dark:hover:bg-slate-800'"
+                        class="min-w-[2rem] px-2 py-1.5 text-xs font-bold rounded-full border transition-all cursor-pointer"
+                      >
+                        {{ "{{" }} p }}
+                      </button>
+                    }
+                  }
+
+                  <button
+                    (click)="pagination.changePage(pagination.currentPage() + 1)"
+                    [disabled]="pagination.currentPage() >= pagination.lastPage()"
+                    class="px-3 py-1.5 text-xs font-bold rounded-full border border-purple-200 dark:border-slate-700 text-purple-800 dark:text-purple-300 bg-white dark:bg-slate-900 hover:bg-purple-100 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+                  >
+                    Next
+                  </button>
+                </div>
+
+                <label class="flex items-center gap-2 text-xs text-purple-900/60 dark:text-slate-500 font-medium">
+                  Per page
+                  <select
+                    (change)="pagination.setPerPage(Number($any($event.target).value))"
+                    class="px-2 py-1.5 bg-white dark:bg-slate-900 border border-purple-200 dark:border-slate-700 rounded-full text-xs font-bold text-purple-800 dark:text-purple-300 focus:outline-none focus:border-purple-600 dark:focus:border-purple-500 cursor-pointer"
+                  >
+                    @for (opt of pagination.perPageOptions; track opt) {
+                      <option [value]="opt" [selected]="pagination.perPage() === opt">{{ "{{" }} opt }}</option>
+                    }
+                  </select>
+                </label>
+              </div>
+            </div>
+          }
+        }
+      </div>
+
+      <!-- Create / Edit Role Modal -->
+      @if (showModal()) {
+        <div class="fixed inset-0 bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4 z-50">
+          <div class="bg-white dark:bg-slate-900 border border-purple-100 dark:border-slate-800 rounded-3xl p-6 md:p-8 w-full max-w-md shadow-2xl relative overflow-hidden transition-colors duration-300">
+            <div class="flex items-center justify-between mb-6">
+              <h3 class="text-xl font-bold text-purple-950 dark:text-purple-100">
+                {{ "{{" }} isEditing() ? 'Edit Role' : 'Add New Role' }}
+              </h3>
+              <button (click)="closeModal()" class="text-purple-400 hover:text-purple-900 dark:hover:text-purple-200 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+              </button>
+            </div>
+
+            <form (submit)="handleSubmit($event)" class="space-y-4">
+              <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-purple-900/70 dark:text-slate-400 mb-1.5">Role Name</label>
+                <input [value]="form().name" (input)="form.update((f) => ({ ...f, name: $any($event.target).value.trim() }))" type="text" required placeholder="e.g. admin, manager, user"
+                  class="w-full px-4 py-2.5 bg-purple-50/50 dark:bg-slate-950 border border-purple-100 dark:border-slate-800 rounded-xl text-purple-950 dark:text-white placeholder-purple-300 dark:placeholder-slate-600 focus:outline-none focus:border-purple-600 dark:focus:border-purple-500 text-sm transition-all" />
+              </div>
+
+              <div class="flex items-center justify-end space-x-3 pt-4">
+                <button type="button" (click)="closeModal()" class="px-5 py-2.5 bg-purple-50 dark:bg-slate-800 hover:bg-purple-100 dark:hover:bg-slate-700 text-purple-900 dark:text-slate-300 font-bold rounded-full text-xs transition-all cursor-pointer">
+                  Cancel
+                </button>
+                <button type="submit" [disabled]="isSubmitting()" class="px-5 py-2.5 bg-purple-800 hover:bg-purple-900 dark:bg-purple-700 dark:hover:bg-purple-600 text-white font-bold rounded-full text-xs transition-all shadow-md uppercase tracking-wider cursor-pointer">
+                  {{ "{{" }} isSubmitting() ? \'Saving...\' : (isEditing() ? \'Update Role\' : \'Save Role\') }}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      }
+    </div>
+  `,
+})
+export class RolesView {
+  readonly pagination = createPaginationState()
+
+  readonly queryClient = injectQueryClient()
+
+  readonly activeMenuId = signal<number | null>(null)
+  readonly showModal = signal(false)
+  readonly isEditing = signal(false)
+  readonly editingRoleId = signal<number | null>(null)
+  readonly form = signal({ ...emptyForm })
+
+  readonly query = injectQuery(() => ({
+    queryKey: ['roles', this.pagination.currentPage(), this.pagination.perPage()],
+    queryFn: async () => {
+      const res = await api.get('/api/roles', { params: this.pagination.queryParams() })
+      return this.pagination.applyResponse(res.data.data)
+    },
+    placeholderData: keepPreviousData,
+  }))
+
+  readonly items = computed<Role[]>(() => (this.query.data() as Role[]) ?? [])
+
+  private readonly createMutation = injectMutation(() => ({
+    mutationFn: async (newRole: typeof emptyForm) => {
+      await api.post('/api/roles', newRole)
+    },
+    onSuccess: () => {
+      this.queryClient.invalidateQueries({ queryKey: ['roles'] })
+      this.closeModal()
+    },
+  }))
+
+  private readonly updateMutation = injectMutation(() => ({
+    mutationFn: async ({ id, data }: { id: number; data: typeof emptyForm }) => {
+      await api.put(`/api/roles/${id}`, data)
+    },
+    onSuccess: () => {
+      this.queryClient.invalidateQueries({ queryKey: ['roles'] })
+      this.closeModal()
+    },
+  }))
+
+  private readonly deleteMutation = injectMutation(() => ({
+    mutationFn: async (id: number) => {
+      await api.delete(`/api/roles/${id}`)
+    },
+    onSuccess: () => {
+      this.queryClient.invalidateQueries({ queryKey: ['roles'] })
+    },
+  }))
+
+  readonly isSubmitting = computed(() => this.createMutation.isPending() || this.updateMutation.isPending())
+
+  toggleMenu(id: number) {
+    this.activeMenuId.update((v) => (v === id ? null : id))
+  }
+
+  closeMenu() {
+    this.activeMenuId.set(null)
+  }
+
+  openCreateModal() {
+    this.isEditing.set(false)
+    this.editingRoleId.set(null)
+    this.form.set({ ...emptyForm })
+    this.showModal.set(true)
+  }
+
+  openEditModal(role: Role) {
+    this.closeMenu()
+    this.isEditing.set(true)
+    this.editingRoleId.set(role.id)
+    this.form.set({ name: role.name })
+    this.showModal.set(true)
+  }
+
+  closeModal() {
+    this.showModal.set(false)
+  }
+
+  askDelete(id: number) {
+    this.closeMenu()
+    if (confirm('Are you sure you want to delete this role?')) {
+      this.deleteMutation.mutate(id)
+    }
+  }
+
+  handleSubmit(event: Event) {
+    event.preventDefault()
+    const editingId = this.editingRoleId()
+    if (this.isEditing() && editingId) {
+      this.updateMutation.mutate({ id: editingId, data: this.form() })
+    } else {
+      this.createMutation.mutate(this.form())
+    }
+  }
+}

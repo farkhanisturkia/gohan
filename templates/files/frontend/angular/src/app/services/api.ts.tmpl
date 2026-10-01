@@ -1,0 +1,54 @@
+import axios from 'axios'
+import Cookies from 'js-cookie'
+
+export const api = axios.create({
+  baseURL: 'http://localhost:8080',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  withCredentials: true,
+})
+
+// Attach token from cookie to request headers
+api.interceptors.request.use((config) => {
+  const token = Cookies.get('token')
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
+
+// Handle 401 Unauthorized globally
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      Cookies.remove('token')
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login'
+      }
+    }
+    return Promise.reject(error)
+  },
+)
+
+export const formatError = (error: unknown): string => {
+  if (axios.isAxiosError(error)) {
+    return error.response?.data?.message ?? error.message
+  }
+  return String(error)
+}
+
+export type User = {
+  id: number
+  name: string
+  email: string
+{{- if .UseRole }}
+  role?: string | { id: number; name: string }
+{{- end }}
+}
+
+export const getRoleName = (role?: string | { name: string }): string | null => {
+  if (!role) return null
+  return typeof role === 'object' ? role.name : role
+}
