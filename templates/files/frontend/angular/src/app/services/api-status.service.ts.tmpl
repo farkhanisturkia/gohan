@@ -34,10 +34,10 @@ export class ApiStatusService {
 
   readonly versionLabel = () => (this.version() ? `version ${this.version()}` : 'version loading...')
 
-  readonly endpoints = [
+  readonly endpoints = signal([
     this.makeEndpoint('GET', '/ping', 'Offline'),
     this.makeEndpoint('GET', '/check-public', 'Failed'),
-  ]
+  ])
 
   constructor() {
     api

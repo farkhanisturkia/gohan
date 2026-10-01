@@ -154,7 +154,7 @@ const emptyForm = {
                       <span class="px-1 text-xs text-purple-400 dark:text-slate-600 font-bold">…</span>
                     } @else {
                       <button
-                        (click)="pagination.changePage(Number(p))"
+                        (click)="pagination.changePage(toNum(p))"
                         [ngClass]="p === pagination.currentPage() ? 'bg-purple-800 dark:bg-purple-700 text-white border-purple-800 dark:border-purple-700 shadow-md' : 'bg-white dark:bg-slate-900 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-slate-700 hover:bg-purple-100 dark:hover:bg-slate-800'"
                         class="min-w-[2rem] px-2 py-1.5 text-xs font-bold rounded-full border transition-all cursor-pointer"
                       >
@@ -175,7 +175,7 @@ const emptyForm = {
                 <label class="flex items-center gap-2 text-xs text-purple-900/60 dark:text-slate-500 font-medium">
                   Per page
                   <select
-                    (change)="pagination.setPerPage(Number($any($event.target).value))"
+                    (change)="pagination.setPerPage(toNum($any($event.target).value))"
                     class="px-2 py-1.5 bg-white dark:bg-slate-900 border border-purple-200 dark:border-slate-700 rounded-full text-xs font-bold text-purple-800 dark:text-purple-300 focus:outline-none focus:border-purple-600 dark:focus:border-purple-500 cursor-pointer"
                   >
                     @for (opt of pagination.perPageOptions; track opt) {
@@ -227,7 +227,7 @@ const emptyForm = {
               <div>
                 <label class="block text-xs font-bold uppercase tracking-wider text-purple-900/70 dark:text-slate-400 mb-1.5">Role</label>
                 <select
-                  (change)="updateForm('role_id', Number($any($event.target).value))"
+                  (change)="updateForm('role_id', toNum($any($event.target).value))"
                   required
                   class="w-full px-4 py-2.5 bg-purple-50/50 dark:bg-slate-950 border border-purple-100 dark:border-slate-800 rounded-xl text-purple-950 dark:text-white focus:outline-none focus:border-purple-600 dark:focus:border-purple-500 text-sm capitalize transition-all"
                 >
@@ -276,6 +276,10 @@ export class UsersView {
 
   readonly items = computed<User[]>(() => (this.query.data() as User[]) ?? [])
 
+  toNum(value: string | number): number {
+    return Number(value)
+  }
+
 {{- if .UseRole }}
   readonly rolesQuery = injectQuery(() => ({
     queryKey: ['roles'],
@@ -306,9 +310,7 @@ export class UsersView {
 {{- if .UseRole }}
         role_id: data.role_id,
 {{- end }}
-      }
-      if (data.password) {
-        payload.password = data.password
+        ...(data.password ? { password: data.password } : {}),
       }
       await api.put(`/api/users/${id}`, payload)
     },
@@ -391,9 +393,10 @@ export class UsersView {
 {{- if .UseRole }}
   private resolveRoleId(user: User): number {
     if (user.role_id) return user.role_id
-    if (typeof user.role === 'object' && user.role !== null) return user.role.id || 0
-    if (typeof user.role === 'string') {
-      const found = this.roles().find((r) => r.name.toLowerCase() === user.role?.toLowerCase())
+    const role = user.role
+    if (typeof role === 'object' && role !== null) return role.id || 0
+    if (typeof role === 'string') {
+      const found = this.roles().find((r) => r.name.toLowerCase() === role.toLowerCase())
       if (found) return found.id
     }
     return 0
