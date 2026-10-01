@@ -26,11 +26,12 @@ export default function LoginView() {
       const res = await api.post('/api/login', {
         email: email.trim(),
         password: password,
+        remember_me: rememberMe,
       })
 
       const token = res.data.token || res.data.data?.token
       if (token) {
-        const expires = rememberMe ? 7 : 1
+        const expires = rememberMe ? 31 : 2
         Cookies.set('token', token, {
           expires,
           sameSite: 'lax',
