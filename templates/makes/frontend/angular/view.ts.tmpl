@@ -86,7 +86,7 @@ const emptyForm = { name: '' }
                 @for (item of items(); track item.id) {
                   <tr class="hover:bg-purple-50/40 dark:hover:bg-slate-800/40 transition-colors">
                     <td class="p-4 pl-6 font-mono text-xs text-purple-400 dark:text-slate-500">#{{ "{{" }} item.id }}</td>
-                    <td class="p-4 font-bold text-purple-950 dark:text-purple-100">{{ "{{" }} item.name }}</td>
+                    <td class="p-4 font-bold text-purple-950 dark:text-purple-100 capitalize">{{ "{{" }} item.name }}</td>
                     <td class="p-4 pr-6 text-right">
                       <div class="flex items-center justify-end gap-1.5">
                         <button (click)="openEditModal(item)" title="Edit {{ .Resource }}" class="p-2 text-amber-600 dark:text-amber-400 hover:bg-amber-100/80 dark:hover:bg-amber-950/50 rounded-xl transition-all cursor-pointer">
@@ -131,7 +131,7 @@ const emptyForm = { name: '' }
                       <button
                         (click)="pagination.changePage(toNum(p))"
                         [ngClass]="p === pagination.currentPage() ? 'bg-purple-800 dark:bg-purple-700 text-white border-purple-800 dark:border-purple-700 shadow-md' : 'bg-white dark:bg-slate-900 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-slate-700 hover:bg-purple-100 dark:hover:bg-slate-800'"
-                        class="min-w-[2rem] px-2 py-1.5 text-xs font-bold rounded-full border transition-all cursor-pointer"
+                        class="min-w-8 px-2 py-1.5 text-xs font-bold rounded-full border transition-all cursor-pointer"
                       >
                         {{ "{{" }} p }}
                       </button>

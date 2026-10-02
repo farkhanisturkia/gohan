@@ -216,7 +216,7 @@ export default function RolesView() {
                 <thead className="bg-purple-50/70 dark:bg-slate-950/80 border-b border-purple-100 dark:border-slate-800 text-purple-950 dark:text-purple-300 uppercase text-[11px] font-bold tracking-wider">
                   <tr>
                     <th className="p-4 pl-6 w-24">ID</th>
-                    <th className="p-4">Role Name</th>
+                    <th className="p-4">Name</th>
                     <th className="p-4 pr-6 text-right w-36">Actions</th>
                   </tr>
                 </thead>
@@ -224,11 +224,7 @@ export default function RolesView() {
                   {roles?.map((r) => (
                     <tr key={r.id} className="hover:bg-purple-50/40 dark:hover:bg-slate-800/40 transition-colors">
                       <td className="p-4 pl-6 font-mono text-xs text-purple-400 dark:text-slate-500">#{r.id}</td>
-                      <td className="p-4 font-bold text-purple-950 dark:text-purple-100 capitalize">
-                        <span className="px-3 py-1 bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800/50 rounded-full text-xs font-mono font-bold tracking-wider inline-block">
-                          {r.name}
-                        </span>
-                      </td>
+                      <td className="p-4 font-bold text-purple-950 dark:text-purple-100 capitalize">{r.name}</td>
                       <td className="p-4 pr-6 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
@@ -282,7 +278,7 @@ export default function RolesView() {
                         <button
                           key={`page-${idx}`}
                           onClick={() => pagination.changePage(Number(p))}
-                          className={`min-w-[2rem] px-2 py-1.5 text-xs font-bold rounded-full border transition-all cursor-pointer ${
+                          className={`min-w-8 px-2 py-1.5 text-xs font-bold rounded-full border transition-all cursor-pointer ${
                             p === pagination.currentPage
                               ? 'bg-purple-800 dark:bg-purple-700 text-white border-purple-800 dark:border-purple-700 shadow-md'
                               : 'bg-white dark:bg-slate-900 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-slate-700 hover:bg-purple-100 dark:hover:bg-slate-800'
@@ -336,7 +332,7 @@ export default function RolesView() {
 
             <form onSubmit={(e) => { e.preventDefault(); handleSubmit() }} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-purple-900/70 dark:text-slate-400 mb-1.5">Role Name</label>
+                <label className="block text-xs font-bold uppercase tracking-wider text-purple-900/70 dark:text-slate-400 mb-1.5">Name</label>
                 <input
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value.trim() })}

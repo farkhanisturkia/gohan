@@ -227,11 +227,7 @@ export default function {{ .Resource }}View() {
                   {items?.map((item) => (
                     <tr key={item.id} className="hover:bg-purple-50/40 dark:hover:bg-slate-800/40 transition-colors">
                       <td className="p-4 pl-6 font-mono text-xs text-purple-400 dark:text-slate-500">#{item.id}</td>
-                      <td className="p-4 font-bold text-purple-950 dark:text-purple-100 capitalize">
-                        <span className="px-3 py-1 bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800/50 rounded-full text-xs font-mono font-bold tracking-wider inline-block">
-                          {item.name}
-                        </span>
-                      </td>
+                      <td className="p-4 font-bold text-purple-950 dark:text-purple-100 capitalize">{item.name}</td>
                       <td className="p-4 pr-6 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
@@ -285,7 +281,7 @@ export default function {{ .Resource }}View() {
                         <button
                           key={`page-${idx}`}
                           onClick={() => pagination.changePage(Number(p))}
-                          className={`min-w-[2rem] px-2 py-1.5 text-xs font-bold rounded-full border transition-all cursor-pointer ${
+                          className={`min-w-8 px-2 py-1.5 text-xs font-bold rounded-full border transition-all cursor-pointer ${
                             p === pagination.currentPage
                               ? 'bg-purple-800 dark:bg-purple-700 text-white border-purple-800 dark:border-purple-700 shadow-md'
                               : 'bg-white dark:bg-slate-900 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-slate-700 hover:bg-purple-100 dark:hover:bg-slate-800'

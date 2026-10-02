@@ -35,7 +35,7 @@ api.interceptors.response.use(
 {{- if eq .AuthType "jwt" }}
 export const authStrategy = 'JWT'
 {{- else }}
-export const authStrategy = 'Personal Access Token'
+export const authStrategy = 'PAT'
 {{- end }}
 
 export const formatError = (error: unknown): string => {

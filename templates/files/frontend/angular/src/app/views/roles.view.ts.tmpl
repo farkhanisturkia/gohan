@@ -78,7 +78,7 @@ const emptyForm = { name: '' }
               <thead class="bg-purple-50/70 dark:bg-slate-950/80 border-b border-purple-100 dark:border-slate-800 text-purple-950 dark:text-purple-300 uppercase text-[11px] font-bold tracking-wider">
                 <tr>
                   <th class="p-4 pl-6 w-24">ID</th>
-                  <th class="p-4">Role Name</th>
+                  <th class="p-4">Name</th>
                   <th class="p-4 pr-6 text-right w-36">Actions</th>
                 </tr>
               </thead>
@@ -86,11 +86,7 @@ const emptyForm = { name: '' }
                 @for (r of items(); track r.id) {
                   <tr class="hover:bg-purple-50/40 dark:hover:bg-slate-800/40 transition-colors">
                     <td class="p-4 pl-6 font-mono text-xs text-purple-400 dark:text-slate-500">#{{ "{{" }} r.id }}</td>
-                    <td class="p-4 font-bold text-purple-950 dark:text-purple-100 capitalize">
-                      <span class="px-3 py-1 bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800/50 rounded-full text-xs font-mono font-bold tracking-wider inline-block">
-                        {{ "{{" }} r.name }}
-                      </span>
-                    </td>
+                    <td class="p-4 font-bold text-purple-950 dark:text-purple-100 capitalize">{{ "{{" }} r.name }}</td>
                     <td class="p-4 pr-6 text-right">
                       <div class="flex items-center justify-end gap-1.5">
                         <button (click)="openEditModal(r)" title="Edit Role" class="p-2 text-amber-600 dark:text-amber-400 hover:bg-amber-100/80 dark:hover:bg-amber-950/50 rounded-xl transition-all cursor-pointer">
@@ -135,7 +131,7 @@ const emptyForm = { name: '' }
                       <button
                         (click)="pagination.changePage(toNum(p))"
                         [ngClass]="p === pagination.currentPage() ? 'bg-purple-800 dark:bg-purple-700 text-white border-purple-800 dark:border-purple-700 shadow-md' : 'bg-white dark:bg-slate-900 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-slate-700 hover:bg-purple-100 dark:hover:bg-slate-800'"
-                        class="min-w-[2rem] px-2 py-1.5 text-xs font-bold rounded-full border transition-all cursor-pointer"
+                        class="min-w-8 px-2 py-1.5 text-xs font-bold rounded-full border transition-all cursor-pointer"
                       >
                         {{ "{{" }} p }}
                       </button>
@@ -183,7 +179,7 @@ const emptyForm = { name: '' }
 
             <form (submit)="handleSubmit($event)" class="space-y-4">
               <div>
-                <label class="block text-xs font-bold uppercase tracking-wider text-purple-900/70 dark:text-slate-400 mb-1.5">Role Name</label>
+                <label class="block text-xs font-bold uppercase tracking-wider text-purple-900/70 dark:text-slate-400 mb-1.5">Name</label>
                 <input [value]="form().name" (input)="form.update((f) => ({ ...f, name: $any($event.target).value.trim() }))" type="text" required placeholder="e.g. admin, manager, user"
                   class="w-full px-4 py-2.5 bg-purple-50/50 dark:bg-slate-950 border border-purple-100 dark:border-slate-800 rounded-xl text-purple-950 dark:text-white placeholder-purple-300 dark:placeholder-slate-600 focus:outline-none focus:border-purple-600 dark:focus:border-purple-500 text-sm transition-all" />
               </div>

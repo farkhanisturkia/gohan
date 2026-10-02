@@ -7,7 +7,7 @@ interface Props {
   title?: string
 }
 
-const { title = 'Gohan Framework - Fullstack App' } = Astro.props
+const { title = '{{ .ModuleName }} - Fullstack App' } = Astro.props
 ---
 
 <!doctype html>
