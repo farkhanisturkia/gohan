@@ -1,0 +1,96 @@
+package crud
+
+import (
+    "reflect"
+    "strings"
+    "sync"
+)
+
+type Entry struct {
+    Resource string
+    Title    string
+    Model    any
+    Public   bool
+    Roles    []string
+}
+
+var (
+    mu       sync.RWMutex
+    registry = map[string]Entry{}
+)
+
+type Option func(*Entry)
+
+func Public() Option {
+    return func(e *Entry) {
+        e.Public = true
+        e.Roles = nil
+    }
+}
+
+func WithRoles(roles ...string) Option {
+    return func(e *Entry) {
+        e.Public = false
+        e.Roles = append(e.Roles, roles...)
+    }
+}
+
+func Authenticated() Option {
+    return func(e *Entry) {
+        e.Public = false
+        e.Roles = nil
+    }
+}
+
+func Register(resource string, model any, opts ...Option) {
+    entry := Entry{
+        Resource: normalize(resource),
+        Title:    toTitle(resource),
+        Model:    model,
+    }
+
+    for _, opt := range opts {
+        opt(&entry)
+    }
+
+    mu.Lock()
+    defer mu.Unlock()
+    registry[entry.Resource] = entry
+}
+
+func Lookup(resource string) (Entry, bool) {
+    mu.RLock()
+    defer mu.RUnlock()
+    entry, ok := registry[normalize(resource)]
+    return entry, ok
+}
+
+func ModelType(entry Entry) reflect.Type {
+    typ := reflect.TypeOf(entry.Model)
+    if typ == nil {
+        return nil
+    }
+    if typ.Kind() == reflect.Ptr {
+        typ = typ.Elem()
+    }
+    return typ
+}
+
+func normalize(resource string) string {
+    return strings.ToLower(strings.Trim(strings.TrimSpace(resource), "/"))
+}
+
+func toTitle(resource string) string {
+    parts := strings.FieldsFunc(resource, func(r rune) bool {
+        return r == '-' || r == '_' || r == ' ' || r == '/'
+    })
+
+    var builder strings.Builder
+    for _, part := range parts {
+        if part == "" {
+            continue
+        }
+        builder.WriteString(strings.ToUpper(part[:1]) + part[1:])
+    }
+    return builder.String()
+}

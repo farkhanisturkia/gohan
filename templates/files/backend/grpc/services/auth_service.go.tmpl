@@ -1,0 +1,232 @@
+package services
+
+import (
+    "context"
+    "errors"
+{{- if ne .AuthType "jwt" }}
+    "net"
+    "net/http"
+    "strings"
+{{- end }}
+    "time"
+
+    "github.com/farkhanisturkia/gohan/pkg"
+    authv1 "{{ .ModuleName }}/gen/auth"
+    authv1connect "{{ .ModuleName }}/gen/auth/authv1connect"
+    "{{ .ModuleName }}/database/migrations"
+    "{{ .ModuleName }}/services/interceptors"
+)
+
+type AuthService struct {
+    authv1connect.UnimplementedAuthServiceHandler
+    db *gohan.DB
+}
+
+func NewAuthService(db *gohan.DB) *AuthService {
+    return &AuthService{db: db}
+}
+
+func (s *AuthService) Login(ctx context.Context, req *gohan.Request[authv1.LoginRequest]) (*gohan.Response[authv1.LoginResponse], error) {
+    in := req.Msg
+
+    var user migrations.User
+    if err := s.db.FindOne(&user, "email = ?", in.Email); err != nil {
+        return nil, gohan.NewError(gohan.CodeUnauthenticated, errors.New("Invalid email or password"))
+    }
+
+    if !gohan.CheckPasswordHash(in.Password, user.Password) {
+        return nil, gohan.NewError(gohan.CodeUnauthenticated, errors.New("Invalid email or password"))
+    }
+
+{{- if .UseRole }}
+    var role migrations.Role
+    if err := s.db.FindOne(&role, "id = ?", user.RoleID); err == nil {
+        user.Role = role
+    }
+
+{{- end }}
+{{- if eq .AuthType "jwt" }}
+    env := gohan.GetEnv()
+
+    duration, err := time.ParseDuration(env.JWTExpiration)
+    if err != nil {
+        duration = 24 * time.Hour
+    }
+
+    if in.RememberMe {
+        duration *= 30
+    }
+
+    tokenStr, err := gohan.GenerateJWT(user.ID, user.Email, env.JWTSecret, duration)
+    if err != nil {
+        return nil, gohan.NewError(gohan.CodeInternal, errors.New("Failed to generate JWT token"))
+    }
+{{- else }}
+    tokenStr, err := gohan.GenerateRandomToken(32)
+    if err != nil {
+        return nil, gohan.NewError(gohan.CodeInternal, errors.New("Failed to generate token"))
+    }
+
+    hashedToken, err := gohan.HashToken(tokenStr)
+    if err != nil {
+        return nil, gohan.NewError(gohan.CodeInternal, errors.New(err.Error()))
+    }
+
+    ipAddress := clientIP(req.Header(), req.Peer().Addr)
+    userAgent := req.Header().Get("User-Agent")
+    tokenName := gohan.ParseTokenName(userAgent)
+
+    tokenDuration := 7 * 24 * time.Hour
+    if in.RememberMe {
+        tokenDuration = 30 * 24 * time.Hour
+    }
+
+    pat := migrations.PersonalAccessToken{
+        UserID:    user.ID,
+        Name:      tokenName,
+        Token:     hashedToken,
+        IPAddress: ipAddress,
+        UserAgent: userAgent,
+        ExpiresAt: time.Now().Add(tokenDuration),
+    }
+
+    if err := s.db.Create(&pat); err != nil {
+        return nil, gohan.NewError(gohan.CodeInternal, errors.New("Failed to save session"))
+    }
+{{- end }}
+
+    return gohan.NewResponse(&authv1.LoginResponse{
+        Message: "Login successful",
+        Token:   tokenStr,
+        User:    authUserToProto(user),
+    }), nil
+}
+
+func (s *AuthService) Logout(ctx context.Context, req *gohan.Request[authv1.LogoutRequest]) (*gohan.Response[authv1.LogoutResponse], error) {
+{{- if eq .AuthType "jwt" }}
+    return gohan.NewResponse(&authv1.LogoutResponse{
+        Message: "Logout successful",
+    }), nil
+{{- else }}
+    authHeader := req.Header().Get("Authorization")
+    if authHeader == "" {
+        return nil, gohan.NewError(gohan.CodeInvalidArgument, errors.New("Authorization header missing"))
+    }
+
+    tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
+
+    hashedToken, err := gohan.HashToken(tokenStr)
+    if err != nil {
+        return nil, gohan.NewError(gohan.CodeInternal, errors.New(err.Error()))
+    }
+
+    var pat migrations.PersonalAccessToken
+    if err := s.db.FindOne(&pat, "token = ?", hashedToken); err != nil {
+        return nil, gohan.NewError(gohan.CodeNotFound, errors.New("Session not found"))
+    }
+
+    if err := s.db.Delete(&migrations.PersonalAccessToken{}, pat.ID); err != nil {
+        return nil, gohan.NewError(gohan.CodeInternal, errors.New("Failed to revoke token"))
+    }
+
+    return gohan.NewResponse(&authv1.LogoutResponse{
+        Message: "Logout successful",
+    }), nil
+{{- end }}
+}
+
+{{- if .UseRegister }}
+
+func (s *AuthService) Register(ctx context.Context, req *gohan.Request[authv1.RegisterRequest]) (*gohan.Response[authv1.RegisterResponse], error) {
+    in := req.Msg
+
+    if in.Name == "" || in.Email == "" || in.Password == "" {
+        return nil, gohan.NewError(gohan.CodeInvalidArgument, errors.New("Name, email, and password are required"))
+    }
+
+    var existingUser migrations.User
+    if err := s.db.FindOne(&existingUser, "email = ?", in.Email); err == nil {
+        return nil, gohan.NewError(gohan.CodeAlreadyExists, errors.New("Email is already registered"))
+    }
+
+    hashedPassword, err := gohan.HashPassword(in.Password)
+    if err != nil {
+        return nil, gohan.NewError(gohan.CodeInternal, errors.New("Failed to process password"))
+    }
+
+    user := migrations.User{
+        Name:     in.Name,
+        Email:    in.Email,
+        Password: hashedPassword,
+    }
+{{- if .UseRole }}
+
+    var defaultRole migrations.Role
+    if err := s.db.FindOne(&defaultRole, "name = ?", "user"); err == nil {
+        user.RoleID = defaultRole.ID
+    } else if err := s.db.FindOne(&defaultRole, "1 = 1"); err == nil {
+        user.RoleID = defaultRole.ID
+    }
+{{- end }}
+
+    if err := s.db.Create(&user); err != nil {
+        return nil, gohan.NewError(gohan.CodeInternal, errors.New("Failed to create user"))
+    }
+
+    return gohan.NewResponse(&authv1.RegisterResponse{
+        Message: "User registered successfully",
+        User:    authUserToProto(user),
+    }), nil
+}
+{{- end }}
+
+func (s *AuthService) Me(ctx context.Context, req *gohan.Request[authv1.MeRequest]) (*gohan.Response[authv1.MeResponse], error) {
+    user, ok := interceptors.CurrentUser(ctx)
+    if !ok {
+        return nil, gohan.NewError(gohan.CodeInternal, errors.New("Failed to get user context"))
+    }
+
+    return gohan.NewResponse(&authv1.MeResponse{
+        Message: "User profile retrieved successfully",
+        User:    authUserToProto(user),
+    }), nil
+}
+
+func authUserToProto(user migrations.User) *authv1.AuthUser {
+    item := &authv1.AuthUser{
+        Id:    int32(user.ID),
+        Name:  user.Name,
+        Email: user.Email,
+    }
+{{- if .UseRole }}
+    item.Role = user.Role.Name
+{{- end }}
+    return item
+}
+{{- if ne .AuthType "jwt" }}
+
+func clientIP(header http.Header, peerAddr string) string {
+    ip := header.Get("X-Forwarded-For")
+    if ip != "" {
+        ips := strings.Split(ip, ",")
+        return strings.TrimSpace(ips[0])
+    }
+
+    ip = header.Get("X-Real-IP")
+    if ip != "" {
+        return ip
+    }
+
+    host, _, err := net.SplitHostPort(peerAddr)
+    if err != nil {
+        host = peerAddr
+    }
+
+    host = strings.Trim(host, "[]")
+    if host == "::1" {
+        return "127.0.0.1"
+    }
+
+    return host
+}
+{{- end }}

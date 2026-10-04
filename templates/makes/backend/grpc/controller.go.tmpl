@@ -1,0 +1,17 @@
+package crud
+
+import (
+    "{{ .ModuleName }}/database/migrations"
+)
+
+func init() {
+{{- if .Public }}
+    Register("{{ .Prefix | toKebab }}", migrations.{{ .Prefix }}{}, Public())
+{{- else if and .UseAuth .Roles }}
+    Register("{{ .Prefix | toKebab }}", migrations.{{ .Prefix }}{}, WithRoles({{ range $i, $role := .Roles }}{{ if $i }}, {{ end }}"{{ $role }}"{{ end }}))
+{{- else if .UseAuth }}
+    Register("{{ .Prefix | toKebab }}", migrations.{{ .Prefix }}{})
+{{- else }}
+    Register("{{ .Prefix | toKebab }}", migrations.{{ .Prefix }}{}, Public())
+{{- end }}
+}

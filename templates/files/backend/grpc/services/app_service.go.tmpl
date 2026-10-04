@@ -1,0 +1,41 @@
+package services
+
+import (
+    "context"
+    "errors"
+
+    "github.com/farkhanisturkia/gohan/pkg"
+    appv1 "{{ .ModuleName }}/gen/app"
+)
+
+type AppService struct{}
+
+func NewAppService() *AppService {
+    return &AppService{}
+}
+
+func (s *AppService) Ping(ctx context.Context, req *gohan.Request[appv1.PingRequest]) (*gohan.Response[appv1.PingResponse], error) {
+    return gohan.NewResponse(&appv1.PingResponse{
+        Message: "pong",
+    }), nil
+}
+
+func (s *AppService) GetVersion(ctx context.Context, req *gohan.Request[appv1.GetVersionRequest]) (*gohan.Response[appv1.GetVersionResponse], error) {
+    return gohan.NewResponse(&appv1.GetVersionResponse{
+        Message: "App version fetched successfully",
+        Version: gohan.Version,
+    }), nil
+}
+
+func (s *AppService) CheckPublic(ctx context.Context, req *gohan.Request[appv1.CheckPublicRequest]) (*gohan.Response[appv1.CheckPublicResponse], error) {
+    var textResult string
+
+    err := gohan.FetchJSON("https://api.github.com/zen", &textResult)
+    if err != nil {
+        return nil, gohan.NewError(gohan.CodeUnavailable, errors.New("Failed to connect to the Public API: "+err.Error()))
+    }
+
+    return gohan.NewResponse(&appv1.CheckPublicResponse{
+        Result: textResult,
+    }), nil
+}

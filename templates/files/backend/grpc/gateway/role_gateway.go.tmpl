@@ -1,0 +1,264 @@
+package gateway
+
+import (
+    "net/http"
+    "strconv"
+{{- if .UseRedis }}
+    "fmt"
+    "context"
+    "time"
+{{- end }}
+
+    "github.com/farkhanisturkia/gohan/pkg"
+    "{{ .ModuleName }}/database/migrations"
+)
+
+func RoleIndex(db *gohan.DB) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+        if page <= 0 {
+            page = 1
+        }
+
+        perPage, _ := strconv.Atoi(r.URL.Query().Get("per_page"))
+        if perPage <= 0 {
+            perPage = 10
+        }
+
+{{- if .UseRedis }}
+        var paginationData gohan.Pagination
+        cacheKey := fmt.Sprintf("role:all:page:%d:limit:%d", page, perPage)
+
+        entry, cached, err := gohan.CachedData(r.Context(), gohan.Redis, cacheKey, 10*time.Minute, &paginationData, func() (interface{}, error) {
+            var items []migrations.Role
+            res, err := db.Paginate(page, perPage).Find(&items)
+            if err != nil {
+                return nil, err
+            }
+            return res, nil
+        })
+        if err != nil {
+            gohan.JSON(w, http.StatusInternalServerError, map[string]string{
+                "message": "Failed to fetch Role data: " + err.Error(),
+            })
+            return
+        }
+
+        message := "Fetch Role list successful"
+        if cached {
+            message = "Fetch Role list successful (cached)"
+        }
+
+        gohan.JSON(w, http.StatusOK, map[string]interface{}{
+            "message": message,
+            "data":    entry,
+        })
+{{- else }}
+        var items []migrations.Role
+        res, err := db.Paginate(page, perPage).Find(&items)
+        if err != nil {
+            gohan.JSON(w, http.StatusInternalServerError, map[string]string{
+                "message": "Failed to fetch Role data: " + err.Error(),
+            })
+            return
+        }
+
+        gohan.JSON(w, http.StatusOK, map[string]interface{}{
+            "message": "Fetch Role list successful",
+            "data":    res,
+        })
+{{- end }}
+    }
+}
+
+func RoleStore(db *gohan.DB) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        var req struct {
+            Name string `json:"name"`
+        }
+        if err := gohan.BindJSON(r, &req); err != nil || req.Name == "" {
+            gohan.JSON(w, http.StatusBadRequest, map[string]string{
+                "message": "Invalid request body or missing required field (name)",
+            })
+            return
+        }
+
+        item := migrations.Role{
+            Name: req.Name,
+        }
+
+        err := db.Transaction(func(tx *gohan.Tx) error {
+            return tx.Create(&item)
+        })
+
+        if err != nil {
+            gohan.JSON(w, http.StatusInternalServerError, map[string]string{
+                "message": "Failed to create Role",
+            })
+            return
+        }
+
+{{- if .UseRedis }}
+        clearRoleCache(r.Context())
+{{- end }}
+
+        gohan.JSON(w, http.StatusCreated, map[string]interface{}{
+            "message": "Role created successfully",
+            "data":    item,
+        })
+    }
+}
+
+func RoleShow(db *gohan.DB) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        id := r.PathValue("id")
+
+{{- if .UseRedis }}
+        var item migrations.Role
+        cacheKey := fmt.Sprintf("role:%s", id)
+
+        entry, cached, err := gohan.CachedData(r.Context(), gohan.Redis, cacheKey, 10*time.Minute, &item, func() (interface{}, error) {
+            var row migrations.Role
+            if err := db.FindOne(&row, "id = ?", id); err != nil {
+                return nil, err
+            }
+            return &row, nil
+        })
+        if err != nil {
+            if gohan.IsNotFound(err) {
+                gohan.JSON(w, http.StatusNotFound, map[string]string{
+                    "message": "Role not found",
+                })
+                return
+            }
+            gohan.JSON(w, http.StatusInternalServerError, map[string]string{
+                "message": "Failed to fetch Role detail: " + err.Error(),
+            })
+            return
+        }
+
+        message := "Fetch Role detail successful"
+        if cached {
+            message = "Fetch Role detail successful (cached)"
+        }
+
+        gohan.JSON(w, http.StatusOK, map[string]interface{}{
+            "message": message,
+            "data":    entry,
+        })
+{{- else }}
+        var item migrations.Role
+        if err := db.FindOne(&item, "id = ?", id); err != nil {
+            if gohan.IsNotFound(err) {
+                gohan.JSON(w, http.StatusNotFound, map[string]string{
+                    "message": "Role not found",
+                })
+                return
+            }
+            gohan.JSON(w, http.StatusInternalServerError, map[string]string{
+                "message": "Failed to fetch Role detail: " + err.Error(),
+            })
+            return
+        }
+
+        gohan.JSON(w, http.StatusOK, map[string]interface{}{
+            "message": "Fetch Role detail successful",
+            "data":    item,
+        })
+{{- end }}
+    }
+}
+
+func RoleUpdate(db *gohan.DB) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        id := r.PathValue("id")
+
+        var req struct {
+            Name string `json:"name"`
+        }
+        if err := gohan.BindJSON(r, &req); err != nil {
+            gohan.JSON(w, http.StatusBadRequest, map[string]string{
+                "message": "Invalid request body",
+            })
+            return
+        }
+
+        var item migrations.Role
+        if err := db.FindOne(&item, "id = ?", id); err != nil {
+            gohan.JSON(w, http.StatusNotFound, map[string]string{
+                "message": "Role not found",
+            })
+            return
+        }
+
+        if req.Name != "" {
+            item.Name = req.Name
+        }
+
+        err := db.Transaction(func(tx *gohan.Tx) error {
+            return tx.Update(&item, id)
+        })
+
+        if err != nil {
+            gohan.JSON(w, http.StatusInternalServerError, map[string]string{
+                "message": "Failed to update Role",
+            })
+            return
+        }
+
+{{- if .UseRedis }}
+        clearRoleCache(r.Context(), fmt.Sprintf("role:%s", id))
+{{- end }}
+
+        gohan.JSON(w, http.StatusOK, map[string]interface{}{
+            "message": "Role updated successfully",
+            "data":    item,
+        })
+    }
+}
+
+func RoleDestroy(db *gohan.DB) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        id := r.PathValue("id")
+
+        var item migrations.Role
+        if err := db.FindOne(&item, "id = ?", id); err != nil {
+            gohan.JSON(w, http.StatusNotFound, map[string]string{
+                "message": "Role not found",
+            })
+            return
+        }
+
+        err := db.Transaction(func(tx *gohan.Tx) error {
+            return tx.Delete(&migrations.Role{}, id)
+        })
+
+        if err != nil {
+            gohan.JSON(w, http.StatusInternalServerError, map[string]string{
+                "message": "Failed to delete Role",
+            })
+            return
+        }
+
+{{- if .UseRedis }}
+        clearRoleCache(r.Context(), fmt.Sprintf("role:%s", id))
+{{- end }}
+
+        gohan.JSON(w, http.StatusOK, map[string]string{
+            "message": "Role deleted successfully",
+        })
+    }
+}
+{{- if .UseRedis }}
+
+func clearRoleCache(ctx context.Context, extraKeys ...string) {
+    for _, key := range extraKeys {
+        gohan.CacheForget(ctx, gohan.Redis, key)
+    }
+
+    iter := gohan.Redis.Scan(ctx, 0, "role:all*", 0).Iterator()
+    for iter.Next(ctx) {
+        gohan.CacheForget(ctx, gohan.Redis, iter.Val())
+    }
+}
+{{- end }}

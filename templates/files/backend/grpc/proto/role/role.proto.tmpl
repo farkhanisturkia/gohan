@@ -1,0 +1,69 @@
+syntax = "proto3";
+
+package role.v1;
+
+option go_package = "{{ .ModuleName }}/gen/role;rolev1";
+
+message Role {
+  int32 id = 1;
+  string name = 2;
+  string created_at = 3;
+}
+
+message ListRolesRequest {
+  int32 page = 1;
+  int32 per_page = 2;
+}
+
+message ListRolesResponse {
+  string message = 1;
+  repeated Role data = 2;
+  int64 total = 3;
+  int32 per_page = 4;
+  int32 current_page = 5;
+  int32 last_page = 6;
+}
+
+message CreateRoleRequest {
+  string name = 1;
+}
+
+message CreateRoleResponse {
+  string message = 1;
+  Role data = 2;
+}
+
+message GetRoleRequest {
+  int32 id = 1;
+}
+
+message GetRoleResponse {
+  string message = 1;
+  Role data = 2;
+}
+
+message UpdateRoleRequest {
+  int32 id = 1;
+  string name = 2;
+}
+
+message UpdateRoleResponse {
+  string message = 1;
+  Role data = 2;
+}
+
+message DeleteRoleRequest {
+  int32 id = 1;
+}
+
+message DeleteRoleResponse {
+  string message = 1;
+}
+
+service RoleService {
+  rpc ListRoles(ListRolesRequest) returns (ListRolesResponse);
+  rpc CreateRole(CreateRoleRequest) returns (CreateRoleResponse);
+  rpc GetRole(GetRoleRequest) returns (GetRoleResponse);
+  rpc UpdateRole(UpdateRoleRequest) returns (UpdateRoleResponse);
+  rpc DeleteRole(DeleteRoleRequest) returns (DeleteRoleResponse);
+}

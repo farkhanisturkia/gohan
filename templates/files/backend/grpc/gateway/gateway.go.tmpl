@@ -1,0 +1,43 @@
+package gateway
+
+import (
+    "net/http"
+
+    "github.com/farkhanisturkia/gohan/pkg"
+)
+
+func SetupGateway(mux *http.ServeMux, db *gohan.DB) {
+    mux.HandleFunc("GET /version", GetVersion())
+    mux.HandleFunc("GET /ping", Ping())
+    mux.HandleFunc("GET /check-public", CheckPublic())
+    mux.HandleFunc("/api/", CrudHandler(db))
+
+{{- if .UseAuth }}
+    mux.HandleFunc("POST /api/login", Login(db))
+    mux.HandleFunc("POST /api/logout", Authenticate(db, Logout(db)))
+{{- if .UseRegister }}
+    mux.HandleFunc("POST /api/register", Register(db))
+{{- end }}
+
+{{- if .UseForgotPassword }}
+    mux.HandleFunc("POST /api/forgot-password", ForgotPassword(db))
+    mux.HandleFunc("POST /api/reset-password", ResetPassword(db))
+{{- end }}
+
+    mux.HandleFunc("GET /api/me", Authenticate(db, Me()))
+
+    mux.HandleFunc("GET /api/users", Authenticate(db, {{ if .UseRole }}RequireRole([]string{"admin"}, {{ end }}UserIndex(db){{ if .UseRole }}){{ end }}))
+    mux.HandleFunc("POST /api/users", Authenticate(db, {{ if .UseRole }}RequireRole([]string{"admin"}, {{ end }}UserStore(db){{ if .UseRole }}){{ end }}))
+    mux.HandleFunc("GET /api/users/{id}", Authenticate(db, {{ if .UseRole }}RequireRole([]string{"admin"}, {{ end }}UserShow(db){{ if .UseRole }}){{ end }}))
+    mux.HandleFunc("PUT /api/users/{id}", Authenticate(db, {{ if .UseRole }}RequireRole([]string{"admin"}, {{ end }}UserUpdate(db){{ if .UseRole }}){{ end }}))
+    mux.HandleFunc("DELETE /api/users/{id}", Authenticate(db, {{ if .UseRole }}RequireRole([]string{"admin"}, {{ end }}UserDestroy(db){{ if .UseRole }}){{ end }}))
+{{- if .UseRole }}
+
+    mux.HandleFunc("GET /api/roles", Authenticate(db, RequireRole([]string{"admin"}, RoleIndex(db))))
+    mux.HandleFunc("POST /api/roles", Authenticate(db, RequireRole([]string{"admin"}, RoleStore(db))))
+    mux.HandleFunc("GET /api/roles/{id}", Authenticate(db, RequireRole([]string{"admin"}, RoleShow(db))))
+    mux.HandleFunc("PUT /api/roles/{id}", Authenticate(db, RequireRole([]string{"admin"}, RoleUpdate(db))))
+    mux.HandleFunc("DELETE /api/roles/{id}", Authenticate(db, RequireRole([]string{"admin"}, RoleDestroy(db))))
+{{- end }}
+{{- end }}
+}

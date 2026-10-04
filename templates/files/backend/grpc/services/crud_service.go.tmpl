@@ -1,0 +1,403 @@
+package services
+
+import (
+    "context"
+{{- if .UseRedis }}
+    "encoding/json"
+{{- end }}
+    "errors"
+    "fmt"
+    "reflect"
+{{- if .UseRole }}
+    "slices"
+{{- end }}
+    "time"
+
+    "github.com/farkhanisturkia/gohan/pkg"
+    "{{ .ModuleName }}/crud"
+    gohanv1 "{{ .ModuleName }}/gen/gohan"
+{{- if .UseRole }}
+    "{{ .ModuleName }}/services/interceptors"
+{{- end }}
+)
+
+{{- if .UseRedis }}
+
+type crudPageCache struct {
+    Items json.RawMessage `json:"items"`
+    Total int64           `json:"total"`
+}
+{{- end }}
+
+type CrudService struct {
+    db *gohan.DB
+}
+
+func NewCrudService(db *gohan.DB) *CrudService {
+    return &CrudService{db: db}
+}
+
+func (s *CrudService) ListItems(ctx context.Context, req *gohan.Request[gohanv1.ListItemsRequest]) (*gohan.Response[gohanv1.ListItemsResponse], error) {
+    in := req.Msg
+
+    entry, err := s.resolveResource(ctx, in.Resource)
+    if err != nil {
+        return nil, err
+    }
+
+    page := int(in.Page)
+    if page <= 0 {
+        page = 1
+    }
+
+    perPage := int(in.PerPage)
+    if perPage <= 0 {
+        perPage = 10
+    }
+
+modelType := crud.ModelType(entry)
+    if modelType == nil {
+        return nil, gohan.NewError(gohan.CodeInternal, errors.New(fmt.Sprintf("Resource '%s' has no model registered", entry.Resource)))
+    }
+
+    itemsPtr := reflect.New(reflect.SliceOf(modelType))
+
+    message := fmt.Sprintf("Fetch %s list successful", entry.Title)
+    var total int64
+
+{{- if .UseRedis }}
+    var pageData crudPageCache
+
+    cacheKey := fmt.Sprintf("crud:%s:all:page:%d:limit:%d", entry.Resource, page, perPage)
+
+    loaded, cached, err := gohan.CachedData(ctx, gohan.Redis, cacheKey, 10*time.Minute, &pageData, func() (interface{}, error) {
+        res, lerr := s.db.Paginate(page, perPage).Find(itemsPtr.Interface())
+        if lerr != nil {
+            return nil, lerr
+        }
+
+        raw, lerr := json.Marshal(itemsPtr.Interface())
+        if lerr != nil {
+            return nil, lerr
+        }
+
+        return &crudPageCache{Items: raw, Total: res.Total}, nil
+    })
+    if err != nil {
+        return nil, crudInternal(fmt.Sprintf("Failed to fetch %s data", entry.Resource), err)
+    }
+
+    if data, ok := loaded.(*crudPageCache); ok && data != nil {
+        pageData = *data
+    }
+
+    if err := json.Unmarshal(pageData.Items, itemsPtr.Interface()); err != nil && len(pageData.Items) > 0 {
+        return nil, crudInternal(fmt.Sprintf("Failed to fetch %s data", entry.Resource), err)
+    }
+
+    total = pageData.Total
+    if cached {
+        message = fmt.Sprintf("Fetch %s list successful (cached)", entry.Title)
+    }
+{{- else }}
+    res, err := s.db.Paginate(page, perPage).Find(itemsPtr.Interface())
+    if err != nil {
+        return nil, crudInternal(fmt.Sprintf("Failed to fetch %s data", entry.Resource), err)
+    }
+
+    total = res.Total
+{{- end }}
+
+    lastPage := int32(1)
+    if total > 0 && perPage > 0 {
+        lastPage = int32((total + int64(perPage) - 1) / int64(perPage))
+    }
+
+    items := itemsPtr.Elem()
+    protoItems := make([]*gohanv1.CrudItem, 0, items.Len())
+    for i := 0; i < items.Len(); i++ {
+        protoItems = append(protoItems, crudItemToProto(items.Index(i)))
+    }
+
+    return gohan.NewResponse(&gohanv1.ListItemsResponse{
+        Message:     message,
+        Data:        protoItems,
+        Total:       total,
+        PerPage:     int32(perPage),
+        CurrentPage: int32(page),
+        LastPage:    lastPage,
+    }), nil
+}
+
+func (s *CrudService) CreateItem(ctx context.Context, req *gohan.Request[gohanv1.CreateItemRequest]) (*gohan.Response[gohanv1.CreateItemResponse], error) {
+    in := req.Msg
+
+    entry, err := s.resolveResource(ctx, in.Resource)
+    if err != nil {
+        return nil, err
+    }
+
+    if in.Name == "" {
+        return nil, gohan.NewError(gohan.CodeInvalidArgument, errors.New("Invalid request or missing required field (name)"))
+    }
+
+modelType := crud.ModelType(entry)
+    if modelType == nil {
+        return nil, gohan.NewError(gohan.CodeInternal, errors.New(fmt.Sprintf("Resource '%s' has no model registered", entry.Resource)))
+    }
+
+    itemPtr := reflect.New(modelType)
+    if err := setItemName(itemPtr.Elem(), in.Name); err != nil {
+        return nil, gohan.NewError(gohan.CodeInternal, errors.New(err.Error()))
+    }
+
+    err = s.db.Transaction(func(tx *gohan.Tx) error {
+        return tx.Create(itemPtr.Interface())
+    })
+    if err != nil {
+        return nil, gohan.NewError(gohan.CodeInternal, errors.New(fmt.Sprintf("Failed to create %s", entry.Title)))
+    }
+
+{{- if .UseRedis }}
+    s.forgetResourceCache(ctx, entry.Resource)
+{{- end }}
+
+    return gohan.NewResponse(&gohanv1.CreateItemResponse{
+        Message: fmt.Sprintf("%s created successfully", entry.Title),
+        Data:    crudItemToProto(itemPtr.Elem()),
+    }), nil
+}
+
+func (s *CrudService) GetItem(ctx context.Context, req *gohan.Request[gohanv1.GetItemRequest]) (*gohan.Response[gohanv1.GetItemResponse], error) {
+    in := req.Msg
+
+    entry, err := s.resolveResource(ctx, in.Resource)
+    if err != nil {
+        return nil, err
+    }
+
+    id := int(in.Id)
+
+modelType := crud.ModelType(entry)
+    if modelType == nil {
+        return nil, gohan.NewError(gohan.CodeInternal, errors.New(fmt.Sprintf("Resource '%s' has no model registered", entry.Resource)))
+    }
+
+    itemPtr := reflect.New(modelType)
+
+{{- if .UseRedis }}
+    var cachedItem json.RawMessage
+    cacheKey := fmt.Sprintf("crud:%s:id:%d", entry.Resource, id)
+
+    loaded, cached, err := gohan.CachedData(ctx, gohan.Redis, cacheKey, 10*time.Minute, &cachedItem, func() (interface{}, error) {
+        rowPtr := reflect.New(crud.ModelType(entry))
+        if err := s.db.FindOne(rowPtr.Interface(), "id = ?", id); err != nil {
+            return nil, err
+        }
+
+        raw, err := json.Marshal(rowPtr.Interface())
+        if err != nil {
+            return nil, err
+        }
+        payload := json.RawMessage(raw)
+        return &payload, nil
+    })
+    if err != nil {
+        if gohan.IsNotFound(err) {
+            return nil, gohan.NewError(gohan.CodeNotFound, errors.New(fmt.Sprintf("%s not found", entry.Title)))
+        }
+        return nil, crudInternal(fmt.Sprintf("Failed to fetch %s detail", entry.Resource), err)
+    }
+
+    if raw, ok := loaded.(*json.RawMessage); ok && raw != nil && len(*raw) > 0 {
+        cachedItem = *raw
+    }
+
+    if err := json.Unmarshal(cachedItem, itemPtr.Interface()); err != nil && len(cachedItem) > 0 {
+        return nil, crudInternal(fmt.Sprintf("Failed to fetch %s detail", entry.Resource), err)
+    }
+
+    message := fmt.Sprintf("Fetch %s detail successful", entry.Title)
+    if cached {
+        message = fmt.Sprintf("Fetch %s detail successful (cached)", entry.Title)
+    }
+{{- else }}
+    if err := s.db.FindOne(itemPtr.Interface(), "id = ?", id); err != nil {
+        if gohan.IsNotFound(err) {
+            return nil, gohan.NewError(gohan.CodeNotFound, errors.New(fmt.Sprintf("%s not found", entry.Title)))
+        }
+        return nil, crudInternal(fmt.Sprintf("Failed to fetch %s detail", entry.Resource), err)
+    }
+
+    message := fmt.Sprintf("Fetch %s detail successful", entry.Title)
+{{- end }}
+
+    return gohan.NewResponse(&gohanv1.GetItemResponse{
+        Message: message,
+        Data:    crudItemToProto(itemPtr.Elem()),
+    }), nil
+}
+
+func (s *CrudService) UpdateItem(ctx context.Context, req *gohan.Request[gohanv1.UpdateItemRequest]) (*gohan.Response[gohanv1.UpdateItemResponse], error) {
+    in := req.Msg
+
+    entry, err := s.resolveResource(ctx, in.Resource)
+    if err != nil {
+        return nil, err
+    }
+
+    id := int(in.Id)
+
+modelType := crud.ModelType(entry)
+    if modelType == nil {
+        return nil, gohan.NewError(gohan.CodeInternal, errors.New(fmt.Sprintf("Resource '%s' has no model registered", entry.Resource)))
+    }
+
+    itemPtr := reflect.New(modelType)
+    if err := s.db.FindOne(itemPtr.Interface(), "id = ?", id); err != nil {
+        if gohan.IsNotFound(err) {
+            return nil, gohan.NewError(gohan.CodeNotFound, errors.New(fmt.Sprintf("%s not found", entry.Title)))
+        }
+        return nil, crudInternal(fmt.Sprintf("Failed to fetch %s detail", entry.Resource), err)
+    }
+
+    if in.Name != "" {
+        if err := setItemName(itemPtr.Elem(), in.Name); err != nil {
+            return nil, gohan.NewError(gohan.CodeInternal, errors.New(err.Error()))
+        }
+    }
+
+    err = s.db.Transaction(func(tx *gohan.Tx) error {
+        return tx.Update(itemPtr.Interface(), id)
+    })
+    if err != nil {
+        return nil, gohan.NewError(gohan.CodeInternal, errors.New(fmt.Sprintf("Failed to update %s", entry.Title)))
+    }
+
+{{- if .UseRedis }}
+    s.forgetResourceCache(ctx, entry.Resource, fmt.Sprintf("crud:%s:id:%d", entry.Resource, id))
+{{- end }}
+
+    return gohan.NewResponse(&gohanv1.UpdateItemResponse{
+        Message: fmt.Sprintf("%s updated successfully", entry.Title),
+        Data:    crudItemToProto(itemPtr.Elem()),
+    }), nil
+}
+
+func (s *CrudService) DeleteItem(ctx context.Context, req *gohan.Request[gohanv1.DeleteItemRequest]) (*gohan.Response[gohanv1.DeleteItemResponse], error) {
+    in := req.Msg
+
+    entry, err := s.resolveResource(ctx, in.Resource)
+    if err != nil {
+        return nil, err
+    }
+
+    id := int(in.Id)
+
+modelType := crud.ModelType(entry)
+    if modelType == nil {
+        return nil, gohan.NewError(gohan.CodeInternal, errors.New(fmt.Sprintf("Resource '%s' has no model registered", entry.Resource)))
+    }
+
+    itemPtr := reflect.New(modelType)
+    if err := s.db.FindOne(itemPtr.Interface(), "id = ?", id); err != nil {
+        if gohan.IsNotFound(err) {
+            return nil, gohan.NewError(gohan.CodeNotFound, errors.New(fmt.Sprintf("%s not found", entry.Title)))
+        }
+        return nil, crudInternal(fmt.Sprintf("Failed to fetch %s detail", entry.Resource), err)
+    }
+
+    err = s.db.Transaction(func(tx *gohan.Tx) error {
+        return tx.Delete(reflect.New(crud.ModelType(entry)).Interface(), id)
+    })
+    if err != nil {
+        return nil, gohan.NewError(gohan.CodeInternal, errors.New(fmt.Sprintf("Failed to delete %s", entry.Title)))
+    }
+
+{{- if .UseRedis }}
+    s.forgetResourceCache(ctx, entry.Resource, fmt.Sprintf("crud:%s:id:%d", entry.Resource, id))
+{{- end }}
+
+    return gohan.NewResponse(&gohanv1.DeleteItemResponse{
+        Message: fmt.Sprintf("%s deleted successfully", entry.Title),
+    }), nil
+}
+
+func (s *CrudService) resolveResource(ctx context.Context, resource string) (crud.Entry, error) {
+    entry, ok := crud.Lookup(resource)
+    if !ok {
+        return entry, gohan.NewError(gohan.CodeNotFound, errors.New(fmt.Sprintf("Resource '%s' is not registered", resource)))
+    }
+
+    if err := s.authorize(ctx, entry); err != nil {
+        return entry, err
+    }
+
+    return entry, nil
+}
+
+func (s *CrudService) authorize(ctx context.Context, entry crud.Entry) error {
+{{- if .UseRole }}
+    if len(entry.Roles) == 0 {
+        return nil
+    }
+
+    user, ok := interceptors.CurrentUser(ctx)
+    if !ok {
+        return gohan.NewError(gohan.CodeUnauthenticated, errors.New("Unauthorized access"))
+    }
+
+    if !slices.Contains(entry.Roles, user.Role.Name) {
+        return gohan.NewError(gohan.CodePermissionDenied, errors.New("Forbidden: You do not have permission to access this resource"))
+    }
+{{- end }}
+
+    return nil
+}
+
+{{- if .UseRedis }}
+
+func (s *CrudService) forgetResourceCache(ctx context.Context, resource string, extraKeys ...string) {
+    for _, key := range extraKeys {
+        gohan.CacheForget(ctx, gohan.Redis, key)
+    }
+
+    iter := gohan.Redis.Scan(ctx, 0, "crud:"+resource+":all*", 0).Iterator()
+    for iter.Next(ctx) {
+        gohan.CacheForget(ctx, gohan.Redis, iter.Val())
+    }
+}
+{{- end }}
+
+func crudInternal(message string, err error) error {
+    return gohan.NewError(gohan.CodeInternal, errors.New(message+": "+err.Error()))
+}
+
+func setItemName(item reflect.Value, name string) error {
+    field := item.FieldByName("Name")
+    if !field.IsValid() || field.Kind() != reflect.String || !field.CanSet() {
+        return fmt.Errorf("Model for resource must have a settable 'Name' string field")
+    }
+    field.SetString(name)
+    return nil
+}
+
+func crudItemToProto(item reflect.Value) *gohanv1.CrudItem {
+    entryItem := &gohanv1.CrudItem{}
+
+    if field := item.FieldByName("ID"); field.IsValid() && field.CanInt() {
+        entryItem.Id = field.Int()
+    }
+
+    if field := item.FieldByName("Name"); field.IsValid() && field.Kind() == reflect.String {
+        entryItem.Name = field.String()
+    }
+
+    if field := item.FieldByName("CreatedAt"); field.IsValid() {
+        if createdAt, ok := field.Interface().(time.Time); ok {
+            entryItem.CreatedAt = createdAt.Format(time.RFC3339)
+        }
+    }
+
+    return entryItem
+}

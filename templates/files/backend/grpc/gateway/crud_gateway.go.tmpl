@@ -1,0 +1,358 @@
+package gateway
+
+import (
+{{- if .UseRedis }}
+    "context"
+    "fmt"
+    "time"
+{{- end }}
+    "net/http"
+    "reflect"
+    "strconv"
+    "strings"
+
+    "github.com/farkhanisturkia/gohan/pkg"
+    "{{ .ModuleName }}/crud"
+{{- if and .UseAuth .UseRole }}
+    "slices"
+
+    "{{ .ModuleName }}/database/migrations"
+{{- end }}
+)
+
+func CrudHandler(db *gohan.DB) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        resource, id, ok := splitResourcePath(r.URL.Path)
+        if !ok {
+            gohan.JSON(w, http.StatusNotFound, map[string]string{
+                "message": "Route " + r.Method + " " + r.URL.Path + " not found",
+            })
+            return
+        }
+
+        entry, found := crud.Lookup(resource)
+        if !found {
+            gohan.JSON(w, http.StatusNotFound, map[string]string{
+                "message": "Route " + r.Method + " " + r.URL.Path + " not found",
+            })
+            return
+        }
+
+{{- if and .UseAuth .UseRole }}
+        if !entry.Public {
+            user, ok := authenticateRequest(db, w, r)
+            if !ok {
+                return
+            }
+
+            var role migrations.Role
+            if err := db.FindOne(&role, "id = ?", user.RoleID); err == nil {
+                user.Role = role
+            }
+
+            if len(entry.Roles) > 0 && !slices.Contains(entry.Roles, user.Role.Name) {
+                gohan.JSON(w, http.StatusForbidden, map[string]string{
+                    "message": "Forbidden: You do not have permission to access this resource",
+                })
+                return
+            }
+        }
+{{- else if .UseAuth }}
+        if !entry.Public {
+            if _, ok := authenticateRequest(db, w, r); !ok {
+                return
+            }
+        }
+{{- end }}
+        isCollection := id == ""
+
+        switch {
+        case r.Method == http.MethodGet && isCollection:
+            crudIndex(db, w, r, entry)
+        case r.Method == http.MethodPost && isCollection:
+            crudStore(db, w, r, entry)
+        case r.Method == http.MethodGet && !isCollection:
+            crudShow(db, w, r, entry, id)
+        case r.Method == http.MethodPut && !isCollection:
+            crudUpdate(db, w, r, entry, id)
+        case r.Method == http.MethodDelete && !isCollection:
+            crudDestroy(db, w, r, entry, id)
+        default:
+            gohan.JSON(w, http.StatusMethodNotAllowed, map[string]string{
+                "message": "Method " + r.Method + " not allowed for " + r.URL.Path,
+            })
+        }
+    }
+}
+
+func splitResourcePath(path string) (resource string, id string, ok bool) {
+    trimmed := strings.Trim(strings.TrimPrefix(path, "/api/"), "/")
+    if trimmed == "" {
+        return "", "", false
+    }
+
+    parts := strings.Split(trimmed, "/")
+    if len(parts) > 2 {
+        return "", "", false
+    }
+
+    resource = strings.ToLower(parts[0])
+    if len(parts) == 2 {
+        id = parts[1]
+    }
+
+    return resource, id, true
+}
+
+func crudIndex(db *gohan.DB, w http.ResponseWriter, r *http.Request, entry crud.Entry) {
+    page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+    if page <= 0 {
+        page = 1
+    }
+
+    perPage, _ := strconv.Atoi(r.URL.Query().Get("per_page"))
+    if perPage <= 0 {
+        perPage = 10
+    }
+
+{{- if .UseRedis }}
+    var paginationData gohan.Pagination
+    cacheKey := fmt.Sprintf("crud:%s:rest:all:page:%d:limit:%d", entry.Resource, page, perPage)
+
+    entryData, cached, err := gohan.CachedData(r.Context(), gohan.Redis, cacheKey, 10*time.Minute, &paginationData, func() (interface{}, error) {
+        items := reflect.New(reflect.SliceOf(crud.ModelType(entry)))
+        res, err := db.Paginate(page, perPage).Find(items.Interface())
+        if err != nil {
+            return nil, err
+        }
+        return res, nil
+    })
+    if err != nil {
+        gohan.JSON(w, http.StatusInternalServerError, map[string]string{
+            "message": "Failed to fetch " + entry.Title + " data: " + err.Error(),
+        })
+        return
+    }
+
+    message := "Fetch " + entry.Title + " list successful"
+    if cached {
+        message = "Fetch " + entry.Title + " list successful (cached)"
+    }
+
+    gohan.JSON(w, http.StatusOK, map[string]interface{}{
+        "message": message,
+        "data":    entryData,
+    })
+{{- else }}
+    items := reflect.New(reflect.SliceOf(crud.ModelType(entry)))
+    res, err := db.Paginate(page, perPage).Find(items.Interface())
+    if err != nil {
+        gohan.JSON(w, http.StatusInternalServerError, map[string]string{
+            "message": "Failed to fetch " + entry.Title + " data: " + err.Error(),
+        })
+        return
+    }
+
+    gohan.JSON(w, http.StatusOK, map[string]interface{}{
+        "message": "Fetch " + entry.Title + " list successful",
+        "data":    res,
+    })
+{{- end }}
+}
+
+func crudStore(db *gohan.DB, w http.ResponseWriter, r *http.Request, entry crud.Entry) {
+    var req struct {
+        Name string `json:"name"`
+    }
+    if err := gohan.BindJSON(r, &req); err != nil {
+        gohan.JSON(w, http.StatusBadRequest, map[string]string{
+            "message": "Invalid request body",
+        })
+        return
+    }
+
+    itemPtr := reflect.New(crud.ModelType(entry))
+    nameField := itemPtr.Elem().FieldByName("Name")
+    if !nameField.IsValid() || nameField.Kind() != reflect.String || !nameField.CanSet() {
+        gohan.JSON(w, http.StatusInternalServerError, map[string]string{
+            "message": "Model for " + entry.Resource + " must have a settable 'Name' string field",
+        })
+        return
+    }
+    nameField.SetString(req.Name)
+
+    err := db.Transaction(func(tx *gohan.Tx) error {
+        return tx.Create(itemPtr.Interface())
+    })
+    if err != nil {
+        gohan.JSON(w, http.StatusInternalServerError, map[string]string{
+            "message": "Failed to create " + entry.Title,
+        })
+        return
+    }
+
+{{- if .UseRedis }}
+    forgetCrudCache(r.Context(), entry.Resource)
+{{- end }}
+
+    gohan.JSON(w, http.StatusCreated, map[string]interface{}{
+        "message": entry.Title + " created successfully",
+        "data":    itemPtr.Interface(),
+    })
+}
+
+func crudShow(db *gohan.DB, w http.ResponseWriter, r *http.Request, entry crud.Entry, id string) {
+{{- if .UseRedis }}
+    itemPtr := reflect.New(crud.ModelType(entry))
+    cacheKey := fmt.Sprintf("crud:%s:rest:id:%s", entry.Resource, id)
+
+    entryData, cached, err := gohan.CachedData(r.Context(), gohan.Redis, cacheKey, 10*time.Minute, itemPtr.Interface(), func() (interface{}, error) {
+        row := reflect.New(crud.ModelType(entry))
+        if err := db.FindOne(row.Interface(), "id = ?", id); err != nil {
+            return nil, err
+        }
+        return row.Interface(), nil
+    })
+    if err != nil {
+        if gohan.IsNotFound(err) {
+            gohan.JSON(w, http.StatusNotFound, map[string]string{
+                "message": entry.Title + " not found",
+            })
+            return
+        }
+        gohan.JSON(w, http.StatusInternalServerError, map[string]string{
+            "message": "Failed to fetch " + entry.Title + " detail: " + err.Error(),
+        })
+        return
+    }
+
+    message := "Fetch " + entry.Title + " detail successful"
+    if cached {
+        message = "Fetch " + entry.Title + " detail successful (cached)"
+    }
+
+    gohan.JSON(w, http.StatusOK, map[string]interface{}{
+        "message": message,
+        "data":    entryData,
+    })
+{{- else }}
+    itemPtr := reflect.New(crud.ModelType(entry))
+    if err := db.FindOne(itemPtr.Interface(), "id = ?", id); err != nil {
+        if gohan.IsNotFound(err) {
+            gohan.JSON(w, http.StatusNotFound, map[string]string{
+                "message": entry.Title + " not found",
+            })
+            return
+        }
+        gohan.JSON(w, http.StatusInternalServerError, map[string]string{
+            "message": "Failed to fetch " + entry.Title + " detail: " + err.Error(),
+        })
+        return
+    }
+
+    gohan.JSON(w, http.StatusOK, map[string]interface{}{
+        "message": "Fetch " + entry.Title + " detail successful",
+        "data":    itemPtr.Interface(),
+    })
+{{- end }}
+}
+
+func crudUpdate(db *gohan.DB, w http.ResponseWriter, r *http.Request, entry crud.Entry, id string) {
+    var req struct {
+        Name string `json:"name"`
+    }
+    if err := gohan.BindJSON(r, &req); err != nil {
+        gohan.JSON(w, http.StatusBadRequest, map[string]string{
+            "message": "Invalid request body",
+        })
+        return
+    }
+
+    itemPtr := reflect.New(crud.ModelType(entry))
+    if err := db.FindOne(itemPtr.Interface(), "id = ?", id); err != nil {
+        if gohan.IsNotFound(err) {
+            gohan.JSON(w, http.StatusNotFound, map[string]string{
+                "message": entry.Title + " not found",
+            })
+            return
+        }
+        gohan.JSON(w, http.StatusInternalServerError, map[string]string{
+            "message": "Failed to fetch " + entry.Title + " detail: " + err.Error(),
+        })
+        return
+    }
+
+    if req.Name != "" {
+        nameField := itemPtr.Elem().FieldByName("Name")
+        if nameField.IsValid() && nameField.Kind() == reflect.String && nameField.CanSet() {
+            nameField.SetString(req.Name)
+        }
+    }
+
+    err := db.Transaction(func(tx *gohan.Tx) error {
+        return tx.Update(itemPtr.Interface(), id)
+    })
+    if err != nil {
+        gohan.JSON(w, http.StatusInternalServerError, map[string]string{
+            "message": "Failed to update " + entry.Title,
+        })
+        return
+    }
+
+{{- if .UseRedis }}
+    forgetCrudCache(r.Context(), entry.Resource, fmt.Sprintf("crud:%s:rest:id:%s", entry.Resource, id))
+{{- end }}
+
+    gohan.JSON(w, http.StatusOK, map[string]interface{}{
+        "message": entry.Title + " updated successfully",
+        "data":    itemPtr.Interface(),
+    })
+}
+
+func crudDestroy(db *gohan.DB, w http.ResponseWriter, r *http.Request, entry crud.Entry, id string) {
+    itemPtr := reflect.New(crud.ModelType(entry))
+    if err := db.FindOne(itemPtr.Interface(), "id = ?", id); err != nil {
+        if gohan.IsNotFound(err) {
+            gohan.JSON(w, http.StatusNotFound, map[string]string{
+                "message": entry.Title + " not found",
+            })
+            return
+        }
+        gohan.JSON(w, http.StatusInternalServerError, map[string]string{
+            "message": "Failed to fetch " + entry.Title + " detail: " + err.Error(),
+        })
+        return
+    }
+
+    err := db.Transaction(func(tx *gohan.Tx) error {
+        return tx.Delete(reflect.New(crud.ModelType(entry)).Interface(), id)
+    })
+    if err != nil {
+        gohan.JSON(w, http.StatusInternalServerError, map[string]string{
+            "message": "Failed to delete " + entry.Title,
+        })
+        return
+    }
+
+{{- if .UseRedis }}
+    forgetCrudCache(r.Context(), entry.Resource, fmt.Sprintf("crud:%s:rest:id:%s", entry.Resource, id))
+{{- end }}
+
+    gohan.JSON(w, http.StatusOK, map[string]string{
+        "message": entry.Title + " deleted successfully",
+    })
+}
+
+{{- if .UseRedis }}
+
+func forgetCrudCache(ctx context.Context, resource string, extraKeys ...string) {
+    for _, key := range extraKeys {
+        gohan.CacheForget(ctx, gohan.Redis, key)
+    }
+
+    iter := gohan.Redis.Scan(ctx, 0, "crud:"+resource+":rest*", 0).Iterator()
+    for iter.Next(ctx) {
+        gohan.CacheForget(ctx, gohan.Redis, iter.Val())
+    }
+}
+{{- end }}

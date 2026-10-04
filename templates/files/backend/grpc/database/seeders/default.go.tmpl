@@ -1,0 +1,10 @@
+package seeders
+
+import "github.com/farkhanisturkia/gohan/pkg"
+
+func SetSeeders(db *gohan.DB) {
+{{- if .UseRole }}
+	RoleSeeder(db)
+{{- end }}
+	UserSeeder(db)
+}

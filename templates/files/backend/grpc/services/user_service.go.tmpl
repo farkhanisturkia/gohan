@@ -1,0 +1,301 @@
+package services
+
+import (
+    "context"
+    "errors"
+{{- if .UseRedis }}
+    "fmt"
+{{- end }}
+    "time"
+
+    "github.com/farkhanisturkia/gohan/pkg"
+    userv1 "{{ .ModuleName }}/gen/user"
+    "{{ .ModuleName }}/database/migrations"
+)
+
+type UserService struct {
+    db *gohan.DB
+}
+
+func NewUserService(db *gohan.DB) *UserService {
+    return &UserService{db: db}
+}
+
+type userPageCache struct {
+    Items []migrations.User `json:"items"`
+    Total int64             `json:"total"`
+}
+
+func (s *UserService) ListUsers(ctx context.Context, req *gohan.Request[userv1.ListUsersRequest]) (*gohan.Response[userv1.ListUsersResponse], error) {
+    page := int(req.Msg.Page)
+    if page <= 0 {
+        page = 1
+    }
+
+    perPage := int(req.Msg.PerPage)
+    if perPage <= 0 {
+        perPage = 10
+    }
+
+{{- if .UseRedis }}
+    var pageData userPageCache
+    cacheKey := fmt.Sprintf("user:grpc:all:page:%d:limit:%d", page, perPage)
+
+    entry, cached, err := gohan.CachedData(ctx, gohan.Redis, cacheKey, 10*time.Minute, &pageData, func() (interface{}, error) {
+        var items []migrations.User
+{{- if .UseRole }}
+        res, err := s.db.Paginate(page, perPage).Preload("Role").Find(&items)
+{{- else }}
+        res, err := s.db.Paginate(page, perPage).Find(&items)
+{{- end }}
+        if err != nil {
+            return nil, err
+        }
+        return &userPageCache{Items: items, Total: res.Total}, nil
+    })
+    if err != nil {
+        return nil, gohan.NewError(gohan.CodeInternal, errors.New("Failed to fetch User data: "+err.Error()))
+    }
+
+    if loaded, ok := entry.(*userPageCache); ok && loaded != nil {
+        pageData = *loaded
+    }
+
+    message := "Fetch User list successful"
+    if cached {
+        message = "Fetch User list successful (cached)"
+    }
+
+    items := pageData.Items
+    total := pageData.Total
+{{- else }}
+    var items []migrations.User
+{{- if .UseRole }}
+    res, err := s.db.Paginate(page, perPage).Preload("Role").Find(&items)
+{{- else }}
+    res, err := s.db.Paginate(page, perPage).Find(&items)
+{{- end }}
+    if err != nil {
+        return nil, gohan.NewError(gohan.CodeInternal, errors.New("Failed to fetch User data: "+err.Error()))
+    }
+
+    message := "Fetch User list successful"
+    total := res.Total
+{{- end }}
+
+    lastPage := int32(1)
+    if total > 0 && perPage > 0 {
+        lastPage = int32((total + int64(perPage) - 1) / int64(perPage))
+    }
+
+    protoUsers := make([]*userv1.User, 0, len(items))
+    for _, item := range items {
+        protoUsers = append(protoUsers, userToProto(item))
+    }
+
+    return gohan.NewResponse(&userv1.ListUsersResponse{
+        Message:     message,
+        Data:        protoUsers,
+        Total:       total,
+        PerPage:     int32(perPage),
+        CurrentPage: int32(page),
+        LastPage:    lastPage,
+    }), nil
+}
+
+func (s *UserService) CreateUser(ctx context.Context, req *gohan.Request[userv1.CreateUserRequest]) (*gohan.Response[userv1.CreateUserResponse], error) {
+    in := req.Msg
+
+    if in.Email == "" || in.Password == "" {
+        return nil, gohan.NewError(gohan.CodeInvalidArgument, errors.New("Invalid request or missing required fields (email/password)"))
+    }
+
+    hashedPassword, err := gohan.HashPassword(in.Password)
+    if err != nil {
+        return nil, gohan.NewError(gohan.CodeInternal, errors.New("Failed to process security credentials"))
+    }
+
+    item := migrations.User{
+        Name:     in.Name,
+        Email:    in.Email,
+        Password: hashedPassword,
+{{- if .UseRole }}
+        RoleID:   int(in.RoleId),
+{{- end }}
+    }
+
+    err = s.db.Transaction(func(tx *gohan.Tx) error {
+        return tx.Create(&item)
+    })
+    if err != nil {
+        return nil, gohan.NewError(gohan.CodeInternal, errors.New("Failed to create User"))
+    }
+
+{{- if .UseRole }}
+    _ = s.db.Preload("Role").FindOne(&item, "id = ?", item.ID)
+{{- end }}
+{{- if .UseRedis }}
+    clearUserCache(ctx)
+{{- end }}
+
+    return gohan.NewResponse(&userv1.CreateUserResponse{
+        Message: "User created successfully",
+        Data:    userToProto(item),
+    }), nil
+}
+
+func (s *UserService) GetUser(ctx context.Context, req *gohan.Request[userv1.GetUserRequest]) (*gohan.Response[userv1.GetUserResponse], error) {
+    id := int(req.Msg.Id)
+
+{{- if .UseRedis }}
+    var item migrations.User
+    cacheKey := fmt.Sprintf("user:grpc:id:%d", id)
+
+    entry, cached, err := gohan.CachedData(ctx, gohan.Redis, cacheKey, 10*time.Minute, &item, func() (interface{}, error) {
+        var row migrations.User
+{{- if .UseRole }}
+        if err := s.db.Preload("Role").FindOne(&row, "id = ?", id); err != nil {
+{{- else }}
+        if err := s.db.FindOne(&row, "id = ?", id); err != nil {
+{{- end }}
+            return nil, err
+        }
+        return &row, nil
+    })
+    if err != nil {
+        if gohan.IsNotFound(err) {
+            return nil, gohan.NewError(gohan.CodeNotFound, errors.New("User not found"))
+        }
+        return nil, gohan.NewError(gohan.CodeInternal, errors.New("Failed to fetch User detail: "+err.Error()))
+    }
+
+    if row, ok := entry.(*migrations.User); ok && row != nil {
+        item = *row
+    }
+
+    message := "Fetch User detail successful"
+    if cached {
+        message = "Fetch User detail successful (cached)"
+    }
+{{- else }}
+    var item migrations.User
+{{- if .UseRole }}
+    if err := s.db.Preload("Role").FindOne(&item, "id = ?", id); err != nil {
+{{- else }}
+    if err := s.db.FindOne(&item, "id = ?", id); err != nil {
+{{- end }}
+        if gohan.IsNotFound(err) {
+            return nil, gohan.NewError(gohan.CodeNotFound, errors.New("User not found"))
+        }
+        return nil, gohan.NewError(gohan.CodeInternal, errors.New("Failed to fetch User detail: "+err.Error()))
+    }
+
+    message := "Fetch User detail successful"
+{{- end }}
+
+    return gohan.NewResponse(&userv1.GetUserResponse{
+        Message: message,
+        Data:    userToProto(item),
+    }), nil
+}
+
+func (s *UserService) UpdateUser(ctx context.Context, req *gohan.Request[userv1.UpdateUserRequest]) (*gohan.Response[userv1.UpdateUserResponse], error) {
+    in := req.Msg
+    id := int(in.Id)
+
+    var item migrations.User
+    if err := s.db.FindOne(&item, "id = ?", id); err != nil {
+        return nil, gohan.NewError(gohan.CodeNotFound, errors.New("User not found"))
+    }
+
+    if in.Name != "" {
+        item.Name = in.Name
+    }
+    if in.Email != "" {
+        item.Email = in.Email
+    }
+    if in.Password != "" {
+        hashedPassword, err := gohan.HashPassword(in.Password)
+        if err != nil {
+            return nil, gohan.NewError(gohan.CodeInternal, errors.New("Failed to process security credentials"))
+        }
+        item.Password = hashedPassword
+    }
+{{- if .UseRole }}
+    if in.RoleId != 0 {
+        item.RoleID = int(in.RoleId)
+    }
+{{- end }}
+
+    err := s.db.Transaction(func(tx *gohan.Tx) error {
+        return tx.Update(&item, id)
+    })
+    if err != nil {
+        return nil, gohan.NewError(gohan.CodeInternal, errors.New("Failed to update User"))
+    }
+
+{{- if .UseRole }}
+    _ = s.db.Preload("Role").FindOne(&item, "id = ?", id)
+{{- end }}
+{{- if .UseRedis }}
+    clearUserCache(ctx, fmt.Sprintf("user:grpc:id:%d", id))
+{{- end }}
+
+    return gohan.NewResponse(&userv1.UpdateUserResponse{
+        Message: "User updated successfully",
+        Data:    userToProto(item),
+    }), nil
+}
+
+func (s *UserService) DeleteUser(ctx context.Context, req *gohan.Request[userv1.DeleteUserRequest]) (*gohan.Response[userv1.DeleteUserResponse], error) {
+    id := int(req.Msg.Id)
+
+    var item migrations.User
+    if err := s.db.FindOne(&item, "id = ?", id); err != nil {
+        return nil, gohan.NewError(gohan.CodeNotFound, errors.New("User not found"))
+    }
+
+    err := s.db.Transaction(func(tx *gohan.Tx) error {
+        return tx.Delete(&migrations.User{}, id)
+    })
+    if err != nil {
+        return nil, gohan.NewError(gohan.CodeInternal, errors.New("Failed to delete User"))
+    }
+
+{{- if .UseRedis }}
+    clearUserCache(ctx, fmt.Sprintf("user:grpc:id:%d", id))
+{{- end }}
+
+    return gohan.NewResponse(&userv1.DeleteUserResponse{
+        Message: "User deleted successfully",
+    }), nil
+}
+
+func userToProto(user migrations.User) *userv1.User {
+    item := &userv1.User{
+        Id:        int32(user.ID),
+        Name:      user.Name,
+        Email:     user.Email,
+        CreatedAt: user.CreatedAt.Format(time.RFC3339),
+    }
+{{- if .UseRole }}
+    item.RoleId = int32(user.RoleID)
+    if user.Role.Name != "" {
+        item.Role = user.Role.Name
+    }
+{{- end }}
+    return item
+}
+{{- if .UseRedis }}
+
+func clearUserCache(ctx context.Context, extraKeys ...string) {
+    for _, key := range extraKeys {
+        gohan.CacheForget(ctx, gohan.Redis, key)
+    }
+
+    iter := gohan.Redis.Scan(ctx, 0, "user:*", 0).Iterator()
+    for iter.Next(ctx) {
+        gohan.CacheForget(ctx, gohan.Redis, iter.Val())
+    }
+}
+{{- end }}

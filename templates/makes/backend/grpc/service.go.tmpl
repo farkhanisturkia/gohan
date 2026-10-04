@@ -1,0 +1,179 @@
+package services
+
+import (
+    "context"
+    "errors"
+    "time"
+
+    "github.com/farkhanisturkia/gohan/pkg"
+    "{{ .ModuleName }}/database/migrations"
+    {{ .Prefix | toSnake }}v1 "{{ .ModuleName }}/gen/{{ .Prefix | toSnake }}"
+)
+
+type {{ .Prefix }}Service struct {
+    db *gohan.DB
+}
+
+func New{{ .Prefix }}Service(db *gohan.DB) *{{ .Prefix }}Service {
+    return &{{ .Prefix }}Service{db: db}
+}
+
+func (s *{{ .Prefix }}Service) List{{ .Prefix }}s(ctx context.Context, req *gohan.Request[{{ .Prefix | toSnake }}v1.List{{ .Prefix }}sRequest]) (*gohan.Response[{{ .Prefix | toSnake }}v1.List{{ .Prefix }}sResponse], error) {
+    page := int(req.Msg.Page)
+    if page <= 0 {
+        page = 1
+    }
+
+    perPage := int(req.Msg.PerPage)
+    if perPage <= 0 {
+        perPage = 10
+    }
+
+    var items []migrations.{{ .Prefix }}
+    res, err := s.db.Paginate(page, perPage).Find(&items)
+    if err != nil {
+        return nil, gohan.NewError(gohan.CodeInternal, errors.New("Failed to fetch {{ .Prefix }} data: "+err.Error()))
+    }
+
+    lastPage := int32(1)
+    if res.Total > 0 && perPage > 0 {
+        lastPage = int32((res.Total + int64(perPage) - 1) / int64(perPage))
+    }
+
+    protoItems := make([]*{{ .Prefix | toSnake }}v1.{{ .Prefix }}, 0, len(items))
+    for _, item := range items {
+        protoItems = append(protoItems, {{ toCamel .Prefix }}ToProto(item))
+    }
+
+    return gohan.NewResponse(&{{ .Prefix | toSnake }}v1.List{{ .Prefix }}sResponse{
+        Message:     "Fetch {{ .Prefix }} list successful",
+        Data:        protoItems,
+        Total:       res.Total,
+        PerPage:     int32(perPage),
+        CurrentPage: int32(page),
+        LastPage:    lastPage,
+    }), nil
+}
+
+func (s *{{ .Prefix }}Service) Create{{ .Prefix }}(ctx context.Context, req *gohan.Request[{{ .Prefix | toSnake }}v1.Create{{ .Prefix }}Request]) (*gohan.Response[{{ .Prefix | toSnake }}v1.Create{{ .Prefix }}Response], error) {
+    in := req.Msg
+
+    if in.Name == "" {
+        return nil, gohan.NewError(gohan.CodeInvalidArgument, errors.New("Invalid request or missing required field (name)"))
+    }
+
+    item := migrations.{{ .Prefix }}{
+        Name: in.Name,
+    }
+
+    if err := s.db.Transaction(func(tx *gohan.Tx) error {
+        return tx.Create(&item)
+    }); err != nil {
+        return nil, gohan.NewError(gohan.CodeInternal, errors.New("Failed to create {{ .Prefix }}"))
+    }
+
+{{- if .UseRedis }}
+    s.clear{{ .Prefix }}Cache(ctx)
+{{- end }}
+
+    return gohan.NewResponse(&{{ .Prefix | toSnake }}v1.Create{{ .Prefix }}Response{
+        Message: "{{ .Prefix }} created successfully",
+        Data:    {{ toCamel .Prefix }}ToProto(item),
+    }), nil
+}
+
+func (s *{{ .Prefix }}Service) Get{{ .Prefix }}(ctx context.Context, req *gohan.Request[{{ .Prefix | toSnake }}v1.Get{{ .Prefix }}Request]) (*gohan.Response[{{ .Prefix | toSnake }}v1.Get{{ .Prefix }}Response], error) {
+    id := int(req.Msg.Id)
+
+    var item migrations.{{ .Prefix }}
+    if err := s.db.FindOne(&item, "id = ?", id); err != nil {
+        if gohan.IsNotFound(err) {
+            return nil, gohan.NewError(gohan.CodeNotFound, errors.New("{{ .Prefix }} not found"))
+        }
+        return nil, gohan.NewError(gohan.CodeInternal, errors.New("Failed to fetch {{ .Prefix }} detail: "+err.Error()))
+    }
+
+    return gohan.NewResponse(&{{ .Prefix | toSnake }}v1.Get{{ .Prefix }}Response{
+        Message: "Fetch {{ .Prefix }} detail successful",
+        Data:    {{ toCamel .Prefix }}ToProto(item),
+    }), nil
+}
+
+func (s *{{ .Prefix }}Service) Update{{ .Prefix }}(ctx context.Context, req *gohan.Request[{{ .Prefix | toSnake }}v1.Update{{ .Prefix }}Request]) (*gohan.Response[{{ .Prefix | toSnake }}v1.Update{{ .Prefix }}Response], error) {
+    in := req.Msg
+    id := int(in.Id)
+
+    var item migrations.{{ .Prefix }}
+    if err := s.db.FindOne(&item, "id = ?", id); err != nil {
+        if gohan.IsNotFound(err) {
+            return nil, gohan.NewError(gohan.CodeNotFound, errors.New("{{ .Prefix }} not found"))
+        }
+        return nil, gohan.NewError(gohan.CodeInternal, errors.New("Failed to fetch {{ .Prefix }} detail: "+err.Error()))
+    }
+
+    if in.Name != "" {
+        item.Name = in.Name
+    }
+
+    if err := s.db.Transaction(func(tx *gohan.Tx) error {
+        return tx.Update(&item, id)
+    }); err != nil {
+        return nil, gohan.NewError(gohan.CodeInternal, errors.New("Failed to update {{ .Prefix }}"))
+    }
+
+{{- if .UseRedis }}
+    s.clear{{ .Prefix }}Cache(ctx)
+{{- end }}
+
+    return gohan.NewResponse(&{{ .Prefix | toSnake }}v1.Update{{ .Prefix }}Response{
+        Message: "{{ .Prefix }} updated successfully",
+        Data:    {{ toCamel .Prefix }}ToProto(item),
+    }), nil
+}
+
+func (s *{{ .Prefix }}Service) Delete{{ .Prefix }}(ctx context.Context, req *gohan.Request[{{ .Prefix | toSnake }}v1.Delete{{ .Prefix }}Request]) (*gohan.Response[{{ .Prefix | toSnake }}v1.Delete{{ .Prefix }}Response], error) {
+    id := int(req.Msg.Id)
+
+    var item migrations.{{ .Prefix }}
+    if err := s.db.FindOne(&item, "id = ?", id); err != nil {
+        if gohan.IsNotFound(err) {
+            return nil, gohan.NewError(gohan.CodeNotFound, errors.New("{{ .Prefix }} not found"))
+        }
+        return nil, gohan.NewError(gohan.CodeInternal, errors.New("Failed to fetch {{ .Prefix }} detail: "+err.Error()))
+    }
+
+    if err := s.db.Transaction(func(tx *gohan.Tx) error {
+        return tx.Delete(&migrations.{{ .Prefix }}{}, id)
+    }); err != nil {
+        return nil, gohan.NewError(gohan.CodeInternal, errors.New("Failed to delete {{ .Prefix }}"))
+    }
+
+{{- if .UseRedis }}
+    s.clear{{ .Prefix }}Cache(ctx)
+{{- end }}
+
+    return gohan.NewResponse(&{{ .Prefix | toSnake }}v1.Delete{{ .Prefix }}Response{
+        Message: "{{ .Prefix }} deleted successfully",
+    }), nil
+}
+
+func {{ toCamel .Prefix }}ToProto(item migrations.{{ .Prefix }}) *{{ .Prefix | toSnake }}v1.{{ .Prefix }} {
+    return &{{ .Prefix | toSnake }}v1.{{ .Prefix }}{
+        Id:        int32(item.ID),
+        Name:      item.Name,
+        CreatedAt: item.CreatedAt.Format(time.RFC3339),
+    }
+}
+{{- if .UseRedis }}
+
+func (s *{{ .Prefix }}Service) clear{{ .Prefix }}Cache(ctx context.Context, extraKeys ...string) {
+    for _, key := range extraKeys {
+        gohan.CacheForget(ctx, gohan.Redis, key)
+    }
+
+    iter := gohan.Redis.Scan(ctx, 0, "crud:{{ .Prefix | toKebab }}:*", 0).Iterator()
+    for iter.Next(ctx) {
+        gohan.CacheForget(ctx, gohan.Redis, iter.Val())
+    }
+}
+{{- end }}

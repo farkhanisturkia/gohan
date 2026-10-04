@@ -1,0 +1,183 @@
+package interceptors
+
+import (
+    "context"
+{{- if .UseAuth }}
+    "net/http"
+    "slices"
+    "strings"
+{{- if ne .AuthType "jwt" }}
+    "time"
+{{- end }}
+{{- end }}
+
+    "github.com/farkhanisturkia/gohan/pkg"
+{{- if .UseAuth }}
+    "{{ .ModuleName }}/crud"
+{{- end }}
+    "{{ .ModuleName }}/database/migrations"
+)
+
+type contextKey string
+
+const UserContextKey contextKey = "authenticated_user"
+
+{{- if .UseAuth }}
+
+var publicProcedures = []string{
+    "/app.v1.AppService/Ping",
+    "/app.v1.AppService/GetVersion",
+    "/app.v1.AppService/CheckPublic",
+    "/auth.v1.AuthService/Login",
+{{- if .UseRegister }}
+    "/auth.v1.AuthService/Register",
+{{- end }}
+{{- if .UseForgotPassword }}
+    "/auth.v1.PasswordResetService/ForgotPassword",
+    "/auth.v1.PasswordResetService/ResetPassword",
+{{- end }}
+}
+
+type resourceGetter interface {
+    GetResource() string
+}
+
+func AppAuthInterceptor(db *gohan.DB) gohan.Interceptor {
+    return gohan.UnaryInterceptorFunc(func(next gohan.UnaryFunc) gohan.UnaryFunc {
+        return func(ctx context.Context, req gohan.AnyRequest) (gohan.AnyResponse, error) {
+            if slices.Contains(publicProcedures, req.Spec().Procedure) {
+                return next(ctx, req)
+            }
+
+            if rg, ok := req.Any().(resourceGetter); ok {
+                if entry, found := crud.Lookup(rg.GetResource()); found && entry.Public {
+                    return next(ctx, req)
+                }
+            }
+
+            user, err := authenticateRequest(db, req.Header())
+            if err != nil {
+                return nil, err
+            }
+
+{{- if .UseRole }}
+            var role migrations.Role
+            if err := db.FindOne(&role, "id = ?", user.RoleID); err == nil {
+                user.Role = role
+            }
+
+{{- end }}
+            return next(context.WithValue(ctx, UserContextKey, user), req)
+        }
+    })
+}
+{{- else }}
+
+func AppAuthInterceptor(db *gohan.DB) gohan.Interceptor {
+    _ = db
+    return gohan.UnaryInterceptorFunc(func(next gohan.UnaryFunc) gohan.UnaryFunc {
+        return func(ctx context.Context, req gohan.AnyRequest) (gohan.AnyResponse, error) {
+            return next(ctx, req)
+        }
+    })
+}
+{{- end }}
+
+func CurrentUser(ctx context.Context) (migrations.User, bool) {
+    user, ok := ctx.Value(UserContextKey).(migrations.User)
+    return user, ok
+}
+
+{{- if .UseAuth }}
+
+func authenticateRequest(db *gohan.DB, header http.Header) (migrations.User, error) {
+    authHeader := header.Get("Authorization")
+    if authHeader == "" {
+        return migrations.User{}, gohan.NewError(gohan.CodeUnauthenticated, errMissingAuthHeader)
+    }
+
+    parts := strings.SplitN(authHeader, " ", 2)
+    if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
+        return migrations.User{}, gohan.NewError(gohan.CodeUnauthenticated, errInvalidAuthFormat)
+    }
+
+    tokenString := parts[1]
+
+{{- if eq .AuthType "jwt" }}
+    env := gohan.GetEnv()
+    claims, err := gohan.ValidateJWT(tokenString, env.JWTSecret)
+    if err != nil {
+        return migrations.User{}, gohan.NewError(gohan.CodeUnauthenticated, errInvalidToken)
+    }
+
+    var user migrations.User
+    if err := db.FindOne(&user, "id = ?", claims.UserID); err != nil {
+        return migrations.User{}, gohan.NewError(gohan.CodeUnauthenticated, errUserNotFound)
+    }
+
+{{- else }}
+    hashedToken, err := gohan.HashToken(tokenString)
+    if err != nil {
+        return migrations.User{}, gohan.NewError(gohan.CodeInternal, err)
+    }
+
+    var tokenData migrations.PersonalAccessToken
+    if err := db.FindOne(&tokenData, "token = ?", hashedToken); err != nil {
+        return migrations.User{}, gohan.NewError(gohan.CodeUnauthenticated, errInvalidToken)
+    }
+
+    if time.Now().After(tokenData.ExpiresAt) {
+        _ = db.Delete(&migrations.PersonalAccessToken{}, tokenData.ID)
+        return migrations.User{}, gohan.NewError(gohan.CodeUnauthenticated, errTokenExpired)
+    }
+
+    var user migrations.User
+    if err := db.FindOne(&user, "id = ?", tokenData.UserID); err != nil {
+        return migrations.User{}, gohan.NewError(gohan.CodeUnauthenticated, errUserNotFound)
+    }
+
+{{- end }}
+    return user, nil
+}
+{{- end }}
+
+{{- if and .UseAuth .UseRole }}
+
+type RoleInterceptor struct {
+    db *gohan.DB
+}
+
+func NewRoleInterceptor(db *gohan.DB) *RoleInterceptor {
+    return &RoleInterceptor{db: db}
+}
+
+func (r *RoleInterceptor) Intercept(service string, allowedRoles ...string) gohan.Interceptor {
+    return gohan.UnaryInterceptorFunc(func(next gohan.UnaryFunc) gohan.UnaryFunc {
+        return func(ctx context.Context, req gohan.AnyRequest) (gohan.AnyResponse, error) {
+            if !strings.HasPrefix(req.Spec().Procedure, "/"+service+"/") {
+                return next(ctx, req)
+            }
+
+            if slices.Contains(publicProcedures, req.Spec().Procedure) {
+                return next(ctx, req)
+            }
+
+            user, err := authenticateRequest(r.db, req.Header())
+            if err != nil {
+                return nil, err
+            }
+
+            var role migrations.Role
+            if err := r.db.FindOne(&role, "id = ?", user.RoleID); err != nil {
+                return nil, gohan.NewError(gohan.CodePermissionDenied, errRoleNotAssigned)
+            }
+            if !slices.Contains(allowedRoles, role.Name) {
+                return nil, gohan.NewError(gohan.CodePermissionDenied, errForbidden)
+            }
+            user.Role = role
+
+            return next(context.WithValue(ctx, UserContextKey, user), req)
+        }
+    })
+}
+{{- end }}

@@ -1,0 +1,246 @@
+package services
+
+import (
+    "context"
+    "errors"
+{{- if .UseRedis }}
+    "fmt"
+{{- end }}
+    "time"
+
+    "github.com/farkhanisturkia/gohan/pkg"
+    rolev1 "{{ .ModuleName }}/gen/role"
+    "{{ .ModuleName }}/database/migrations"
+)
+
+type RoleService struct {
+    db *gohan.DB
+}
+
+func NewRoleService(db *gohan.DB) *RoleService {
+    return &RoleService{db: db}
+}
+
+type rolePageCache struct {
+    Items []migrations.Role `json:"items"`
+    Total int64             `json:"total"`
+}
+
+func (s *RoleService) ListRoles(ctx context.Context, req *gohan.Request[rolev1.ListRolesRequest]) (*gohan.Response[rolev1.ListRolesResponse], error) {
+    page := int(req.Msg.Page)
+    if page <= 0 {
+        page = 1
+    }
+
+    perPage := int(req.Msg.PerPage)
+    if perPage <= 0 {
+        perPage = 10
+    }
+
+{{- if .UseRedis }}
+    var pageData rolePageCache
+    cacheKey := fmt.Sprintf("role:grpc:all:page:%d:limit:%d", page, perPage)
+
+    entry, cached, err := gohan.CachedData(ctx, gohan.Redis, cacheKey, 10*time.Minute, &pageData, func() (interface{}, error) {
+        var items []migrations.Role
+        res, err := s.db.Paginate(page, perPage).Find(&items)
+        if err != nil {
+            return nil, err
+        }
+        return &rolePageCache{Items: items, Total: res.Total}, nil
+    })
+    if err != nil {
+        return nil, gohan.NewError(gohan.CodeInternal, errors.New("Failed to fetch Role data: "+err.Error()))
+    }
+
+    if loaded, ok := entry.(*rolePageCache); ok && loaded != nil {
+        pageData = *loaded
+    }
+
+    message := "Fetch Role list successful"
+    if cached {
+        message = "Fetch Role list successful (cached)"
+    }
+
+    items := pageData.Items
+    total := pageData.Total
+{{- else }}
+    var items []migrations.Role
+    res, err := s.db.Paginate(page, perPage).Find(&items)
+    if err != nil {
+        return nil, gohan.NewError(gohan.CodeInternal, errors.New("Failed to fetch Role data: "+err.Error()))
+    }
+
+    message := "Fetch Role list successful"
+    total := res.Total
+{{- end }}
+
+    lastPage := int32(1)
+    if total > 0 && perPage > 0 {
+        lastPage = int32((total + int64(perPage) - 1) / int64(perPage))
+    }
+
+    protoRoles := make([]*rolev1.Role, 0, len(items))
+    for _, item := range items {
+        protoRoles = append(protoRoles, roleToProto(item))
+    }
+
+    return gohan.NewResponse(&rolev1.ListRolesResponse{
+        Message:     message,
+        Data:        protoRoles,
+        Total:       total,
+        PerPage:     int32(perPage),
+        CurrentPage: int32(page),
+        LastPage:    lastPage,
+    }), nil
+}
+
+func (s *RoleService) CreateRole(ctx context.Context, req *gohan.Request[rolev1.CreateRoleRequest]) (*gohan.Response[rolev1.CreateRoleResponse], error) {
+    in := req.Msg
+
+    if in.Name == "" {
+        return nil, gohan.NewError(gohan.CodeInvalidArgument, errors.New("Invalid request or missing required field (name)"))
+    }
+
+    item := migrations.Role{
+        Name: in.Name,
+    }
+
+    err := s.db.Transaction(func(tx *gohan.Tx) error {
+        return tx.Create(&item)
+    })
+    if err != nil {
+        return nil, gohan.NewError(gohan.CodeInternal, errors.New("Failed to create Role"))
+    }
+
+{{- if .UseRedis }}
+    clearRoleCache(ctx)
+{{- end }}
+
+    return gohan.NewResponse(&rolev1.CreateRoleResponse{
+        Message: "Role created successfully",
+        Data:    roleToProto(item),
+    }), nil
+}
+
+func (s *RoleService) GetRole(ctx context.Context, req *gohan.Request[rolev1.GetRoleRequest]) (*gohan.Response[rolev1.GetRoleResponse], error) {
+    id := int(req.Msg.Id)
+
+{{- if .UseRedis }}
+    var item migrations.Role
+    cacheKey := fmt.Sprintf("role:grpc:id:%d", id)
+
+    entry, cached, err := gohan.CachedData(ctx, gohan.Redis, cacheKey, 10*time.Minute, &item, func() (interface{}, error) {
+        var row migrations.Role
+        if err := s.db.FindOne(&row, "id = ?", id); err != nil {
+            return nil, err
+        }
+        return &row, nil
+    })
+    if err != nil {
+        if gohan.IsNotFound(err) {
+            return nil, gohan.NewError(gohan.CodeNotFound, errors.New("Role not found"))
+        }
+        return nil, gohan.NewError(gohan.CodeInternal, errors.New("Failed to fetch Role detail: "+err.Error()))
+    }
+
+    if row, ok := entry.(*migrations.Role); ok && row != nil {
+        item = *row
+    }
+
+    message := "Fetch Role detail successful"
+    if cached {
+        message = "Fetch Role detail successful (cached)"
+    }
+{{- else }}
+    var item migrations.Role
+    if err := s.db.FindOne(&item, "id = ?", id); err != nil {
+        if gohan.IsNotFound(err) {
+            return nil, gohan.NewError(gohan.CodeNotFound, errors.New("Role not found"))
+        }
+        return nil, gohan.NewError(gohan.CodeInternal, errors.New("Failed to fetch Role detail: "+err.Error()))
+    }
+
+    message := "Fetch Role detail successful"
+{{- end }}
+
+    return gohan.NewResponse(&rolev1.GetRoleResponse{
+        Message: message,
+        Data:    roleToProto(item),
+    }), nil
+}
+
+func (s *RoleService) UpdateRole(ctx context.Context, req *gohan.Request[rolev1.UpdateRoleRequest]) (*gohan.Response[rolev1.UpdateRoleResponse], error) {
+    in := req.Msg
+    id := int(in.Id)
+
+    var item migrations.Role
+    if err := s.db.FindOne(&item, "id = ?", id); err != nil {
+        return nil, gohan.NewError(gohan.CodeNotFound, errors.New("Role not found"))
+    }
+
+    if in.Name != "" {
+        item.Name = in.Name
+    }
+
+    err := s.db.Transaction(func(tx *gohan.Tx) error {
+        return tx.Update(&item, id)
+    })
+    if err != nil {
+        return nil, gohan.NewError(gohan.CodeInternal, errors.New("Failed to update Role"))
+    }
+
+{{- if .UseRedis }}
+    clearRoleCache(ctx, fmt.Sprintf("role:grpc:id:%d", id))
+{{- end }}
+
+    return gohan.NewResponse(&rolev1.UpdateRoleResponse{
+        Message: "Role updated successfully",
+        Data:    roleToProto(item),
+    }), nil
+}
+
+func (s *RoleService) DeleteRole(ctx context.Context, req *gohan.Request[rolev1.DeleteRoleRequest]) (*gohan.Response[rolev1.DeleteRoleResponse], error) {
+    id := int(req.Msg.Id)
+
+    var item migrations.Role
+    if err := s.db.FindOne(&item, "id = ?", id); err != nil {
+        return nil, gohan.NewError(gohan.CodeNotFound, errors.New("Role not found"))
+    }
+
+    err := s.db.Transaction(func(tx *gohan.Tx) error {
+        return tx.Delete(&migrations.Role{}, id)
+    })
+    if err != nil {
+        return nil, gohan.NewError(gohan.CodeInternal, errors.New("Failed to delete Role"))
+    }
+
+{{- if .UseRedis }}
+    clearRoleCache(ctx, fmt.Sprintf("role:grpc:id:%d", id))
+{{- end }}
+
+    return gohan.NewResponse(&rolev1.DeleteRoleResponse{
+        Message: "Role deleted successfully",
+    }), nil
+}
+
+func roleToProto(role migrations.Role) *rolev1.Role {
+    return &rolev1.Role{
+        Id:        int32(role.ID),
+        Name:      role.Name,
+        CreatedAt: role.CreatedAt.Format(time.RFC3339),
+    }
+}
+{{- if .UseRedis }}
+
+func clearRoleCache(ctx context.Context, extraKeys ...string) {
+    for _, key := range extraKeys {
+        gohan.CacheForget(ctx, gohan.Redis, key)
+    }
+
+    iter := gohan.Redis.Scan(ctx, 0, "role:*", 0).Iterator()
+    for iter.Next(ctx) {
+        gohan.CacheForget(ctx, gohan.Redis, iter.Val())
+    }
+}
+{{- end }}

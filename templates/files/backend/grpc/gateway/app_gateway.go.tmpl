@@ -1,0 +1,43 @@
+package gateway
+
+import (
+    "net/http"
+
+    "github.com/farkhanisturkia/gohan/pkg"
+)
+
+func GetVersion() http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        gohan.JSON(w, http.StatusOK, map[string]interface{}{
+            "message": "App version fetched successfully",
+            "version": gohan.Version,
+        })
+    }
+}
+
+func Ping() http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        gohan.JSON(w, http.StatusOK, map[string]string{
+            "message": "pong",
+        })
+    }
+}
+
+func CheckPublic() http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        var textResult string
+
+        err := gohan.FetchJSON("https://api.github.com/zen", &textResult)
+        if err != nil {
+            gohan.JSON(w, http.StatusBadGateway, map[string]string{
+                "message": "Failed to connect to the Public API",
+                "error":   err.Error(),
+            })
+            return
+        }
+
+        gohan.JSON(w, http.StatusOK, map[string]string{
+            "result": textResult,
+        })
+    }
+}

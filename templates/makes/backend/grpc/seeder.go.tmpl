@@ -1,0 +1,30 @@
+package seeders
+
+import (
+    "log"
+
+    "github.com/farkhanisturkia/gohan/pkg"
+    "{{ .ModuleName }}/database/migrations"
+)
+
+func {{.Prefix}}Seeder(db *gohan.DB) {
+    var existingItem migrations.{{.Prefix}}
+    if err := db.FindOne(&existingItem, "id = ?", 1); err == nil {
+        log.Println("[info] {{.Prefix}} seeder skipped: Data already exists")
+        return
+    }
+
+    items := []migrations.{{.Prefix}}{
+        {
+            Name: "Default {{.Prefix}}",
+        },
+    }
+
+    for _, item := range items {
+        if err := db.Create(&item); err != nil {
+            log.Printf("[error] Failed to seed {{.Prefix}}: %v\n", err)
+        }
+    }
+
+    log.Println("[info] {{.Prefix}} seeder successfully executed")
+}

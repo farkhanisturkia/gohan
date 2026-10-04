@@ -1,0 +1,43 @@
+package main
+
+import (
+    "log"
+    "net/http"
+    "time"
+
+    "github.com/farkhanisturkia/gohan/pkg"
+    "{{ .ModuleName }}/database/migrations"
+    "{{ .ModuleName }}/database/seeders"
+)
+
+func main() {
+    env := gohan.GetEnv()
+
+    db, err := gohan.GetConn(env)
+    if err != nil {
+        log.Fatalf("[error] Failed to open database connection: %v", err)
+    }
+    defer db.Close()
+
+    migrations.SetMigrations(db)
+    seeders.SetSeeders(db)
+
+    gohan.InitMailWorker(5)
+
+{{- if .UseRedis }}
+    gohan.InitRedis(env.RedisHost, env.RedisPort, env.RedisPass)
+
+{{- end }}
+    mux := SetupRoutes(db)
+
+    handler := gohan.CORSMiddleware(env.AllowedOrigins)(mux)
+    handler = http.TimeoutHandler(handler, 10*time.Second, `{"code":"deadline_exceeded","message":"Request timeout"}`)
+
+    addr := ":" + env.AppPort
+    log.Printf("[info] Connect/gRPC server running in http://localhost%s\n", addr)
+    log.Printf("[info] Protocols: Connect, gRPC, gRPC-Web (JSON & binary protobuf)\n")
+
+    if err := http.ListenAndServe(addr, handler); err != nil {
+        log.Fatalf("[error] Server error: %v", err)
+    }
+}

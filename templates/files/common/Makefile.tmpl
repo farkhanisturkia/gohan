@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup dev dev-backend{{ if eq .AppType "fullstack" }} dev-frontend{{ end }} build build-backend{{ if eq .AppType "fullstack" }} build-frontend{{ end }} test{{ if .UseRedis }} clear-cache{{ end }}
+.PHONY: help setup dev dev-backend{{ if eq .AppType "fullstack" }} dev-frontend{{ end }} build build-backend{{ if eq .AppType "fullstack" }} build-frontend{{ end }} test{{ if eq .BackendType "grpc" }} proto{{ end }}{{ if .UseRedis }} clear-cache{{ end }}
 
 help: ## 📖 Show available commands
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*## / { printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
@@ -12,7 +12,17 @@ setup: ## 📦 Install all dependencies & generate app key
 {{- else }}
 	@(test -f go.mod || go mod init {{ .ModuleName }}) && go mod tidy && gohan key:generate
 {{- end }}
+{{- if eq .BackendType "grpc" }}
+	@go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.12
+	@go install connectrpc.com/connect/cmd/protoc-gen-connect-go@v1.21.0
+	@$(MAKE) proto
+{{- end }}
 	@echo "✅ Setup completed!"
+{{- if eq .BackendType "grpc" }}
+
+proto: ## 🔁 Regenerate gen/ from proto/*.proto (protoc + import rewrite)
+	@gohan proto
+{{- end }}
 
 {{- if .UseRedis }}
 clear-cache: ## 🧹 Flush Redis cache (list & detail keys auto-invalidate on writes)

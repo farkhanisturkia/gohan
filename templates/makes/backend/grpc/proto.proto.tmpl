@@ -1,0 +1,69 @@
+syntax = "proto3";
+
+package {{ .Prefix | toSnake }}.v1;
+
+option go_package = "{{ .ModuleName }}/gen/{{ .Prefix | toSnake }};{{ .Prefix | toSnake }}v1";
+
+message {{ .Prefix }} {
+  int32 id = 1;
+  string name = 2;
+  string created_at = 3;
+}
+
+message List{{ .Prefix }}sRequest {
+  int32 page = 1;
+  int32 per_page = 2;
+}
+
+message List{{ .Prefix }}sResponse {
+  string message = 1;
+  repeated {{ .Prefix }} data = 2;
+  int64 total = 3;
+  int32 per_page = 4;
+  int32 current_page = 5;
+  int32 last_page = 6;
+}
+
+message Create{{ .Prefix }}Request {
+  string name = 1;
+}
+
+message Create{{ .Prefix }}Response {
+  string message = 1;
+  {{ .Prefix }} data = 2;
+}
+
+message Get{{ .Prefix }}Request {
+  int32 id = 1;
+}
+
+message Get{{ .Prefix }}Response {
+  string message = 1;
+  {{ .Prefix }} data = 2;
+}
+
+message Update{{ .Prefix }}Request {
+  int32 id = 1;
+  string name = 2;
+}
+
+message Update{{ .Prefix }}Response {
+  string message = 1;
+  {{ .Prefix }} data = 2;
+}
+
+message Delete{{ .Prefix }}Request {
+  int32 id = 1;
+}
+
+message Delete{{ .Prefix }}Response {
+  string message = 1;
+}
+
+service {{ .Prefix }}Service {
+  rpc List{{ .Prefix }}s(List{{ .Prefix }}sRequest) returns (List{{ .Prefix }}sResponse);
+  rpc Create{{ .Prefix }}(Create{{ .Prefix }}Request) returns (Create{{ .Prefix }}Response);
+  rpc Get{{ .Prefix }}(Get{{ .Prefix }}Request) returns (Get{{ .Prefix }}Response);
+  rpc Update{{ .Prefix }}(Update{{ .Prefix }}Request) returns (Update{{ .Prefix }}Response);
+  rpc Delete{{ .Prefix }}(Delete{{ .Prefix }}Request) returns (Delete{{ .Prefix }}Response);
+}

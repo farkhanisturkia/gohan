@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package app.v1;
+
+option go_package = "{{ .ModuleName }}/gen/app;appv1";
+
+message PingRequest {}
+
+message PingResponse {
+  string message = 1;
+}
+
+message GetVersionRequest {}
+
+message GetVersionResponse {
+  string message = 1;
+  string version = 2;
+}
+
+message CheckPublicRequest {}
+
+message CheckPublicResponse {
+  string message = 1;
+  string result = 2;
+}
+
+service AppService {
+  rpc Ping(PingRequest) returns (PingResponse);
+  rpc GetVersion(GetVersionRequest) returns (GetVersionResponse);
+  rpc CheckPublic(CheckPublicRequest) returns (CheckPublicResponse);
+}

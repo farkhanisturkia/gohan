@@ -1,0 +1,87 @@
+package main
+
+import (
+    "net/http"
+
+    "github.com/farkhanisturkia/gohan/pkg"
+    appv1connect "{{ .ModuleName }}/gen/app/appv1connect"
+    gohanv1connect "{{ .ModuleName }}/gen/gohan/gohanv1connect"
+    "{{ .ModuleName }}/gateway"
+    "{{ .ModuleName }}/services"
+    "{{ .ModuleName }}/services/interceptors"
+{{- if .UseAuth }}
+    authv1connect "{{ .ModuleName }}/gen/auth/authv1connect"
+{{- if .UseRole }}
+    rolev1connect "{{ .ModuleName }}/gen/role/rolev1connect"
+{{- end }}
+    userv1connect "{{ .ModuleName }}/gen/user/userv1connect"
+{{- end }}
+)
+
+func SetupRoutes(db *gohan.DB) http.Handler {
+    mux := http.NewServeMux()
+
+    connectHandler := gohan.WithInterceptors(interceptors.AppAuthInterceptor(db))
+
+    appPath, appHandler := appv1connect.NewAppServiceHandler(
+        services.NewAppService(),
+        connectHandler,
+    )
+    mux.Handle(appPath, appHandler)
+
+    crudPath, crudHandler := gohanv1connect.NewCrudServiceHandler(
+        services.NewCrudService(db),
+        connectHandler,
+    )
+    mux.Handle(crudPath, crudHandler)
+
+{{- if .UseAuth }}
+    authPath, authHandler := authv1connect.NewAuthServiceHandler(
+        services.NewAuthService(db),
+        connectHandler,
+    )
+    mux.Handle(authPath, authHandler)
+{{- if .UseForgotPassword }}
+
+    resetPath, resetHandler := authv1connect.NewPasswordResetServiceHandler(
+        services.NewPasswordResetService(db),
+        connectHandler,
+    )
+    mux.Handle(resetPath, resetHandler)
+{{- end }}
+{{- if .UseRole }}
+    roleGuard := interceptors.NewRoleInterceptor(db)
+
+    rolePath, roleHandler := rolev1connect.NewRoleServiceHandler(
+        services.NewRoleService(db),
+        connectHandler,
+        gohan.WithInterceptors(roleGuard.Intercept("role.v1.RoleService", "admin")),
+    )
+    mux.Handle(rolePath, roleHandler)
+
+    userPath, userHandler := userv1connect.NewUserServiceHandler(
+        services.NewUserService(db),
+        connectHandler,
+        gohan.WithInterceptors(roleGuard.Intercept("user.v1.UserService", "admin")),
+    )
+    mux.Handle(userPath, userHandler)
+{{- else }}
+
+    userPath, userHandler := userv1connect.NewUserServiceHandler(
+        services.NewUserService(db),
+        connectHandler,
+    )
+    mux.Handle(userPath, userHandler)
+{{- end }}
+
+{{- end }}
+    gateway.SetupGateway(mux, db)
+
+    mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+        gohan.JSON(w, http.StatusNotFound, map[string]string{
+            "message": "Route " + r.Method + " " + r.URL.Path + " not found",
+        })
+    })
+
+    return mux
+}

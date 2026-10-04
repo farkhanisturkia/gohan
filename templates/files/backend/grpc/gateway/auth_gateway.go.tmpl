@@ -1,0 +1,368 @@
+package gateway
+
+import (
+    "context"
+    "net/http"
+{{- if .UseRole }}
+    "slices"
+{{- end }}
+    "strings"
+    "time"
+
+    "github.com/farkhanisturkia/gohan/pkg"
+    "{{ .ModuleName }}/database/migrations"
+)
+
+type contextKey string
+
+const UserContextKey contextKey = "authenticated_user"
+
+func Authenticate(db *gohan.DB, next http.HandlerFunc) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        user, ok := authenticateRequest(db, w, r)
+        if !ok {
+            return
+        }
+
+{{- if .UseRole }}
+        var role migrations.Role
+        if err := db.FindOne(&role, "id = ?", user.RoleID); err == nil {
+            user.Role = role
+        }
+
+{{- end }}
+        ctx := context.WithValue(r.Context(), UserContextKey, user)
+        next(w, r.WithContext(ctx))
+    }
+}
+
+func authenticateRequest(db *gohan.DB, w http.ResponseWriter, r *http.Request) (migrations.User, bool) {
+    authHeader := r.Header.Get("Authorization")
+    if authHeader == "" {
+        gohan.JSON(w, http.StatusUnauthorized, map[string]string{
+            "message": "Authorization header is required",
+        })
+        return migrations.User{}, false
+    }
+
+    parts := strings.SplitN(authHeader, " ", 2)
+    if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
+        gohan.JSON(w, http.StatusUnauthorized, map[string]string{
+            "message": "Invalid authorization format. Expected 'Bearer <token>'",
+        })
+        return migrations.User{}, false
+    }
+
+    tokenString := parts[1]
+
+{{- if eq .AuthType "jwt" }}
+    env := gohan.GetEnv()
+    claims, err := gohan.ValidateJWT(tokenString, env.JWTSecret)
+    if err != nil {
+        gohan.JSON(w, http.StatusUnauthorized, map[string]string{
+            "message": "Invalid or expired JWT token",
+        })
+        return migrations.User{}, false
+    }
+
+    var user migrations.User
+    if err := db.FindOne(&user, "id = ?", claims.UserID); err != nil {
+        gohan.JSON(w, http.StatusUnauthorized, map[string]string{
+            "message": "User associated with this token not found",
+        })
+        return migrations.User{}, false
+    }
+{{- else }}
+    hashedToken, err := gohan.HashToken(tokenString)
+    if err != nil {
+        gohan.JSON(w, http.StatusInternalServerError, map[string]string{
+            "message": err.Error(),
+        })
+        return migrations.User{}, false
+    }
+
+    var tokenData migrations.PersonalAccessToken
+    if err := db.FindOne(&tokenData, "token = ?", hashedToken); err != nil {
+        gohan.JSON(w, http.StatusUnauthorized, map[string]string{
+            "message": "Invalid or expired token",
+        })
+        return migrations.User{}, false
+    }
+
+    if time.Now().After(tokenData.ExpiresAt) {
+        _ = db.Delete(&migrations.PersonalAccessToken{}, tokenData.ID)
+
+        gohan.JSON(w, http.StatusUnauthorized, map[string]string{
+            "message": "Token has expired",
+        })
+        return migrations.User{}, false
+    }
+
+    var user migrations.User
+    if err := db.FindOne(&user, "id = ?", tokenData.UserID); err != nil {
+        gohan.JSON(w, http.StatusUnauthorized, map[string]string{
+            "message": "User associated with this token not found",
+        })
+        return migrations.User{}, false
+    }
+{{- end }}
+
+    return user, true
+}
+
+func GetAuthUser(r *http.Request) (migrations.User, bool) {
+    user, ok := r.Context().Value(UserContextKey).(migrations.User)
+    return user, ok
+}
+
+{{- if .UseRole }}
+
+func RequireRole(allowedRoles []string, next http.HandlerFunc) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        user, ok := GetAuthUser(r)
+        if !ok {
+            gohan.JSON(w, http.StatusUnauthorized, map[string]string{
+                "message": "Unauthorized access",
+            })
+            return
+        }
+
+        if !slices.Contains(allowedRoles, user.Role.Name) {
+            gohan.JSON(w, http.StatusForbidden, map[string]string{
+                "message": "Forbidden: You do not have permission to access this resource",
+            })
+            return
+        }
+
+        next(w, r)
+    }
+}
+{{- end }}
+
+func Login(db *gohan.DB) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        var req struct {
+            Email      string `json:"email"`
+            Password   string `json:"password"`
+            RememberMe bool   `json:"remember_me"`
+        }
+        if err := gohan.BindJSON(r, &req); err != nil {
+            gohan.JSON(w, http.StatusBadRequest, map[string]string{"message": "Invalid request body"})
+            return
+        }
+
+        var user migrations.User
+        if err := db.FindOne(&user, "email = ?", req.Email); err != nil {
+            gohan.JSON(w, http.StatusUnauthorized, map[string]string{"message": "Invalid email or password"})
+            return
+        }
+
+        if !gohan.CheckPasswordHash(req.Password, user.Password) {
+            gohan.JSON(w, http.StatusUnauthorized, map[string]string{"message": "Invalid email or password"})
+            return
+        }
+
+{{- if .UseRole }}
+        var role migrations.Role
+        if err := db.FindOne(&role, "id = ?", user.RoleID); err == nil {
+            user.Role = role
+        }
+{{- end }}
+{{- if eq .AuthType "jwt" }}
+        env := gohan.GetEnv()
+
+        duration, err := time.ParseDuration(env.JWTExpiration)
+        if err != nil {
+            duration = 24 * time.Hour
+        }
+
+        if req.RememberMe {
+            duration *= 30
+        }
+
+        tokenStr, err := gohan.GenerateJWT(user.ID, user.Email, env.JWTSecret, duration)
+        if err != nil {
+            gohan.JSON(w, http.StatusInternalServerError, map[string]string{"message": "Failed to generate JWT token"})
+            return
+        }
+{{- else }}
+        tokenStr, err := gohan.GenerateRandomToken(32)
+        if err != nil {
+            gohan.JSON(w, http.StatusInternalServerError, map[string]string{"message": "Failed to generate token"})
+            return
+        }
+
+        hashedToken, err := gohan.HashToken(tokenStr)
+        if err != nil {
+            gohan.JSON(w, http.StatusInternalServerError, map[string]string{
+                "message": err.Error(),
+            })
+            return
+        }
+
+        ipAddress := gohan.GetClientIP(r)
+        userAgent := r.UserAgent()
+        tokenName := gohan.ParseTokenName(userAgent)
+
+        tokenDuration := 7 * 24 * time.Hour
+        if req.RememberMe {
+            tokenDuration = 30 * 24 * time.Hour
+        }
+
+        pat := migrations.PersonalAccessToken{
+            UserID:    user.ID,
+            Name:      tokenName,
+            Token:     hashedToken,
+            IPAddress: ipAddress,
+            UserAgent: userAgent,
+            ExpiresAt: time.Now().Add(tokenDuration),
+        }
+
+        if err := db.Create(&pat); err != nil {
+            gohan.JSON(w, http.StatusInternalServerError, map[string]string{"message": "Failed to save session"})
+            return
+        }
+{{- end }}
+
+        gohan.JSON(w, http.StatusOK, map[string]interface{}{
+            "message": "Login successful",
+            "token":   tokenStr,
+            "user": map[string]interface{}{
+                "id":    user.ID,
+                "name":  user.Name,
+                "email": user.Email,
+{{- if .UseRole }}
+                "role":  user.Role.Name,
+{{- end }}
+            },
+        })
+    }
+}
+
+func Logout(db *gohan.DB) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+{{- if eq .AuthType "jwt" }}
+        gohan.JSON(w, http.StatusOK, map[string]string{
+            "message": "Logout successful",
+        })
+{{- else }}
+        authHeader := r.Header.Get("Authorization")
+        if authHeader == "" {
+            gohan.JSON(w, http.StatusBadRequest, map[string]string{"message": "Authorization header missing"})
+            return
+        }
+
+        tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
+
+        hashedToken, err := gohan.HashToken(tokenStr)
+        if err != nil {
+            gohan.JSON(w, http.StatusInternalServerError, map[string]string{
+                "message": err.Error(),
+            })
+            return
+        }
+
+        var pat migrations.PersonalAccessToken
+        if err := db.FindOne(&pat, "token = ?", hashedToken); err != nil {
+            gohan.JSON(w, http.StatusNotFound, map[string]string{"message": "Session not found"})
+            return
+        }
+
+        if err := db.Delete(&migrations.PersonalAccessToken{}, pat.ID); err != nil {
+            gohan.JSON(w, http.StatusInternalServerError, map[string]string{"message": "Failed to revoke token"})
+            return
+        }
+
+        gohan.JSON(w, http.StatusOK, map[string]string{
+            "message": "Logout successful",
+        })
+{{- end }}
+    }
+}
+
+{{- if .UseRegister }}
+
+func Register(db *gohan.DB) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        var req struct {
+            Name     string `json:"name"`
+            Email    string `json:"email"`
+            Password string `json:"password"`
+        }
+        if err := gohan.BindJSON(r, &req); err != nil {
+            gohan.JSON(w, http.StatusBadRequest, map[string]string{"message": "Invalid request body"})
+            return
+        }
+
+        if req.Name == "" || req.Email == "" || req.Password == "" {
+            gohan.JSON(w, http.StatusBadRequest, map[string]string{"message": "Name, email, and password are required"})
+            return
+        }
+
+        var existingUser migrations.User
+        if err := db.FindOne(&existingUser, "email = ?", req.Email); err == nil {
+            gohan.JSON(w, http.StatusConflict, map[string]string{"message": "Email is already registered"})
+            return
+        }
+
+        hashedPassword, err := gohan.HashPassword(req.Password)
+        if err != nil {
+            gohan.JSON(w, http.StatusInternalServerError, map[string]string{"message": "Failed to process password"})
+            return
+        }
+
+        user := migrations.User{
+            Name:     req.Name,
+            Email:    req.Email,
+            Password: hashedPassword,
+        }
+{{- if .UseRole }}
+
+        var defaultRole migrations.Role
+        if err := db.FindOne(&defaultRole, "name = ?", "user"); err == nil {
+            user.RoleID = defaultRole.ID
+        } else if err := db.FindOne(&defaultRole, "1 = 1"); err == nil {
+            user.RoleID = defaultRole.ID
+        }
+{{- end }}
+
+        if err := db.Create(&user); err != nil {
+            gohan.JSON(w, http.StatusInternalServerError, map[string]string{"message": "Failed to create user"})
+            return
+        }
+
+        gohan.JSON(w, http.StatusCreated, map[string]interface{}{
+            "message": "User registered successfully",
+            "user": map[string]interface{}{
+                "id":    user.ID,
+                "name":  user.Name,
+                "email": user.Email,
+            },
+        })
+    }
+}
+{{- end }}
+
+func Me() http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        user, ok := GetAuthUser(r)
+        if !ok {
+            gohan.JSON(w, http.StatusInternalServerError, map[string]string{
+                "message": "Failed to get user context",
+            })
+            return
+        }
+
+        gohan.JSON(w, http.StatusOK, map[string]interface{}{
+            "message": "User profile retrieved successfully",
+            "data": map[string]interface{}{
+                "id":    user.ID,
+                "name":  user.Name,
+                "email": user.Email,
+{{- if .UseRole }}
+                "role":  user.Role.Name,
+{{- end }}
+            },
+        })
+    }
+}

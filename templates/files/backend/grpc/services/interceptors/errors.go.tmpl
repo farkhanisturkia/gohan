@@ -1,0 +1,17 @@
+package interceptors
+
+import (
+    "errors"
+
+    "github.com/farkhanisturkia/gohan/pkg"
+)
+
+var (
+    errMissingAuthHeader = gohan.NewError(gohan.CodeUnauthenticated, errors.New("Authorization header is required"))
+    errInvalidAuthFormat = gohan.NewError(gohan.CodeUnauthenticated, errors.New("Invalid authorization format. Expected 'Bearer <token>'"))
+    errInvalidToken      = gohan.NewError(gohan.CodeUnauthenticated, errors.New("Invalid or expired token"))
+    errTokenExpired      = gohan.NewError(gohan.CodeUnauthenticated, errors.New("Token has expired"))
+    errUserNotFound      = gohan.NewError(gohan.CodeUnauthenticated, errors.New("User associated with this token not found"))
+    errForbidden         = gohan.NewError(gohan.CodePermissionDenied, errors.New("Forbidden: You do not have permission to access this resource"))
+    errRoleNotAssigned   = gohan.NewError(gohan.CodePermissionDenied, errors.New("No role assigned to this user"))
+)
