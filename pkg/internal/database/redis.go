@@ -30,3 +30,10 @@ func InitRedis(host, port, password string) {
 		log.Println("[info] Connect to the Redis server at", addr)
 	}
 }
+
+func BindRedis(slot **redis.Client) func(host, port, password string) {
+	return func(host, port, password string) {
+		InitRedis(host, port, password)
+		*slot = Redis
+	}
+}
