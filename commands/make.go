@@ -184,6 +184,164 @@ const (
 	regFailed
 )
 
+func generateGrpcProtoFiles(projectRoot string, cfg *GohanConfig, data templates.MakeData, snake string) {
+	backendBase := resolveBasePath(projectRoot, cfg.AppType, "")
+
+	generateFromTemplate(
+		"backend/grpc/proto.proto.tmpl",
+		filepath.Join(backendBase, "proto", snake, snake+".proto"),
+		data,
+	)
+	generateFromTemplate(
+		"backend/grpc/service.go.tmpl",
+		filepath.Join(backendBase, "services", snake+"_service.go"),
+		data,
+	)
+}
+
+func generateProto(projectRoot string, cfg *GohanConfig, moduleName string) {
+	if err := generateProtoCode(projectRoot, cfg.AppType, moduleName); err != nil {
+		fmt.Printf("[warning] Could not generate gen/: %v\n", err)
+		return
+	}
+	fmt.Println("[info] Regenerated gen/ from proto/ with protoc")
+}
+
+func registerGrpcService(projectRoot string, cfg *GohanConfig, moduleName, prefix, snake string, guard *ResourceGuard) {
+	backendBase := resolveBasePath(projectRoot, cfg.AppType, "")
+	routesPath := filepath.Join(backendBase, "routes.go")
+
+	content, err := readTextFile(routesPath)
+	if err != nil {
+		fmt.Printf("[warn] Skipped %s service registration: cannot read %s\n", prefix, routesPath)
+		return
+	}
+
+	// 1. Import the generated connect package.
+	if !strings.Contains(content, fmt.Sprintf("%sv1connect \"", snake)) {
+		imp := fmt.Sprintf("\n    %sv1connect \"%s/gen/%s/%sv1connect\"", snake, moduleName, snake, snake)
+
+		updated, ok := appendBeforeFirstMarker(content, ")\n\n// SetupRoutes", imp)
+		if !ok {
+			updated, ok = appendBeforeFirstMarker(content, ")\n\nfunc SetupRoutes", imp)
+		}
+		if !ok {
+			fmt.Printf("[warn] Could not add the %sv1connect import automatically. Add it manually to routes.go.\n", snake)
+		} else {
+			content = updated
+		}
+	}
+
+	// 2. Register the handler before the REST gateway setup.
+	if !strings.Contains(content, fmt.Sprintf("New%sServiceHandler(", prefix)) {
+		block := grpcServiceRegistration(prefix, snake, guard)
+
+		updated, ok := appendBeforeFirstMarker(content, "gateway.SetupGateway(mux, db)", block)
+		if !ok {
+			fmt.Printf("[warn] Could not register the %s service automatically. Add it manually to routes.go.\n", prefix)
+		} else {
+			content = updated
+		}
+	}
+
+	if err := writeGoFile(routesPath, content); err != nil {
+		fmt.Printf("[error] Failed to update %s: %v\n", routesPath, err)
+		return
+	}
+	fmt.Printf("[info] Updated: %s\n", routesPath)
+
+	// 3. Public resources must bypass the auth interceptor.
+	if cfg.AppSpecs.Auth && guard != nil && !guard.Auth {
+		procBase := "/" + snake + ".v1." + prefix + "Service/"
+		addPublicProcedures(filepath.Join(backendBase, "services", "interceptors", "interceptors.go"), []string{
+			procBase + "List" + prefix + "s",
+			procBase + "Create" + prefix,
+			procBase + "Get" + prefix,
+			procBase + "Update" + prefix,
+			procBase + "Delete" + prefix,
+		})
+	}
+}
+
+func grpcServiceRegistration(prefix, snake string, guard *ResourceGuard) string {
+	if guard != nil && len(guard.Roles) > 0 {
+		return fmt.Sprintf(`    // %s Resource (typed Connect service, restricted to the %s role(s))
+    %sPath, %sHandler := %sv1connect.New%sServiceHandler(
+        services.New%sService(db),
+        connectHandler,
+        gohan.WithInterceptors(roleGuard.Intercept("%s.v1.%sService", %s)),
+    )
+    mux.Handle(%sPath, %sHandler)
+
+`,
+			prefix, strings.Join(guard.Roles, ", "),
+			snake, snake, snake, prefix,
+			prefix,
+			snake, prefix, formatRolesGo(guard.Roles),
+			snake, snake)
+	}
+
+	guardNote := ""
+	if guard != nil && !guard.Auth {
+		guardNote = " (public)"
+	}
+
+	return fmt.Sprintf(`    // %s Resource (typed Connect service)%s
+    %sPath, %sHandler := %sv1connect.New%sServiceHandler(
+        services.New%sService(db),
+        connectHandler,
+    )
+    mux.Handle(%sPath, %sHandler)
+
+`,
+		prefix, guardNote,
+		snake, snake, snake, prefix,
+		prefix,
+		snake, snake)
+}
+
+func addPublicProcedures(interceptorsPath string, procedures []string) {
+	content, err := readTextFile(interceptorsPath)
+	if err != nil {
+		fmt.Printf("[warn] Skipped public procedure registration: cannot read %s\n", interceptorsPath)
+		return
+	}
+
+	start := strings.Index(content, "publicProcedures = []string{")
+	if start < 0 {
+		fmt.Printf("[warn] Skipped public procedure registration: unexpected structure in %s\n", interceptorsPath)
+		return
+	}
+
+	var block strings.Builder
+	var fresh []string
+	for _, procedure := range procedures {
+		if strings.Contains(content, fmt.Sprintf("%q,", procedure)) {
+			continue
+		}
+		fresh = append(fresh, procedure)
+		block.WriteString(fmt.Sprintf("\n    %q,", procedure))
+	}
+	if len(fresh) == 0 {
+		return
+	}
+
+	rel := content[start:]
+	end := strings.Index(rel, "\n}")
+	if end < 0 {
+		fmt.Printf("[warn] Skipped public procedure registration: unexpected structure in %s\n", interceptorsPath)
+		return
+	}
+
+	updated := content[:start+end] + block.String() + content[start+end:]
+
+	if err := writeGoFile(interceptorsPath, updated); err != nil {
+		fmt.Printf("[error] Failed to update %s: %v\n", interceptorsPath, err)
+		return
+	}
+	fmt.Printf("[info] Updated: %s\n", interceptorsPath)
+}
+
 func MakeController(name string) {
 	cfg, projectRoot, err := getGohanConfig()
 	if err != nil {
@@ -195,19 +353,45 @@ func MakeController(name string) {
 
 	cleanName := strings.TrimSuffix(name, ".go")
 	prefix := toPascalCase(cleanName)
-
-	baseDir := resolveBasePath(projectRoot, cfg.AppType, "controllers")
-	targetPath := filepath.Join(baseDir, cleanName+".go")
 	moduleName := utils.GetModuleName()
 
 	data := templates.MakeData{
 		ModuleName: moduleName,
 		Prefix:     prefix,
+		Resource:   prefix,
 		UseRedis:   cfg.AppSpecs.Redis,
+		UseAuth:    cfg.AppSpecs.Auth,
+		UseRole:    cfg.AppSpecs.RBAC,
 	}
 
-	tmplPath := fmt.Sprintf("backend/%s/controller.go.tmpl", backendType)
+	var tmplPath, targetPath string
+	switch backendType {
+	case "grpc":
+		tmplPath = "backend/grpc/controller.go.tmpl"
+		targetPath = filepath.Join(
+			resolveBasePath(projectRoot, cfg.AppType, "crud"),
+			utils.ToSnakeCase(prefix)+"_crud.go",
+		)
+	default:
+		tmplPath = fmt.Sprintf("backend/%s/controller.go.tmpl", backendType)
+		targetPath = filepath.Join(
+			resolveBasePath(projectRoot, cfg.AppType, "controllers"),
+			cleanName+".go",
+		)
+	}
+
 	generateFromTemplate(tmplPath, targetPath, data)
+
+	if backendType == "grpc" {
+		snake := utils.ToSnakeCase(prefix)
+		generateGrpcProtoFiles(projectRoot, cfg, data, snake)
+		generateProto(projectRoot, cfg, moduleName)
+
+		fmt.Printf("[info] The '%s' resource is served on /api/%s (REST gateway) and by the generic gohan.v1.CrudService.\n", prefix, utils.ToKebabCase(prefix))
+		fmt.Printf("[info] Typed contract: proto/%s/%s.proto + services/%s_service.go (register it in routes.go to expose it over Connect).\n", snake, snake, snake)
+		fmt.Println("[info] After editing the .proto file run 'make proto'.")
+		fmt.Println("[info] Make sure the migrations model exists: gohan make:migration create_" + snake + "_table")
+	}
 }
 
 func MakeMigration(name string) {
@@ -344,7 +528,10 @@ func MakeResource(name string) {
 	backendType := backendTypeOf(cfg)
 	frontendType := frontendTypeOf(cfg)
 
-	if backendType != "rest" {
+	switch backendType {
+	case "rest", "grpc":
+		// supported
+	default:
 		fmt.Printf("[error] 'make:resource' is not supported for the '%s' backend architecture yet.\n", backendType)
 		return
 	}
@@ -387,6 +574,8 @@ func MakeResource(name string) {
 		UseRedis:   cfg.AppSpecs.Redis,
 		UseAuth:    cfg.AppSpecs.Auth,
 		UseRole:    cfg.AppSpecs.RBAC,
+		Roles:      guard.Roles,
+		Public:     !guard.Auth,
 	}
 
 	fmt.Printf("🧩 Generating %s resource...\n", prefix)
@@ -394,11 +583,20 @@ func MakeResource(name string) {
 	// ---------- Backend ----------
 	backendBase := resolveBasePath(projectRoot, cfg.AppType, "")
 
-	generateFromTemplate(
-		fmt.Sprintf("backend/%s/controller.go.tmpl", backendType),
-		filepath.Join(backendBase, "controllers", snake+"_controller.go"),
-		data,
-	)
+	if backendType == "grpc" {
+		generateFromTemplate(
+			"backend/grpc/controller.go.tmpl",
+			filepath.Join(backendBase, "crud", snake+"_crud.go"),
+			data,
+		)
+		generateGrpcProtoFiles(projectRoot, cfg, data, snake)
+	} else {
+		generateFromTemplate(
+			fmt.Sprintf("backend/%s/controller.go.tmpl", backendType),
+			filepath.Join(backendBase, "controllers", snake+"_controller.go"),
+			data,
+		)
+	}
 
 	timestamp := time.Now().Format("20060102150405")
 	generateFromTemplate(
@@ -415,7 +613,12 @@ func MakeResource(name string) {
 	)
 	appendSeederToDefault(filepath.Join(backendBase, "database", "seeders"), prefix)
 
-	registerResourceRoutes(filepath.Join(backendBase, "routes.go"), prefix, kebab, guard)
+	if backendType == "grpc" {
+		registerGrpcService(projectRoot, cfg, moduleName, prefix, snake, guard)
+		generateProto(projectRoot, cfg, moduleName)
+	} else {
+		registerResourceRoutes(filepath.Join(backendBase, "routes.go"), prefix, kebab, guard)
+	}
 
 	// ---------- Frontend ----------
 	frontendBase := filepath.Join(projectRoot, "frontend", "src")
@@ -466,6 +669,10 @@ func MakeResource(name string) {
 	}
 
 	fmt.Println("\n✅ Resource generated successfully!")
+	if backendType == "grpc" {
+		fmt.Printf("   Connect: /%s.v1.%sService | REST: /api/%s\n", snake, prefix, kebab)
+		fmt.Printf("   Edit proto/%s/%s.proto (or services/%s_service.go), then run 'make proto' after changing the .proto.\n", snake, snake, snake)
+	}
 	fmt.Printf("   Next: run 'make dev' (migrations & seeders run automatically), then check /%s on the frontend.\n", kebab)
 }
 

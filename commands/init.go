@@ -71,7 +71,7 @@ func InitBoilerplate(args []string) {
 		"Select Backend Architecture",
 		[]string{
 			"REST API (Default)",
-			"gRPC (*Coming soon)",
+			"gRPC",
 			"GraphQL (*Coming soon)",
 		},
 	)
@@ -81,16 +81,14 @@ func InitBoilerplate(args []string) {
 	}
 
 	if strings.Contains(backendChoice, "gRPC") {
-		fmt.Println("\n[info] gRPC backend architecture is currently ON GOING / COMING SOON!")
-		fmt.Println("[info] Initialization aborted.")
-		return
-	}
-	if strings.Contains(backendChoice, "GraphQL") {
+		config.BackendType = "grpc"
+	} else if strings.Contains(backendChoice, "GraphQL") {
 		fmt.Println("\n[info] GraphQL backend architecture is currently ON GOING / COMING SOON!")
 		fmt.Println("[info] Initialization aborted.")
 		return
+	} else {
+		config.BackendType = "rest"
 	}
-	config.BackendType = "rest"
 
 	// 3. Select Frontend Type
 	if config.AppType == "fullstack" {
@@ -314,6 +312,8 @@ func InitBoilerplate(args []string) {
 		}
 	}
 
+	generateProtoOnInit(config.BackendType, config.AppType, moduleName)
+
 	fmt.Println("\n✅ Gohan project initialized successfully!")
 	fmt.Println("\nNext steps:")
 	if targetDir != "." {
@@ -339,6 +339,12 @@ func shouldSkipFile(path string, cfg InitConfig) bool {
 		if match("auth_controller") ||
 			match("password_reset_controller") ||
 			match("role_controller") ||
+			match("auth_service") ||
+			match("password_reset_service") ||
+			match("role_service") ||
+			match("auth_gateway") ||
+			match("password_reset_gateway") ||
+			match("role_gateway") ||
 			match("00000000000002_create_personal_access_token_table") ||
 			match("00000000000003_create_password_reset_table") ||
 			match("00000000000004_create_role_table") ||
@@ -370,6 +376,8 @@ func shouldSkipFile(path string, cfg InitConfig) bool {
 
 		if !cfg.UseForgotPassword {
 			if match("password_reset_controller") ||
+				match("password_reset_service") ||
+				match("password_reset_gateway") ||
 				match("00000000000003_create_password_reset_table") ||
 				match("ForgotPasswordView") {
 				return true
@@ -379,6 +387,8 @@ func shouldSkipFile(path string, cfg InitConfig) bool {
 		if !cfg.UseRole {
 			if match("00000000000004_create_role_table") ||
 				match("role_controller") ||
+				match("role_service") ||
+				match("role_gateway") ||
 				match("role_seeder") ||
 				match("role_middleware") ||
 				match("RolesView") {
