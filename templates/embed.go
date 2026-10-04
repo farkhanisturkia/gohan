@@ -38,6 +38,8 @@ type MakeData struct {
 	UseRedis   bool
 	UseAuth    bool
 	UseRole    bool
+	Roles      []string
+	Public 	   bool
 }
 
 func GetBoilerplateTemplates(

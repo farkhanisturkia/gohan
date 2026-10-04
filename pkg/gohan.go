@@ -1,19 +1,21 @@
 package gohan
 
 import (
+	"github.com/farkhanisturkia/gohan/pkg/connect"
 	"github.com/farkhanisturkia/gohan/pkg/internal/cache"
 	"github.com/farkhanisturkia/gohan/pkg/internal/config"
 	"github.com/farkhanisturkia/gohan/pkg/internal/database"
 	gohanHttp "github.com/farkhanisturkia/gohan/pkg/internal/http"
-	"github.com/farkhanisturkia/gohan/pkg/internal/security"
-	"github.com/farkhanisturkia/gohan/pkg/utils"
 	"github.com/farkhanisturkia/gohan/pkg/internal/mail"
+	"github.com/farkhanisturkia/gohan/pkg/internal/security"
+	"github.com/farkhanisturkia/gohan/pkg/protobuf/proto"
+	"github.com/farkhanisturkia/gohan/pkg/utils"
 
 	"github.com/redis/go-redis/v9"
 )
 
 // Framework Meta
-const Version = "v1.11.4"
+const Version = "v1.11.5"
 
 // Config
 type Env = config.Env
@@ -38,10 +40,7 @@ var IsNotFound = cache.IsNotFound
 // Redis
 var Redis *redis.Client
 
-func InitRedis(host, port, password string) {
-    database.InitRedis(host, port, password)
-    Redis = database.Redis
-}
+var InitRedis = database.BindRedis(&Redis)
 
 // HTTP Request & Response
 var BindJSON = gohanHttp.BindJSON
@@ -90,3 +89,85 @@ var ParseTokenName = utils.ParseTokenName
 var SendEmail = mail.SendEmail
 var InitMailWorker = mail.InitMailWorker
 var QueueEmail = mail.QueueEmail
+
+// gRpc
+type (
+	AnyRequest           = connect.AnyRequest
+	AnyResponse          = connect.AnyResponse
+	ClientOption         = connect.ClientOption
+	Code                 = connect.Code
+	ConnectError         = connect.Error
+	ConnectHTTPClient    = connect.HTTPClient
+	Handler              = connect.Handler
+	HandlerOption        = connect.HandlerOption
+	IdempotencyLevel     = connect.IdempotencyLevel
+	Interceptor          = connect.Interceptor
+	Option               = connect.Option
+	UnaryFunc            = connect.UnaryFunc
+	UnaryInterceptorFunc = connect.UnaryInterceptorFunc
+
+	Request[T any]                      = connect.Request[T]
+	Response[T any]                     = connect.Response[T]
+	Client[Req, Res any]                = connect.Client[Req, Res]
+	ServerStream[Res any]               = connect.ServerStream[Res]
+	ClientStream[Req any]               = connect.ClientStream[Req]
+	BidiStream[Req, Res any]            = connect.BidiStream[Req, Res]
+	ServerStreamForClient[Res any]      = connect.ServerStreamForClient[Res]
+	ClientStreamForClient[Req, Res any] = connect.ClientStreamForClient[Req, Res]
+	BidiStreamForClient[Req, Res any]   = connect.BidiStreamForClient[Req, Res]
+)
+
+const (
+	IsAtLeastVersion1_13_0 = connect.IsAtLeastVersion1_13_0
+
+	CodeCanceled           = connect.CodeCanceled
+	CodeUnknown            = connect.CodeUnknown
+	CodeInvalidArgument    = connect.CodeInvalidArgument
+	CodeDeadlineExceeded   = connect.CodeDeadlineExceeded
+	CodeNotFound           = connect.CodeNotFound
+	CodeAlreadyExists      = connect.CodeAlreadyExists
+	CodePermissionDenied   = connect.CodePermissionDenied
+	CodeResourceExhausted  = connect.CodeResourceExhausted
+	CodeFailedPrecondition = connect.CodeFailedPrecondition
+	CodeAborted            = connect.CodeAborted
+	CodeOutOfRange         = connect.CodeOutOfRange
+	CodeUnimplemented      = connect.CodeUnimplemented
+	CodeInternal           = connect.CodeInternal
+	CodeUnavailable        = connect.CodeUnavailable
+	CodeDataLoss           = connect.CodeDataLoss
+	CodeUnauthenticated    = connect.CodeUnauthenticated
+)
+
+const (
+	IdempotencyUnknown       = connect.IdempotencyUnknown
+	IdempotencyNoSideEffects = connect.IdempotencyNoSideEffects
+	IdempotencyIdempotent    = connect.IdempotencyIdempotent
+)
+
+var NewError = connect.NewError
+
+func NewRequest[T any](message *T) *Request[T] {
+	return connect.NewRequest(message)
+}
+
+func NewResponse[T any](message *T) *Response[T] {
+	return connect.NewResponse(message)
+}
+
+var (
+	WithClientOptions  = connect.WithClientOptions
+	WithHandlerOptions = connect.WithHandlerOptions
+	WithIdempotency    = connect.WithIdempotency
+	WithSchema         = connect.WithSchema
+	WithInterceptors   = connect.WithInterceptors
+)
+
+type ProtoMessage = proto.Message
+
+var (
+	ProtoMarshal   = proto.Marshal
+	ProtoUnmarshal = proto.Unmarshal
+	ProtoClone     = proto.Clone
+	ProtoEqual     = proto.Equal
+	ProtoReset     = proto.Reset
+)
