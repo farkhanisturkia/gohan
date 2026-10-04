@@ -125,57 +125,56 @@
         </div>
       </template>
 
-        <!-- Pagination -->
-        <div v-if="pagination.totalItems > 0" class="border-t border-purple-100 dark:border-slate-800 px-4 py-4 bg-purple-50/30 dark:bg-slate-950/40">
-          <div class="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 flex-wrap">
-            <span class="text-xs text-purple-900/60 dark:text-slate-500 font-medium">
-              Showing {{ "{{ roles?.length ?? 0 }}" }} of {{ "{{ pagination.totalItems }}" }} roles
-            </span>
+      <!-- Pagination -->
+      <div v-if="totalItems > 0" class="border-t border-purple-100 dark:border-slate-800 px-4 py-4 bg-purple-50/30 dark:bg-slate-950/40">
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 flex-wrap">
+          <span class="text-xs text-purple-900/60 dark:text-slate-500 font-medium">
+            Showing {{ "{{ roles?.length ?? 0 }}" }} of {{ "{{ totalItems }}" }} roles
+          </span>
 
-            <div class="flex items-center gap-1.5">
+          <div class="flex items-center gap-1.5">
+            <button
+              @click="changePage(currentPage - 1)"
+              :disabled="currentPage <= 1"
+              class="px-3 py-1.5 text-xs font-bold rounded-full border border-purple-200 dark:border-slate-700 text-purple-800 dark:text-purple-300 bg-white dark:bg-slate-900 hover:bg-purple-100 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+            >
+              Prev
+            </button>
+
+            <template v-for="(p, idx) in paginationPages" :key="`${p}-${idx}`">
+              <span v-if="p === '...'" class="px-1 text-xs text-purple-400 dark:text-slate-600 font-bold">…</span>
               <button
-                @click="pagination.changePage(pagination.currentPage - 1)"
-                :disabled="pagination.currentPage <= 1"
-                class="px-3 py-1.5 text-xs font-bold rounded-full border border-purple-200 dark:border-slate-700 text-purple-800 dark:text-purple-300 bg-white dark:bg-slate-900 hover:bg-purple-100 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+                v-else
+                @click="changePage(Number(p))"
+                :class="p === currentPage
+                  ? 'bg-purple-800 dark:bg-purple-700 text-white border-purple-800 dark:border-purple-700 shadow-md'
+                  : 'bg-white dark:bg-slate-900 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-slate-700 hover:bg-purple-100 dark:hover:bg-slate-800'"
+                class="min-w-8 px-2 py-1.5 text-xs font-bold rounded-full border transition-all cursor-pointer"
               >
-                Prev
+                {{ "{{ p }}" }}
               </button>
+            </template>
 
-              <template v-for="(p, idx) in pagination.paginationPages" :key="`${p}-${idx}`">
-                <span v-if="p === '...'" class="px-1 text-xs text-purple-400 dark:text-slate-600 font-bold">…</span>
-                <button
-                  v-else
-                  @click="pagination.changePage(Number(p))"
-                  :class="p === pagination.currentPage
-                    ? 'bg-purple-800 dark:bg-purple-700 text-white border-purple-800 dark:border-purple-700 shadow-md'
-                    : 'bg-white dark:bg-slate-900 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-slate-700 hover:bg-purple-100 dark:hover:bg-slate-800'"
-                  class="min-w-8 px-2 py-1.5 text-xs font-bold rounded-full border transition-all cursor-pointer"
-                >
-                  {{ "{{ p }}" }}
-                </button>
-              </template>
-
-              <button
-                @click="pagination.changePage(pagination.currentPage + 1)"
-                :disabled="pagination.currentPage >= pagination.lastPage"
-                class="px-3 py-1.5 text-xs font-bold rounded-full border border-purple-200 dark:border-slate-700 text-purple-800 dark:text-purple-300 bg-white dark:bg-slate-900 hover:bg-purple-100 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
-              >
-                Next
-              </button>
-            </div>
-
-            <label class="flex items-center gap-2 text-xs text-purple-900/60 dark:text-slate-500 font-medium">
-              Per page
-              <select
-                v-model.number="setPerPage"
-                class="px-2 py-1.5 bg-white dark:bg-slate-900 border border-purple-200 dark:border-slate-700 rounded-full text-xs font-bold text-purple-800 dark:text-purple-300 focus:outline-none focus:border-purple-600 dark:focus:border-purple-500 cursor-pointer"
-              >
-                <option v-for="opt in pagination.perPageOptions" :key="opt" :value="opt">{{ "{{ opt }}" }}</option>
-              </select>
-            </label>
+            <button
+              @click="changePage(currentPage + 1)"
+              :disabled="currentPage >= lastPage"
+              class="px-3 py-1.5 text-xs font-bold rounded-full border border-purple-200 dark:border-slate-700 text-purple-800 dark:text-purple-300 bg-white dark:bg-slate-900 hover:bg-purple-100 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+            >
+              Next
+            </button>
           </div>
-        </div>
 
+          <label class="flex items-center gap-2 text-xs text-purple-900/60 dark:text-slate-500 font-medium">
+            Per page
+            <select
+              v-model.number="perPage"
+              class="px-2 py-1.5 bg-white dark:bg-slate-900 border border-purple-200 dark:border-slate-700 rounded-full text-xs font-bold text-purple-800 dark:text-purple-300 focus:outline-none focus:border-purple-600 dark:focus:border-purple-500 cursor-pointer"
+            >
+              <option v-for="opt in perPageOptions" :key="opt" :value="opt">{{ "{{ opt }}" }}</option>
+            </select>
+          </label>
+        </div>
+      </div>
     </div>
 
     <!-- Create / Edit Role Modal -->
@@ -297,14 +296,24 @@ const closeModal = () => {
 }
 
 // Pagination
-const { setPerPage, ...pagination } = usePagination()
+const { 
+  currentPage, 
+  perPage, 
+  totalItems, 
+  lastPage, 
+  perPageOptions, 
+  paginationPages, 
+  changePage, 
+  queryParams, 
+  applyResponse 
+} = usePagination()
 
 // Fetch Roles
 const { data: roles, isLoading, isError } = useQuery<Role[]>({
-  queryKey: ['roles', pagination.currentPage, pagination.perPage],
+  queryKey: ['roles', currentPage, perPage],
   queryFn: async () => {
-    const res = await api.get('/api/roles', { params: pagination.queryParams.value })
-    return pagination.applyResponse(res.data.data)
+    const res = await api.get('/api/roles', { params: queryParams.value })
+    return applyResponse(res.data.data)
   },
   placeholderData: keepPreviousData,
 })
