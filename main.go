@@ -18,16 +18,16 @@ func main() {
 
 	switch arg {
 	case "init":
-        if len(os.Args) < 3 {
-            fmt.Println("[error] Target directory is required.")
-            fmt.Println("Usage  : gohan init <directory>")
-            fmt.Println("Example: gohan init test  OR  gohan init .")
-            os.Exit(1)
-        }
-        commands.InitBoilerplate(os.Args[2:])
+		if len(os.Args) < 3 {
+			fmt.Println("[error] Target directory is required.")
+			fmt.Println("Usage  : gohan init <directory>")
+			fmt.Println("Example: gohan init test  OR  gohan init .")
+			os.Exit(1)
+		}
+		commands.InitBoilerplate(os.Args[2:])
 
 	case "key:generate":
-        commands.GenerateAppKey()
+		commands.GenerateAppKey()
 
 	case "make:controller":
 		if len(os.Args) < 3 {
@@ -57,6 +57,9 @@ func main() {
 		}
 		commands.MakeResource(os.Args[2])
 
+	case "proto":
+		commands.MakeProto()
+
 	case "-v", "--version":
 		printVersion()
 
@@ -79,12 +82,13 @@ func printHelp() {
 	fmt.Println("\nUsage:")
 	fmt.Println("  gohan <command> [args/flags]")
 	fmt.Println("\nAvailable Commands:")
-	fmt.Println("  init [folder_name] Generate standard Gohan Framework (e.g. gohan init test)")
+	fmt.Println("  init [folder_name]  Generate standard Gohan Framework (e.g. gohan init test)")
 	fmt.Println("  key:generate        Generate a new application encryption key")
 	fmt.Println("  make:controller     Generate a new controller file")
 	fmt.Println("  make:migration      Generate a new migration file")
 	fmt.Println("  make:seeder         Generate a new seeder file")
 	fmt.Println("  make:resource       Generate a full CRUD resource (controller, migration, seeder, routes, view, menu) for fullstack apps")
+	fmt.Println("  proto               Regenerate gen/ from proto/ (requires protoc, protoc-gen-go, protoc-gen-connect-go)")
 	fmt.Println("\nFlags:")
 	fmt.Println("  -v, --version       Show the CLI version")
 	fmt.Println("  -h, --help          Display the CLI usage instructions")
