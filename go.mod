@@ -3,6 +3,7 @@ module github.com/farkhanisturkia/gohan
 go 1.25.0
 
 require (
+	connectrpc.com/connect v1.21.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/go-sql-driver/mysql v1.10.0
@@ -13,6 +14,7 @@ require (
 	github.com/redis/go-redis/v9 v9.22.0
 	golang.org/x/crypto v0.54.0
 	golang.org/x/sync v0.22.0
+	google.golang.org/protobuf v1.36.12
 )
 
 require (
